@@ -107,7 +107,7 @@ func TestPermissionsAndRecursiveOperations(t *testing.T) {
 	expect(t, request(a, u, "GET", "/api/files", nil, a.listFiles), 403)
 	grant(t, a, u, "shared", "read")
 	grant(t, a, u, "shared/private", "none")
-	if !a.canBrowse(u, "") || a.can(u, "shared", true) || a.can(u, "shared/private/secret.txt", false) {
+	if a.canBrowse(u, "") || a.can(u, "shared", true) || a.can(u, "shared/private/secret.txt", false) {
 		t.Fatal("invalid ACL inheritance")
 	}
 	w := request(a, u, "GET", "/api/files?path=shared", nil, a.listFiles)
@@ -115,7 +115,7 @@ func TestPermissionsAndRecursiveOperations(t *testing.T) {
 	if strings.Contains(w.Body.String(), "private") {
 		t.Fatal("denied folder leaked")
 	}
-	w = request(a, u, "GET", "/api/files/search?q=txt", nil, a.searchFiles)
+	w = request(a, u, "GET", "/api/files/search?q=txt&path=shared", nil, a.searchFiles)
 	expect(t, w, 200)
 	if strings.Contains(w.Body.String(), "secret") || strings.Contains(w.Body.String(), "outside") {
 		t.Fatal("search leaked denied files")
@@ -310,5 +310,71 @@ esac
 	}
 	if result.Available || !result.AccessDenied || len(result.Disks) != 1 || !result.Disks[0].AccessDenied || !strings.Contains(result.Disks[0].Message, "Permission denied") || result.Disks[0].ExitStatus != 2 {
 		t.Fatal("missing SMART diagnostics", w.Body.String())
+	}
+}
+
+func TestNewUserHomeFolder(t *testing.T) {
+	a, admin, _ := setup(t)
+	w := jsonRequest(a, admin, "POST", "/api/users", map[string]any{"username": "alice", "password": "test-password", "role": "user", "quota": 1024}, a.saveUser)
+	expect(t, w, 200)
+	var result struct{ ID int }
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(filepath.Join(a.root, "alice"))
+	if err != nil || !st.IsDir() {
+		t.Fatal("home folder was not created", err)
+	}
+	u := User{ID: result.ID, Username: "alice", Role: "user"}
+	if !a.can(u, "alice/file.txt", true) || a.can(u, "other/file.txt", false) {
+		t.Fatal("incorrect automatic home permission")
+	}
+	expect(t, request(a, u, "GET", "/api/files?path=alice", nil, a.listFiles), 200)
+	// Username edits preserve the existing folder and its access.
+	expect(t, jsonRequest(a, admin, "POST", "/api/users", map[string]any{"id": u.ID, "username": "alice-renamed", "role": "user", "quota": 1024}, a.saveUser), 200)
+	if !a.can(u, "alice/file.txt", true) {
+		t.Fatal("editing user removed home access")
+	}
+	if _, err = os.Stat(filepath.Join(a.root, "alice-renamed")); !os.IsNotExist(err) {
+		t.Fatal("editing unexpectedly created a second home")
+	}
+}
+func TestNewUserHomeConflictsAndInvalidNames(t *testing.T) {
+	a, admin, _ := setup(t)
+	write(t, a, "existing/private.txt", "keep")
+	for _, name := range []string{"existing", "../escape", "nested/user", ".trynas-private", "."} {
+		w := jsonRequest(a, admin, "POST", "/api/users", map[string]any{"username": name, "password": "test-password", "role": "user", "quota": 0}, a.saveUser)
+		if w.Code != 400 && w.Code != 409 {
+			t.Fatalf("accepted home name %q: %d", name, w.Code)
+		}
+		var n int
+		_ = a.db.QueryRow("SELECT COUNT(*) FROM users WHERE username=?", name).Scan(&n)
+		if n != 0 {
+			t.Fatal("failed creation left an account")
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(a.root, "existing/private.txt"))
+	if err != nil || string(data) != "keep" {
+		t.Fatal("existing folder changed")
+	}
+}
+
+func TestRootRequiresExplicitGrant(t *testing.T) {
+	a, admin, _ := setup(t)
+	w := jsonRequest(a, admin, "POST", "/api/users", map[string]any{"username": "private-user", "password": "test-password", "role": "user", "quota": 0}, a.saveUser)
+	expect(t, w, 200)
+	var result struct{ ID int }
+	_ = json.Unmarshal(w.Body.Bytes(), &result)
+	u := User{ID: result.ID, Username: "private-user", Role: "user"}
+	expect(t, request(a, u, "GET", "/api/files", nil, a.listFiles), 403)
+	expect(t, request(a, u, "GET", "/api/files/search?q=txt", nil, a.searchFiles), 403)
+	expect(t, request(a, u, "GET", "/api/files?path=private-user", nil, a.listFiles), 200)
+	if a.profile(u)["home"] != "private-user" {
+		t.Fatal("incorrect home")
+	}
+	grant(t, a, u, "", "read")
+	expect(t, request(a, u, "GET", "/api/files", nil, a.listFiles), 200)
+	if a.can(u, "", true) || !a.can(u, "private-user", true) {
+		t.Fatal("root grant changed write permissions")
 	}
 }

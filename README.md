@@ -147,8 +147,11 @@ Use a strong administrator password, expose only the intended storage directory,
 ## V5 user management and file controls
 
 Administrators have **Users & quotas**, **Folder permissions**, and **Disk health**
-sections. Create an account with an 8–72 byte password and grant access to an
-existing folder. Standard users have no access by default. A blank permission
+sections. Creating an account with an 8–72 byte password also creates a home folder named
+after its username and grants that user write access. Usernames must be single
+folder names, and existing storage items cannot be adopted as new home folders.
+Other folders require explicit grants. Editing an existing username does not
+rename its home folder. A blank permission
 path means storage root. Read grants allow browsing, preview, download, copying
 and sharing; write grants also allow uploads and changes. Copying and creating
 ZIPs require write access at the destination. The nearest explicit rule applies

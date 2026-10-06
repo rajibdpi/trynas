@@ -64,8 +64,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { FolderPicker } from "@/components/folder-picker";
+import { FileTypeIcon } from "@/components/file-type-icon";
 
 type User = {
+ home?: string;
+ rootAccessible?: boolean;
   id: number;
   username: string;
   role: string;
@@ -97,6 +100,7 @@ type Command = {
   fields: Field[];
   danger?: boolean;
   destinationFolders?: string[];
+ destinationRoot?: string;
   submit: string;
   run: (values: Record<string, string>) => Promise<void>;
 };
@@ -202,7 +206,7 @@ export default function Page() {
     let active = true;
     void api("/api/me")
       .then((u) => {
-        if (active) setMe(u);
+        if (active) {setMe(u);setPath(u.home||"")}
       })
       .catch(() => {})
       .finally(() => {
@@ -244,6 +248,8 @@ export default function Page() {
         body: JSON.stringify({ username, password }),
       });
       setMe(user);
+      setPath(user.home||"");
+      setPathHistory([]);setForwardHistory([]);
       setPassword("");
       setLoginError("");
     } catch (e) {
@@ -360,6 +366,7 @@ export default function Page() {
   let content: ReactNode = null;
   const fileProps = {
     path,
+    basePath: me.rootAccessible ? "" : (me.home || ""),
     setPath: navigateFolder,
     onBack: goBack,
     canGoBack: pathHistory.length > 0,
@@ -709,6 +716,7 @@ function CommandDialog({
               key={command.title}
               value={values.destination ?? command.fields[0].value}
               excluded={command.destinationFolders}
+              basePath={command.destinationRoot || ""}
               disabled={busy}
               onChange={(destination) => {
                 setDestinationValid(false);
@@ -887,6 +895,7 @@ function Overview({
 
 function FileBrowser({
   path,
+  basePath,
   setPath,
   onBack,
   canGoBack,
@@ -898,6 +907,7 @@ function FileBrowser({
   onChanged,
 }: {
   path: string;
+  basePath: string;
   setPath: (p: string) => void;
   onBack: () => void;
   canGoBack: boolean;
@@ -983,6 +993,7 @@ function FileBrowser({
         fields: [
           { key: "destination", label: "Destination folder", value: path },
         ],
+        destinationRoot: basePath,
         destinationFolders: paths.filter((p) =>
           items.some((item) => item.path === p && item.dir),
         ),
@@ -1188,13 +1199,13 @@ function FileBrowser({
             <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft/></Button>
               <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight/></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path} onClick={()=>setPath(parent(path))}><ArrowUp/></Button>
-              <button onClick={() => setPath("")}>Storage</button>
+              <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path===basePath} onClick={()=>setPath(parent(path))}><ArrowUp/></Button>
+              <button onClick={() => setPath(basePath)}>{basePath?"Home":"Storage"}</button>
               {path
                 .split("/")
                 .filter(Boolean)
                 .map((part, i) => (
-                  <span key={i}>
+                  path.split("/").slice(0,i+1).join("/").length <= basePath.length ? null : <span key={i}>
                     {" "}
                     /{" "}
                     <button
@@ -1438,9 +1449,7 @@ function FileBrowser({
                         <Folder className="size-5" />
                       </span>
                     ) : (
-                      <span className="document-icon">
-                        <File className="size-5" />
-                      </span>
+                      <FileTypeIcon name={item.name} />
                     )}
                     <button
                       className="min-w-0 text-left"
@@ -1546,7 +1555,7 @@ function UserPanel({
     ask({
       title: user ? "Edit user" : "Create user",
       description:
-        "Quota 0 means unlimited. New users need a folder grant. Password changes revoke their sessions.",
+        "Quota 0 means unlimited. New users get a home folder named after their username with write access. Password changes revoke their sessions.",
       fields: [
         {
           key: "username",
@@ -1740,7 +1749,7 @@ function PermissionPanel({
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Users start with no access. Granted folder ancestors are visible for
+          New users have write access to their home folder. Granted folder ancestors are visible for
           navigation. Recursive operations respect nested rules.
         </p>
       </CardHeader>

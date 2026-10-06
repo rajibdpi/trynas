@@ -182,7 +182,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	_, _ = a.db.Exec("INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)", t, u.ID, exp)
 	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Value: t, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: exp, Secure: env("COOKIE_SECURE", "") == "true"})
 	a.log(u.ID, "login", "")
-	jsonOut(w, u)
+	jsonOut(w, a.profile(u))
 }
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	if c, e := r.Cookie("trynas_session"); e == nil {
@@ -207,7 +207,9 @@ func (a *App) auth(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
 	})
 }
-func (a *App) me(w http.ResponseWriter, r *http.Request) { jsonOut(w, r.Context().Value(userKey)) }
+func (a *App) me(w http.ResponseWriter, r *http.Request) {
+	jsonOut(w, a.profile(r.Context().Value(userKey).(User)))
+}
 func safe(root, p string) (string, error) {
 	rel, err := cleanPath(p)
 	if err != nil {

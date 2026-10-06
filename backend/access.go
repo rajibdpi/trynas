@@ -33,7 +33,8 @@ func cleanPath(p string) (string, error) {
 }
 func under(p, base string) bool { return p == base || base == "" || strings.HasPrefix(p, base+"/") }
 func (a *App) migrateV5() error {
-	_, err := a.db.Exec(`CREATE TABLE IF NOT EXISTS user_limits(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,quota_bytes INTEGER NOT NULL DEFAULT 0 CHECK(quota_bytes>=0));
+	_, err := a.db.Exec(`CREATE TABLE IF NOT EXISTS user_homes(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,path TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS user_limits(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,quota_bytes INTEGER NOT NULL DEFAULT 0 CHECK(quota_bytes>=0));
  CREATE TABLE IF NOT EXISTS permissions(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,path TEXT NOT NULL,access TEXT NOT NULL CHECK(access IN ('none','read','write')),PRIMARY KEY(user_id,path));
  CREATE TABLE IF NOT EXISTS file_owners(path TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),bytes INTEGER NOT NULL CHECK(bytes>=0));`)
 	return err
@@ -70,7 +71,7 @@ func (a *App) canBrowse(u User, p string) bool {
 		return true
 	}
 	p, err := cleanPath(p)
-	if err != nil {
+	if err != nil || p == "" {
 		return false
 	}
 	rows, err := a.db.Query("SELECT path,access FROM permissions WHERE user_id=?", u.ID)
@@ -264,10 +265,31 @@ func (a *App) saveUser(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &x) {
 		return
 	}
+	creating := x.ID == 0
 	x.Username = strings.TrimSpace(x.Username)
 	if x.Username == "" || len(x.Username) > 64 || (x.Role != "admin" && x.Role != "user") || x.Quota < 0 || (x.ID == 0 && x.Password == "") || (x.Password != "" && (len(x.Password) < 8 || len(x.Password) > 72)) {
 		bad(w, "valid username, role, quota and an 8–72 byte password required", 400)
 		return
+	}
+	var home string
+	if creating {
+		name, e := cleanPath(x.Username)
+		if e != nil || name == "" || name != x.Username || strings.Contains(name, "/") {
+			bad(w, "username must be a valid single folder name", 400)
+			return
+		}
+		home, e = safe(a.root, name)
+		if e != nil {
+			bad(w, "invalid home folder name", 400)
+			return
+		}
+		if _, e = os.Lstat(home); e == nil {
+			bad(w, "a storage item already exists with this username; choose another username", 409)
+			return
+		} else if !os.IsNotExist(e) {
+			bad(w, "cannot check home folder", 500)
+			return
+		}
 	}
 	if x.ID > 0 {
 		var old string
@@ -332,10 +354,33 @@ func (a *App) saveUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	homeCreated := false
+	committed := false
+	defer func() {
+		if homeCreated && !committed {
+			_ = os.Remove(home)
+		}
+	}()
+	if creating {
+		if err = os.Mkdir(home, 0750); err != nil {
+			bad(w, "could not create user home folder", 500)
+			return
+		}
+		homeCreated = true
+		if _, err = tx.Exec("INSERT INTO user_homes(user_id,path) VALUES(?,?)", x.ID, x.Username); err != nil {
+			bad(w, "could not save home folder", 500)
+			return
+		}
+		if _, err = tx.Exec("INSERT INTO permissions(user_id,path,access) VALUES(?,?,'write')", x.ID, x.Username); err != nil {
+			bad(w, "could not grant home folder access", 500)
+			return
+		}
+	}
 	if err = tx.Commit(); err != nil {
 		bad(w, "user update failed", 500)
 		return
 	}
+	committed = true
 	a.log(r.Context().Value(userKey).(User).ID, "save-user", x.Username)
 	jsonOut(w, map[string]any{"id": x.ID})
 }
@@ -433,4 +478,15 @@ func (a *App) savePermission(w http.ResponseWriter, r *http.Request) {
 	}
 	a.log(r.Context().Value(userKey).(User).ID, "permission", fmt.Sprintf("user=%d folder=%s access=%s", x.UserID, p, x.Access))
 	jsonOut(w, map[string]bool{"ok": true})
+}
+
+func (a *App) profile(u User) map[string]any {
+	home := ""
+	if u.Role != "admin" {
+		_ = a.db.QueryRow("SELECT path FROM user_homes WHERE user_id=?", u.ID).Scan(&home)
+		if home == "" {
+			_ = a.db.QueryRow("SELECT path FROM permissions WHERE user_id=? AND access IN ('read','write') AND path<>'' ORDER BY CASE WHEN path=? THEN 0 ELSE 1 END,length(path),path LIMIT 1", u.ID, u.Username).Scan(&home)
+		}
+	}
+	return map[string]any{"id": u.ID, "username": u.Username, "role": u.Role, "home": home, "rootAccessible": a.can(u, "", false)}
 }
