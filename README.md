@@ -102,6 +102,24 @@ pnpm install
 pnpm dev
 ```
 
+## Restart development servers
+
+Press **Ctrl+C** in each running server terminal. From the project root, start
+the backend again in one terminal and the frontend in another:
+
+```bash
+./run-backend.sh
+```
+
+```bash
+./run-frontend.sh
+```
+
+Open **http://localhost:3000**. Restart the backend after backend configuration
+changes; restart the frontend after changing `NEXT_PUBLIC_API_URL`. These
+development scripts require Go and Node.js/pnpm and are intended for Linux/macOS.
+For Windows, use the standalone executable described below.
+
 ## Production native deployment
 
 Build the frontend:
@@ -351,6 +369,33 @@ the original configuration and database to keep your existing login, or sign in
 with another administrator and update the user's password in user management.
 Do not delete the database to fix login: it also contains users, permissions,
 shares, and other application records.
+
+### Start and restart the standalone app
+
+Run these commands from the project root to use its `.env`, database and storage.
+Choose the binary matching your operating system and CPU:
+
+| Platform | Start command (AMD64) |
+| --- | --- |
+| Linux | `./dist/trynas-linux-amd64 -config .env` |
+| macOS | `./dist/trynas-darwin-amd64 -config .env` |
+| Windows PowerShell | `.\dist\trynas-windows-amd64.exe -config .env` |
+
+For ARM64, substitute `arm64` for `amd64` (including Apple Silicon Macs).
+Open **http://localhost:8080**, or the port configured by `ADDR` or `-addr`.
+
+To restart:
+
+1. Press **Ctrl+C** in the terminal running the app and wait for it to exit.
+2. If updating the app, replace the executable or rebuild it with
+   `node scripts/build.mjs --all`.
+3. Run the same start command from the same working directory, with the same
+   configuration and data paths.
+4. Refresh the browser.
+
+Restart after changing runtime configuration in `.env`. Existing account
+passwords remain stored in the database. Keep the server in its terminal so you
+can stop it with **Ctrl+C**; closing the browser does not stop the server.
 
 ### Stop or change the server port
 
