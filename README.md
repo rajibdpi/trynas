@@ -314,6 +314,59 @@ the separate frontend development server. Set `ADMIN_USER` and `ADMIN_PASSWORD`
 in `.env` before the first launch. Existing users and passwords are preserved.
 Building does **not** bundle your `.env`, database, stored files or credentials.
 
+### Use your existing configuration and users
+
+To keep the database and storage used during development, stop the development
+backend, then launch the binary from the project root:
+
+```bash
+cd /path/to/trynas
+./dist/trynas-linux-amd64 -config .env
+```
+
+On macOS, substitute the matching `trynas-darwin-*` binary. On Windows, run from
+the project root in PowerShell:
+
+```powershell
+.\dist\trynas-windows-amd64.exe -config .env
+```
+
+Relative `DB_PATH` and `STORAGE_ROOT` values resolve from the terminal's current
+working directory, even when `-config` points elsewhere. Running inside `dist`
+therefore uses `dist/.env` when present and may create `dist/data/trynas.db` and
+`dist/storage`. That is a separate installation with separate accounts. To run
+from another directory while keeping existing data, supply absolute paths with
+`-config`, `-db`, and `-root`.
+
+### Troubleshoot login
+
+If login reports **Invalid username or password**, check which database the
+running instance uses. A fresh database launched without administrator settings
+creates username `admin` with password `admin123!`. Configure a strong password
+before initializing a new installation.
+
+`ADMIN_USER` and `ADMIN_PASSWORD` only initialize an empty database. Adding or
+editing `.env` after the first launch does not reset an existing account. Use
+the original configuration and database to keep your existing login, or sign in
+with another administrator and update the user's password in user management.
+Do not delete the database to fix login: it also contains users, permissions,
+shares, and other application records.
+
+### Stop or change the server port
+
+Press **Ctrl+C** in the terminal running TryNAS. For development, stop both the
+backend and frontend terminals. Start only one server against a given database.
+
+If startup reports `bind: address already in use`, stop the existing server or
+choose another port:
+
+```bash
+./dist/trynas-linux-amd64 -config .env -addr :8090
+```
+
+Then open **http://localhost:8090**. Rebuilding an executable does not stop or
+restart an already running server; stop it and launch the new binary.
+
 SMART monitoring is optional and still needs smartmontools plus disk/controller
 access on the target host. `scripts/install-smart-access.sh` and
 `SMART_USE_SUDO=true` are Linux setup options; Windows and macOS require their own
