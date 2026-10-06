@@ -9,3 +9,8 @@ storage/*
 *.db
 *.db-shm
 *.db-wal
+
+frontend/out/
+backend/web/*
+!backend/web/index.html
+dist/

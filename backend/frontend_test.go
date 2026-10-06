@@ -1,0 +1,52 @@
+package main
+
+import (
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"testing/fstest"
+)
+
+func TestEmbeddedStaticServing(t *testing.T) {
+	handler := staticFrontend(fstest.MapFS{
+		"index.html":          {Data: []byte("<!doctype html><h1>TryNAS</h1>")},
+		"_next/static/app.js": {Data: []byte("console.log('app')")},
+		"assets/private.txt":  {Data: []byte("fixture")},
+		".env":                {Data: []byte("must never serve")},
+	})
+	for _, test := range []struct {
+		path   string
+		status int
+	}{{"/", 200}, {"/_next/static/app.js", 200}, {"/api/missing", 404}, {"/s/missing", 404}, {"/.env", 404}, {"/assets/", 404}, {"/missing", 404}} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest("GET", test.path, nil))
+		if w.Code != test.status {
+			t.Errorf("%s status %d want %d", test.path, w.Code, test.status)
+		}
+		if test.path == "/" && !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
+			t.Fatal("HTML served with wrong MIME type")
+		}
+		if test.path == "/_next/static/app.js" && !strings.Contains(w.Header().Get("Cache-Control"), "immutable") {
+			t.Fatal("hashed asset is not cached")
+		}
+	}
+}
+func TestDatabasePragmasAndForeignKeys(t *testing.T) {
+	a, _, u := setup(t)
+	var foreignKeys int
+	if err := a.db.QueryRow("PRAGMA foreign_keys").Scan(&foreignKeys); err != nil || foreignKeys != 1 {
+		t.Fatal("foreign keys disabled", err)
+	}
+	if _, err := a.db.Exec("INSERT INTO permissions(user_id,path,access) VALUES(999999,'','read')"); err == nil {
+		t.Fatal("missing foreign key enforcement")
+	}
+	grant(t, a, u, "", "read")
+	if _, err := a.db.Exec("DELETE FROM users WHERE id=?", u.ID); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	_ = a.db.QueryRow("SELECT COUNT(*) FROM permissions WHERE user_id=?", u.ID).Scan(&n)
+	if n != 0 {
+		t.Fatal("user permissions did not cascade")
+	}
+}

@@ -8,7 +8,11 @@ if [ -f .env ]; then
 fi
 mkdir -p data storage
 # Resolve configured paths before entering the Go module directory.
-export DB_PATH="$(realpath -m "${DB_PATH:-./data/trynas.db}")"
-export STORAGE_ROOT="$(realpath -m "${STORAGE_ROOT:-./storage}")"
+DB_PATH="${DB_PATH:-./data/trynas.db}"
+case "$DB_PATH" in /*) ;; *) DB_PATH="$PWD/$DB_PATH" ;; esac
+export DB_PATH
+STORAGE_ROOT="${STORAGE_ROOT:-./storage}"
+case "$STORAGE_ROOT" in /*) ;; *) STORAGE_ROOT="$PWD/$STORAGE_ROOT" ;; esac
+export STORAGE_ROOT
 cd backend
 exec go run .

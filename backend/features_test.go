@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"io"
 	"mime/multipart"
@@ -23,7 +22,7 @@ func setup(t *testing.T) (*App, User, User) {
 	t.Setenv("ADMIN_USER", "test-admin")
 	t.Setenv("ADMIN_PASSWORD", "test-password")
 	root := t.TempDir()
-	db, err := sql.Open("sqlite3", filepath.Join(t.TempDir(), "test.db")+"?_foreign_keys=on&_busy_timeout=5000")
+	db, err := openDatabase(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

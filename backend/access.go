@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -17,10 +18,17 @@ import (
 )
 
 func cleanPath(p string) (string, error) {
-	if strings.ContainsAny(p, "\\\x00") || strings.HasPrefix(p, "/") {
+	if strings.ContainsAny(p, "\\\x00:") || strings.HasPrefix(p, "/") {
 		return "", fmt.Errorf("use a relative storage path")
 	}
 	for _, part := range strings.Split(p, "/") {
+		if runtime.GOOS == "windows" && part != "" && part != "." {
+			base := strings.ToUpper(strings.SplitN(part, ".", 2)[0])
+			reserved := base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" || (len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '1' && base[3] <= '9')
+			if strings.ContainsAny(part, "<>\"|?*") || strings.TrimRight(part, ". ") != part || reserved {
+				return "", fmt.Errorf("invalid Windows file name")
+			}
+		}
 		if part == ".." || strings.HasPrefix(part, ".trynas-") {
 			return "", fmt.Errorf("reserved or invalid path")
 		}

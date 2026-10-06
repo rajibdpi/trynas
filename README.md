@@ -243,3 +243,90 @@ sudo -n /usr/sbin/smartctl -a -j /dev/nvme0 -d nvme
 Adapt the installer allowlist if your devices have different names or controller
 types. To undo, remove `/etc/sudoers.d/trynas-smartctl` with administrator access,
 set `SMART_USE_SUDO=false`, and restart the backend.
+
+## Standalone application for Windows, Linux and macOS
+
+Build once to embed the complete frontend in the Go executable. On the machine
+that builds releases, install Go, Node.js and pnpm, then run from the project root:
+
+```bash
+node scripts/build.mjs
+```
+
+That creates a binary for your current OS/architecture in `dist/`. Build every
+supported 64-bit target with:
+
+```bash
+node scripts/build.mjs --all
+```
+
+Or build selected targets:
+
+```bash
+node scripts/build.mjs --target windows/amd64,linux/amd64,darwin/arm64
+```
+
+Release filenames:
+
+| Platform | Intel/AMD 64-bit | ARM64 |
+| --- | --- | --- |
+| Windows | `trynas-windows-amd64.exe` | `trynas-windows-arm64.exe` |
+| Linux | `trynas-linux-amd64` | `trynas-linux-arm64` |
+| macOS | `trynas-darwin-amd64` | `trynas-darwin-arm64` |
+
+`dist/SHA256SUMS` contains hashes for the built binaries. Each executable embeds
+the HTML, JavaScript, CSS and icons, and uses a pure-Go SQLite driver. The target
+machine does not need Node.js, pnpm, Go, a separate frontend server, or an external
+SQLite installation. Existing SQLite databases remain usable; stop the old API
+before opening the same database with the new executable.
+
+Copy the matching binary into a writable application folder, open a terminal
+there, and run it. Linux/macOS example:
+
+```bash
+chmod +x trynas-linux-amd64
+./trynas-linux-amd64
+```
+
+Windows PowerShell:
+
+```powershell
+.\trynas-windows-amd64.exe
+```
+
+Open **http://localhost:8080**. The executable serves both the UI and API.
+Default data paths are `./data/trynas.db` and `./storage`, relative to the working
+directory. Place `.env` in that directory to configure administrator credentials,
+paths and port, or supply a configuration file and path overrides:
+
+```bash
+./trynas-linux-amd64 -config .env -addr :8090 -root /mnt/storage -db ./data/trynas.db
+```
+
+```powershell
+.\trynas-windows-amd64.exe -addr :8090 -root 'D:\NAS' -db '.\data\trynas.db'
+```
+
+Existing process environment variables override `.env`; CLI flags override both.
+Use `-help` to view supported flags. The embedded build always uses the same
+origin for API requests and share links; `NEXT_PUBLIC_API_URL` is only needed for
+the separate frontend development server. Set `ADMIN_USER` and `ADMIN_PASSWORD`
+in `.env` before the first launch. Existing users and passwords are preserved.
+Building does **not** bundle your `.env`, database, stored files or credentials.
+
+SMART monitoring is optional and still needs smartmontools plus disk/controller
+access on the target host. `scripts/install-smart-access.sh` and
+`SMART_USE_SUDO=true` are Linux setup options; Windows and macOS require their own
+appropriate device access. Unsupported SMART fields remain unavailable.
+Cross-built Windows/macOS binaries are unsigned; signing/notarization for public
+distribution is a separate release step. macOS Finder launches and Windows GUI
+launches are not managed installers; the app runs as a terminal/server process.
+
+For development, keep using `./run-backend.sh` and `./run-frontend.sh`. Rebuild
+with `scripts/build.mjs` whenever frontend changes should be included in a new
+standalone executable.
+
+On Windows/macOS, requests must use the exact path spelling returned by the
+file browser so case aliases cannot bypass folder permission rules. Windows
+reserved device names, alternate data streams, and invalid filename characters
+are rejected.

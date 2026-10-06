@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"
@@ -47,13 +47,31 @@ type ctxKey string
 const userKey ctxKey = "user"
 
 func main() {
+	if err := loadConfig(); err != nil {
+		log.Fatal(err)
+	}
 	dbPath := env("DB_PATH", "./data/trynas.db")
 	root := env("STORAGE_ROOT", "./storage")
+	var pathErr error
+	root, pathErr = filepath.Abs(root)
+	if pathErr != nil {
+		log.Fatal(pathErr)
+	}
+	dbPath, pathErr = filepath.Abs(dbPath)
+	if pathErr != nil {
+		log.Fatal(pathErr)
+	}
 	trash := filepath.Join(root, ".trynas-trash")
-	_ = os.MkdirAll(filepath.Dir(dbPath), 0755)
-	_ = os.MkdirAll(root, 0755)
-	_ = os.MkdirAll(trash, 0700)
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&_busy_timeout=5000&_journal_mode=WAL")
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.MkdirAll(root, 0755); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.MkdirAll(trash, 0700); err != nil {
+		log.Fatal(err)
+	}
+	db, err := openDatabase(dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -109,6 +127,7 @@ func main() {
 		r.Delete("/api/shares/{id}", a.deleteShare)
 	})
 	r.Get("/s/{token}", a.publicShare)
+	r.Handle("/*", embeddedFrontend())
 	addr := env("ADDR", ":8080")
 	log.Printf("TryNAS v5 API %s storage=%s", addr, root)
 	log.Fatal(http.ListenAndServe(addr, r))
@@ -230,6 +249,22 @@ func safe(root, p string) (string, error) {
 		st, err := os.Lstat(current)
 		if err != nil && !os.IsNotExist(err) {
 			return "", err
+		}
+		if err == nil && (runtime.GOOS == "windows" || runtime.GOOS == "darwin") {
+			entries, e := os.ReadDir(filepath.Dir(current))
+			if e != nil {
+				return "", e
+			}
+			exact := false
+			for _, entry := range entries {
+				if entry.Name() == part {
+					exact = true
+					break
+				}
+			}
+			if !exact {
+				return "", fmt.Errorf("use the exact folder and file names shown in the browser")
+			}
 		}
 		if err == nil && st.Mode()&os.ModeSymlink != 0 {
 			return "", fmt.Errorf("symbolic links are not supported")

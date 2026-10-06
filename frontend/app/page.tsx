@@ -40,7 +40,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { API, api, ApiError, uploadFiles } from "@/lib/api";
+import { API, api, ApiError, uploadFiles, shareURL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -1099,7 +1099,7 @@ function FileBrowser({
               method: "POST",
               body: JSON.stringify({ path: item.path, days }),
             });
-            notify(`Share link: ${API}/s/${result.token}`);
+            notify(`Share link: ${shareURL(result.token)}`);
           },
         }),
     },
@@ -2063,9 +2063,9 @@ function SharesPanel({
               size="sm"
               onClick={() =>
                 void navigator.clipboard
-                  .writeText(`${API}/s/${item.token}`)
+                  .writeText(shareURL(item.token))
                   .then(() => notify("Share link copied"))
-                  .catch(() => notify(`Share link: ${API}/s/${item.token}`))
+                  .catch(() => notify(`Share link: ${shareURL(item.token)}`))
               }
             >
               Copy link
