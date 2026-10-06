@@ -1,0 +1,1 @@
+import "./globals.css"; export const metadata={title:"TryNAS",description:"File Browser + NAS Dashboard"}; export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" translate="no"><head><meta name="google" content="notranslate"/></head><body>{children}</body></html>}
