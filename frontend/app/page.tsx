@@ -64,6 +64,8 @@ import { cn } from "@/lib/utils";
 import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { CommonNavbar } from "@/components/common-navbar";
+import { NetworkTrafficGraph, type TrafficSample } from "@/components/network-traffic-graph";
+import { UsageGraph, type UsageSample } from "@/components/usage-graph";
 
 type User = {
  home?: string;
@@ -203,6 +205,28 @@ export default function Page() {
   const sys = useResource<any>(me ? "/api/system" : null, 5000),
     network = useResource<any>(me ? "/api/network" : null, 3000),
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
+  const [trafficSamples, setTrafficSamples] = useState<TrafficSample[]>([]);
+  const [usageSamples, setUsageSamples] = useState<UsageSample[]>([]);
+  useEffect(() => {
+    if (!me) { setUsageSamples([]); return; }
+    if (!sys.data) return;
+    const cpu = sys.data.cpu;
+    const memory = sys.data.memoryPercent;
+    if (!Number.isFinite(cpu) || !Number.isFinite(memory)) return;
+    const at = Date.now();
+    setUsageSamples(previous => [...previous.filter(sample => sample.at > at - 60000), {
+      at, cpu: Math.min(100, Math.max(0, cpu)), memory: Math.min(100, Math.max(0, memory)),
+    }].slice(-60));
+  }, [sys.data, me?.id]);
+  useEffect(() => {
+    if (!me) { setTrafficSamples([]); return; }
+    if (!network.data?.available) return;
+    const rx = network.data.rxBytesPerSecond;
+    const tx = network.data.txBytesPerSecond;
+    if (!Number.isFinite(rx) || !Number.isFinite(tx)) return;
+    const at = Date.now();
+    setTrafficSamples(previous => [...previous.filter(sample => sample.at > at - 60000), { at, rx: Math.max(0, rx), tx: Math.max(0, tx) }].slice(-60));
+  }, [network.data, me?.id]);
   useEffect(() => {
     let active = true;
     void api("/api/me")
@@ -382,7 +406,7 @@ export default function Page() {
     case "dashboard":
       content = (
         <>
-          <Overview sys={sys.data} quota={quota.data} network={network.data} />
+          <Overview sys={sys.data} quota={quota.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} usageSamples={usageSamples} systemError={sys.error} />
           <FileBrowser {...fileProps} />
         </>
       );
@@ -391,7 +415,7 @@ export default function Page() {
       content = <FileBrowser {...fileProps} />;
       break;
     case "system":
-      content = <SystemPanel sys={sys.data} network={network.data} />;
+      content = <SystemPanel sys={sys.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} />;
       break;
     case "users":
       content = (
@@ -769,10 +793,12 @@ function Metric({
   title,
   value,
   percent,
+  children,
 }: {
   title: string;
   value: string;
   percent?: number;
+  children?: ReactNode;
 }) {
   return (
     <Card className="metric-card">
@@ -800,6 +826,7 @@ function Metric({
       </CardHeader>
       <CardContent>
         {percent !== undefined && <Progress value={percent} />}
+        {children}
       </CardContent>
     </Card>
   );
@@ -808,23 +835,35 @@ function Overview({
   sys,
   quota,
   network,
+  trafficSamples,
+  networkError,
+  usageSamples,
+  systemError,
 }: {
   sys: any;
   quota: Quota | null;
   network: any;
+  trafficSamples: TrafficSample[];
+  networkError: string;
+  usageSamples: UsageSample[];
+  systemError: string;
 }) {
   return (
     <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric
         title="CPU"
-        value={sys ? `${sys.cpu.toFixed(1)}%` : "…"}
-        percent={sys?.cpu}
-      />
+        value={systemError ? "Unavailable" : sys ? `${sys.cpu.toFixed(1)}%` : "…"}
+        percent={systemError ? undefined : sys?.cpu}
+      >
+        <UsageGraph samples={usageSamples} metric="cpu" unavailable={!!systemError} />
+      </Metric>
       <Metric
         title="Memory"
-        value={sys ? `${sys.memoryPercent.toFixed(1)}%` : "…"}
-        percent={sys?.memoryPercent}
-      />
+        value={systemError ? "Unavailable" : sys ? `${sys.memoryPercent.toFixed(1)}%` : "…"}
+        percent={systemError ? undefined : sys?.memoryPercent}
+      >
+        <UsageGraph samples={usageSamples} metric="memory" unavailable={!!systemError} />
+      </Metric>
       <Metric
         title="Your storage"
         value={
@@ -840,8 +879,10 @@ function Overview({
       />
       <Metric
         title="Network traffic"
-        value={network ? `↓ ${fmt(network.rxBytesPerSecond)}/s` : "…"}
-      />
+        value={networkError || network?.available === false ? "Unavailable" : network ? `↓ ${fmt(network.rxBytesPerSecond)}/s` : "…"}
+      >
+        <NetworkTrafficGraph samples={trafficSamples} unavailable={!!networkError || network?.available === false} />
+      </Metric>
       {sys && (
         <Card className="storage-card sm:col-span-2 xl:col-span-4">
           <CardHeader>
@@ -1779,7 +1820,7 @@ function PermissionPanel({
     </Card>
   );
 }
-function SystemPanel({ sys, network }: { sys: any; network: any }) {
+function SystemPanel({ sys, network, trafficSamples, networkError }: { sys: any; network: any; trafficSamples: TrafficSample[]; networkError: string }) {
   return (
     <div className="space-y-4">
       <Card>
@@ -1811,6 +1852,7 @@ function SystemPanel({ sys, network }: { sys: any; network: any }) {
           </p>
         </CardHeader>
         <CardContent>
+          <NetworkTrafficGraph samples={trafficSamples} unavailable={!!networkError || network?.available === false} />
           {network?.interfaces.map((item: any) => (
             <div
               key={item.name}
