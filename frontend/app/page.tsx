@@ -65,7 +65,7 @@ import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { CommonNavbar } from "@/components/common-navbar";
 import { NetworkTrafficGraph, type TrafficSample } from "@/components/network-traffic-graph";
-import { UsageGraph, type UsageSample } from "@/components/usage-graph";
+import { UsageGraph, HistoryGraph, type UsageSample, type HistorySample } from "@/components/usage-graph";
 
 type User = {
  home?: string;
@@ -207,6 +207,20 @@ export default function Page() {
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
   const [trafficSamples, setTrafficSamples] = useState<TrafficSample[]>([]);
   const [usageSamples, setUsageSamples] = useState<UsageSample[]>([]);
+  const [storageSamples, setStorageSamples] = useState<HistorySample[]>([]);
+  const [diskSamples, setDiskSamples] = useState<HistorySample[]>([]);
+  useEffect(() => {
+    if (!me) { setStorageSamples([]); return; }
+    if (!quota.data || !Number.isFinite(quota.data.used)) return;
+    const at = Date.now();
+    setStorageSamples(previous => [...previous.filter(sample => sample.at > at - 60000), { at, value: Math.max(0, quota.data!.used) }].slice(-60));
+  }, [quota.data, me?.id]);
+  useEffect(() => {
+    if (!me) { setDiskSamples([]); return; }
+    if (!Number.isFinite(sys.data?.storage?.used)) return;
+    const at = Date.now();
+    setDiskSamples(previous => [...previous.filter(sample => sample.at > at - 60000), { at, value: Math.max(0, sys.data.storage.used) }].slice(-60));
+  }, [sys.data, me?.id]);
   useEffect(() => {
     if (!me) { setUsageSamples([]); return; }
     if (!sys.data) return;
@@ -406,7 +420,7 @@ export default function Page() {
     case "dashboard":
       content = (
         <>
-          <Overview sys={sys.data} quota={quota.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} usageSamples={usageSamples} systemError={sys.error} />
+          <Overview sys={sys.data} quota={quota.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} usageSamples={usageSamples} systemError={sys.error} storageSamples={storageSamples} diskSamples={diskSamples} quotaError={quota.error} />
           <FileBrowser {...fileProps} />
         </>
       );
@@ -839,6 +853,9 @@ function Overview({
   networkError,
   usageSamples,
   systemError,
+  storageSamples,
+  diskSamples,
+  quotaError,
 }: {
   sys: any;
   quota: Quota | null;
@@ -847,6 +864,9 @@ function Overview({
   networkError: string;
   usageSamples: UsageSample[];
   systemError: string;
+  storageSamples: HistorySample[];
+  diskSamples: HistorySample[];
+  quotaError: string;
 }) {
   return (
     <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -867,16 +887,18 @@ function Overview({
       <Metric
         title="Your storage"
         value={
-          quota
+          quotaError ? "Unavailable" : quota
             ? `${fmt(quota.used)} / ${quota.unlimited ? "Unlimited" : fmt(quota.limit)}`
             : "…"
         }
         percent={
-          quota && !quota.unlimited
+          !quotaError && quota && !quota.unlimited && quota.limit > 0
             ? (quota.used / quota.limit) * 100
             : undefined
         }
-      />
+      >
+        <HistoryGraph samples={storageSamples} label="Your storage" unavailable={!!quotaError} formatValue={fmt} maxValue={quota && !quota.unlimited ? quota.limit : Math.max(1, ...storageSamples.map(sample => sample.value)) * 1.15} color="#f59e0b" />
+      </Metric>
       <Metric
         title="Network traffic"
         value={networkError || network?.available === false ? "Unavailable" : network ? `↓ ${fmt(network.rxBytesPerSecond)}/s` : "…"}
@@ -894,6 +916,7 @@ function Overview({
             </div>
           </CardHeader>
           <CardContent>
+            <HistoryGraph samples={diskSamples} label="Disk storage" unavailable={!!systemError} formatValue={fmt} maxValue={sys.storage.total} color="#f59e0b" />
             <div className="mb-3 flex justify-between text-sm">
               <span>
                 {fmt(sys.storage.used)} used of {fmt(sys.storage.total)}
