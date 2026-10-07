@@ -208,19 +208,12 @@ export default function Page() {
   const [trafficSamples, setTrafficSamples] = useState<TrafficSample[]>([]);
   const [usageSamples, setUsageSamples] = useState<UsageSample[]>([]);
   const [storageSamples, setStorageSamples] = useState<HistorySample[]>([]);
-  const [diskSamples, setDiskSamples] = useState<HistorySample[]>([]);
   useEffect(() => {
     if (!me) { setStorageSamples([]); return; }
     if (!quota.data || !Number.isFinite(quota.data.used)) return;
     const at = Date.now();
     setStorageSamples(previous => [...previous.filter(sample => sample.at > at - 60000), { at, value: Math.max(0, quota.data!.used) }].slice(-60));
   }, [quota.data, me?.id]);
-  useEffect(() => {
-    if (!me) { setDiskSamples([]); return; }
-    if (!Number.isFinite(sys.data?.storage?.used)) return;
-    const at = Date.now();
-    setDiskSamples(previous => [...previous.filter(sample => sample.at > at - 60000), { at, value: Math.max(0, sys.data.storage.used) }].slice(-60));
-  }, [sys.data, me?.id]);
   useEffect(() => {
     if (!me) { setUsageSamples([]); return; }
     if (!sys.data) return;
@@ -420,7 +413,7 @@ export default function Page() {
     case "dashboard":
       content = (
         <>
-          <Overview sys={sys.data} quota={quota.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} usageSamples={usageSamples} systemError={sys.error} storageSamples={storageSamples} diskSamples={diskSamples} quotaError={quota.error} />
+          <Overview sys={sys.data} quota={quota.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} usageSamples={usageSamples} systemError={sys.error} storageSamples={storageSamples} quotaError={quota.error} />
           <FileBrowser {...fileProps} />
         </>
       );
@@ -817,7 +810,7 @@ function Metric({
   return (
     <Card className="metric-card">
       <CardHeader>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center gap-3">
           <span className="metric-icon">
             {title === "CPU" ? (
               <Activity />
@@ -829,11 +822,8 @@ function Metric({
               <Activity />
             )}
           </span>
-          <span className="text-[10px] font-medium text-muted-foreground">
-            Live
-          </span>
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
         </div>
-        <p className="text-xs font-medium text-muted-foreground">{title}</p>
         <CardTitle className="mt-1 text-xl font-semibold tracking-tight xl:text-2xl">
           {value}
         </CardTitle>
@@ -854,7 +844,6 @@ function Overview({
   usageSamples,
   systemError,
   storageSamples,
-  diskSamples,
   quotaError,
 }: {
   sys: any;
@@ -865,7 +854,6 @@ function Overview({
   usageSamples: UsageSample[];
   systemError: string;
   storageSamples: HistorySample[];
-  diskSamples: HistorySample[];
   quotaError: string;
 }) {
   return (
@@ -905,31 +893,6 @@ function Overview({
       >
         <NetworkTrafficGraph samples={trafficSamples} unavailable={!!networkError || network?.available === false} />
       </Metric>
-      {sys && (
-        <Card className="storage-card sm:col-span-2 xl:col-span-4">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Storage overview</CardTitle>
-              <span className="text-xs text-muted-foreground">
-                {sys.storage.percent.toFixed(1)}% used
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <HistoryGraph samples={diskSamples} label="Disk storage" unavailable={!!systemError} formatValue={fmt} maxValue={sys.storage.total} color="#f59e0b" />
-            <div className="mb-3 flex justify-between text-sm">
-              <span>
-                {fmt(sys.storage.used)} used of {fmt(sys.storage.total)}
-              </span>
-              <span>{fmt(sys.storage.free)} free</span>
-            </div>
-            <Progress value={sys.storage.percent} />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Uptime: {Math.floor(sys.uptime / 86400)} days · {sys.hostname}
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

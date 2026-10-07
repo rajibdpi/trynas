@@ -289,19 +289,6 @@ input[type="radio"] {
   width: 17px;
   height: 17px;
 }
-.storage-card {
-  background: linear-gradient(
-    100deg,
-    var(--card),
-    color-mix(in srgb, var(--primary) 4%, var(--card))
-  );
-}
-.storage-card > div:first-child {
-  padding-bottom: 16px;
-}
-.storage-card .h-2 {
-  height: 7px;
-}
 .file-browser > div:first-child {
   border-bottom: 1px solid var(--border);
   padding-bottom: 20px;
