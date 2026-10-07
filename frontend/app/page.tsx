@@ -193,6 +193,7 @@ export default function Page() {
     [signing, setSigning] = useState(false),
     [signingOut, setSigningOut] = useState(false);
   const [tab, setTab] = useState("dashboard"),
+    [fileQuery, setFileQuery] = useState(""),
     [path, setPath] = useState(""),
     [pathHistory, setPathHistory] = useState<string[]>([]),
     [forwardHistory, setForwardHistory] = useState<string[]>([]),
@@ -300,18 +301,21 @@ export default function Page() {
   const ask = (c: Command) => setCommand(c);
   const navigateFolder = (next: string) => {
     if (next === path) return;
+    setFileQuery("");
     setPathHistory(previous => [...previous, path]);
     setForwardHistory([]);
     setPath(next);
   };
   const goBack = () => {
     if (!pathHistory.length) return;
+    setFileQuery("");
     setForwardHistory(previous => [...previous, path]);
     setPath(pathHistory[pathHistory.length - 1]);
     setPathHistory(previous => previous.slice(0, -1));
   };
   const goForward = () => {
     if (!forwardHistory.length) return;
+    setFileQuery("");
     setPathHistory(previous => [...previous, path]);
     setPath(forwardHistory[forwardHistory.length - 1]);
     setForwardHistory(previous => previous.slice(0, -1));
@@ -397,6 +401,8 @@ export default function Page() {
     );
   let content: ReactNode = null;
   const fileProps = {
+    query: fileQuery,
+    setQuery: setFileQuery,
     path,
     basePath: me.rootAccessible ? "" : (me.home || ""),
     setPath: navigateFolder,
@@ -483,6 +489,9 @@ export default function Page() {
         signingOut={signingOut}
         sidebarCollapsed={sidebarCollapsed}
         mobileOpen={mobile}
+        searchQuery={fileQuery}
+        onSearchQueryChange={setFileQuery}
+        onSearch={() => { setTab("files"); setMobile(false); }}
         onToggleSidebar={() => setSidebarCollapsed(value => !value)}
         onToggleTheme={toggleTheme}
         onOpenNavigation={() => setMobile(value => !value)}
@@ -493,6 +502,7 @@ export default function Page() {
             .then(() => {
               setMe(null);
               setPath("");
+              setFileQuery("");
               setPathHistory([]);
               setForwardHistory([]);
               setTab("dashboard");
@@ -898,6 +908,8 @@ function Overview({
 }
 
 function FileBrowser({
+  query,
+  setQuery,
   path,
   basePath,
   setPath,
@@ -910,6 +922,8 @@ function FileBrowser({
   notify,
   onChanged,
 }: {
+  query: string;
+  setQuery: (value: string) => void;
   path: string;
   basePath: string;
   setPath: (p: string) => void;
@@ -925,8 +939,7 @@ function FileBrowser({
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
   );
-  const [query, setQuery] = useState(""),
-    [debounced, setDebounced] = useState(""),
+  const [debounced, setDebounced] = useState(query.trim()),
     [view, setView] = useState("grid"),
     [selected, setSelected] = useState<string[]>([]),
     [upload, setUpload] = useState<{
@@ -951,7 +964,6 @@ function FileBrowser({
   }, [query]);
   useEffect(() => {
     setSelected([]);
-    setQuery("");
   }, [path]);
   useEffect(() => {
     setSelected([]);

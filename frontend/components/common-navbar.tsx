@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { ChevronDown, HardDrive, LogOut, PanelLeftClose, PanelLeftOpen, Moon, Sun, UserRound } from "lucide-react";
+import { ChevronDown, HardDrive, LogOut, PanelLeftClose, PanelLeftOpen, Moon, Sun, UserRound, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 type NavbarUser = { username: string; role: string; home?: string };
 
-export function CommonNavbar({ user, dark, signingOut, sidebarCollapsed, mobileOpen, onToggleSidebar, onToggleTheme, onOpenNavigation, onHome, onLogout }: {
+export function CommonNavbar({ user, dark, signingOut, sidebarCollapsed, mobileOpen, searchQuery, onSearchQueryChange, onSearch, onToggleSidebar, onToggleTheme, onOpenNavigation, onHome, onLogout }: {
   user: NavbarUser;
   dark: boolean;
   signingOut: boolean;
   sidebarCollapsed: boolean;
   mobileOpen: boolean;
   onToggleSidebar: () => void;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  onSearch: () => void;
   onToggleTheme: () => void;
   onOpenNavigation: () => void;
   onHome: () => void;
@@ -28,7 +31,7 @@ export function CommonNavbar({ user, dark, signingOut, sidebarCollapsed, mobileO
         <div className={cn("flex shrink-0 items-center gap-2 md:h-full md:border-r", sidebarCollapsed ? "md:w-[76px] md:justify-center" : "md:w-[260px] md:px-5")}>
         <button className="flex items-center gap-2 rounded-lg text-lg font-semibold focus-visible:outline-2 focus-visible:outline-primary" onClick={onHome} aria-label="TryNAS dashboard">
           <span className="brand-mark"><HardDrive className="size-5" /></span>
-          <span className={sidebarCollapsed ? "md:hidden" : undefined}>TryNAS</span>
+          <span className={cn("hidden sm:inline", sidebarCollapsed && "md:hidden")}>TryNAS</span>
         </button>
         <Button variant="ghost" size="icon" className="md:hidden" aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} aria-controls="workspace-sidebar" onClick={onOpenNavigation}>
           {mobileOpen ? <PanelLeftClose /> : <PanelLeftOpen />}
@@ -37,6 +40,10 @@ export function CommonNavbar({ user, dark, signingOut, sidebarCollapsed, mobileO
         <Button variant="ghost" size="icon" className="hidden shrink-0 md:inline-flex" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={onToggleSidebar}>
           {sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
         </Button>
+        <form role="search" className="relative min-w-0 flex-1 md:max-w-lg" onSubmit={event => { event.preventDefault(); onSearch(); }}>
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input type="search" className="!pl-9" placeholder="Search files…" aria-label="Search files and folders from navbar" minLength={2} value={searchQuery} onChange={event => onSearchQueryChange(event.target.value)} />
+        </form>
         <nav className="ml-auto flex items-center gap-2" aria-label="Account navigation">
           <Button variant="ghost" size="icon" aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} onClick={onToggleTheme}>
             {dark ? <Sun /> : <Moon />}
