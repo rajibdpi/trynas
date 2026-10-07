@@ -44,25 +44,30 @@ export function CommonNavbar({ user, dark, signingOut, sidebarCollapsed, mobileO
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input type="search" className="!pl-9" placeholder="Search files…" aria-label="Search files and folders from navbar" minLength={2} value={searchQuery} onChange={event => onSearchQueryChange(event.target.value)} />
         </form>
-        <nav className="ml-auto flex items-center gap-2" aria-label="Account navigation">
+        <nav className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2" aria-label="Account navigation">
           <Button variant="ghost" size="icon" aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} onClick={onToggleTheme}>
             {dark ? <Sun /> : <Moon />}
           </Button>
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2" aria-label={`Account menu for ${user.username}`} disabled={signingOut}>
+              <Button variant="ghost" className="gap-1 px-2 sm:gap-2 sm:px-4" aria-label={`Account menu for ${user.username}`} disabled={signingOut}>
                 <span className="user-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
                 <span className="hidden max-w-40 truncate sm:inline">{user.username}</span>
                 <ChevronDown className="size-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent
+              align="end"
+              sideOffset={8}
+              collisionPadding={12}
+              className="w-64 min-w-0 max-w-[min(calc(100vw_-_1.5rem),var(--radix-dropdown-menu-content-available-width))] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto rounded-xl p-2 sm:w-56"
+            >
               <div className="border-b px-3 py-2">
-                <p className="truncate text-sm font-semibold">{user.username}</p>
-                <p className="text-xs capitalize text-muted-foreground">{user.role}</p>
+                <p className="break-words text-sm font-semibold">{user.username}</p>
+                <p className="break-words text-xs capitalize text-muted-foreground">{user.role}</p>
               </div>
-              <DropdownMenuItem onSelect={() => setProfileOpen(true)}><UserRound className="size-4" />Profile</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onLogout} disabled={signingOut}><LogOut className="size-4" />Logout</DropdownMenuItem>
+              <DropdownMenuItem className="min-h-11 sm:min-h-9" onSelect={() => setProfileOpen(true)}><UserRound className="size-4 shrink-0" />Profile</DropdownMenuItem>
+              <DropdownMenuItem className="min-h-11 text-destructive focus:text-destructive sm:min-h-9" onSelect={onLogout} disabled={signingOut}><LogOut className="size-4 shrink-0" />Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
