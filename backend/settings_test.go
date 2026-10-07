@@ -24,7 +24,8 @@ func TestBasicAppSettings(t *testing.T) {
 	if err != nil || saved != configured {
 		t.Fatal("settings not persisted", err)
 	}
-	limited := request(a, user, "GET", "/api/settings", nil, a.settings)
+	expect(t, request(a, user, "GET", "/api/settings", nil, a.settings), 403)
+	limited := request(a, user, "GET", "/api/preferences", nil, a.settings)
 	expect(t, limited, 200)
 	if strings.Contains(limited.Body.String(), "storageRoot") || !strings.Contains(limited.Body.String(), "Home NAS") {
 		t.Fatal("incorrect user settings response")

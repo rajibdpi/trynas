@@ -125,6 +125,12 @@ Use a strong administrator password, expose only the intended storage directory,
 
 ## V5 user management and file controls
 
+**Dashboard**, **System & network**, **Activity**, **Users & quotas**,
+**Folder permissions**, **Settings** and **Disk health** are available only to
+administrators. Normal users land on **Files** and see Files, Favorites,
+Shared links and Trash. Restricted pages redirect them to Files, and the
+corresponding backend APIs reject non-admin access.
+
 Administrators have **Users & quotas**, **Folder permissions**, and **Disk health**
 sections. Creating an account with an 8–72 byte password also creates a home folder named
 after its username and grants that user write access. Usernames must be single

@@ -132,13 +132,13 @@ const message = (e: unknown) =>
 const parent = (p: string) => p.split("/").slice(0, -1).join("/");
 const join = (a: string, b: string) => (a ? `${a}/${b}` : b);
 const nav = [
-  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "dashboard", label: "Dashboard", icon: Home, admin: true },
   { id: "files", label: "Files", icon: Folder },
   { id: "favorites", label: "Favorites", icon: Star },
   { id: "shared", label: "Shared links", icon: Link2 },
   { id: "trash", label: "Trash", icon: Trash2 },
-  { id: "system", label: "System & network", icon: Server },
-  { id: "activity", label: "Activity", icon: Activity },
+  { id: "system", label: "System & network", icon: Server, admin: true },
+  { id: "activity", label: "Activity", icon: Activity, admin: true },
   { id: "users", label: "Users & quotas", icon: Users, admin: true },
   { id: "permissions", label: "Folder permissions", icon: Shield, admin: true },
   { id: "settings", label: "Settings", icon: Settings, admin: true },
@@ -218,7 +218,15 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     else if (pathname === "/settings") setTab("settings");
     else setTab(previous => ["files", "settings"].includes(previous) ? "dashboard" : previous);
   }, [pathname]);
+  const activeTab = me && me.role !== "admin" && nav.find(item => item.id === tab)?.admin ? "files" : tab;
+  useEffect(() => {
+    if (me && me.role !== "admin" && nav.find(item => item.id === tab)?.admin) {
+      setTab("files");
+      if (window.location.pathname !== "/files") window.history.replaceState(null, "", "/files");
+    }
+  }, [me?.role, tab]);
   const selectTab = (next: string) => {
+    if (me?.role !== "admin" && nav.find(item => item.id === next)?.admin) next = "files";
     setTab(next);
     setMobile(false);
     const route = ["files", "settings"].includes(next) ? `/${next}` : "/";
@@ -227,12 +235,12 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   useEffect(() => {
     if (!me) return;
     const controller = new AbortController();
-    void api("/api/settings", { signal: controller.signal }).then(data => setAppSettings(data.settings)).catch(() => {});
+    void api("/api/preferences", { signal: controller.signal }).then(data => setAppSettings(data.settings)).catch(() => {});
     return () => controller.abort();
   }, [me?.id]);
   useEffect(() => { document.title = appSettings.appName; }, [appSettings.appName]);
-  const sys = useResource<any>(me ? "/api/system" : null, 5000),
-    network = useResource<any>(me ? "/api/network" : null, 3000),
+  const sys = useResource<any>(me?.role === "admin" ? "/api/system" : null, 5000),
+    network = useResource<any>(me?.role === "admin" ? "/api/network" : null, 3000),
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
   const [trafficSamples, setTrafficSamples] = useState<TrafficSample[]>([]);
   const [usageSamples, setUsageSamples] = useState<UsageSample[]>([]);
@@ -450,7 +458,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     notify,
     onChanged: () => void quota.reload(),
   };
-  switch (tab) {
+  switch (activeTab) {
     case "settings":
       content = me.role === "admin" ? <AppSettingsPanel onSaved={setAppSettings} /> : <ErrorText text="Settings are available to administrators." />;
       break;
@@ -589,10 +597,10 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                 <Link href={`/${x.id}`}
                   aria-label={x.label}
                   title={sidebarCollapsed ? x.label : undefined}
-                  aria-current={tab === x.id ? "page" : undefined}
+                  aria-current={activeTab === x.id ? "page" : undefined}
                   className={cn(
                     "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
-                    tab === x.id && "is-active",
+                    activeTab === x.id && "is-active",
                     sidebarCollapsed && "md:justify-center md:px-0",
                   )}
                   onClick={event => {
@@ -608,10 +616,10 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                 <button
                   aria-label={x.label}
                   title={sidebarCollapsed ? x.label : undefined}
-                  aria-current={tab === x.id ? "page" : undefined}
+                  aria-current={activeTab === x.id ? "page" : undefined}
                   className={cn(
                     "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
-                    tab === x.id && "is-active",
+                    activeTab === x.id && "is-active",
                     sidebarCollapsed && "md:justify-center md:px-0",
                   )}
                   onClick={() => {
@@ -653,7 +661,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
               {me.role === "admin" ? "Administrator" : "Personal storage"}
             </p>
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              {nav.find((x) => x.id === tab)?.label}
+              {nav.find((x) => x.id === activeTab)?.label}
             </h1>
             <p className="text-sm text-muted-foreground">
               Everything you need. In one place.
@@ -680,7 +688,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           </Button>
         </header>
         {sys.error && <ErrorText text={sys.error} />}
-        <section key={tab}>{content}</section>
+        <section key={activeTab}>{content}</section>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
       {preview && <Preview item={preview} close={() => setPreview(null)} />}
