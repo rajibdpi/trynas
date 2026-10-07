@@ -34,6 +34,7 @@ type App struct {
 	mutation       sync.Mutex
 	metrics        sync.Mutex
 	attempts       attemptLimiter
+	providers      providerState
 	archives       sync.Mutex
 	activeArchives int
 	networkLast    map[string]networkSample
@@ -98,6 +99,11 @@ func main() {
 		r.Use(a.auth)
 		r.Use(a.guard)
 		r.Get("/api/preferences", a.settings)
+		r.Get("/api/storage/providers", a.storageProviders)
+		r.Get("/api/storage/files", a.remoteStorage)
+		r.Post("/api/storage/files", a.remoteStorage)
+		r.Post("/api/storage/upload", a.remoteStorage)
+		r.Post("/api/storage/providers", a.storageProviders)
 		r.Get("/api/settings", a.settings)
 		r.Post("/api/settings", a.settings)
 		r.Get("/api/users", a.users)

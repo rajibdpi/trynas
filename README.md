@@ -432,3 +432,63 @@ On Windows/macOS, requests must use the exact path spelling returned by the
 file browser so case aliases cannot bypass folder permission rules. Windows
 reserved device names, alternate data streams, and invalid filename characters
 are rejected.
+
+## Storage providers and sync
+
+Administrators can open **Settings → Storage providers** to add Google Drive,
+SMB/CIFS, SFTP, and Amazon S3 or S3-compatible connections. The app embeds
+[rclone Go backends](https://pkg.go.dev/github.com/rclone/rclone/backend); no
+rclone executable is needed on the TryNAS server.
+
+1. Choose a provider, name the connection, and enter the remote directory and credentials.
+2. Click **Test** to verify access to that directory.
+3. Choose the local folder relative to the TryNAS storage root (empty means the root).
+4. Choose **Local → Remote** or **Remote → Local**, then run a preview before transferring.
+
+**Copy** updates files while keeping extra destination files. **Mirror** makes
+the destination match the source and can delete destination files; running it
+requires the deletion confirmation checkbox. These are one-way operations in
+either direction, not automatic two-way conflict resolution. Files and subfolders
+are transferred recursively, including empty directories where supported.
+
+For Google Drive, run `rclone authorize drive` on your computer and paste the
+returned OAuth token JSON. If you use your own OAuth client, supply the same
+client ID and secret in TryNAS. See [Google Drive setup](https://rclone.org/drive/).
+For SMB, use `share/path` as the remote directory. For SFTP, supply a password or
+private key and a trusted `known_hosts` file path on the TryNAS server; host-key
+verification is required. See [SFTP setup](https://rclone.org/sftp/).
+For S3, use `bucket/path`, provide access keys, and set the region and endpoint as
+needed by your provider.
+
+Connections are encrypted with AES-GCM in the database. The generated
+`.trynas-storage.key` beside the database has mode `0600`; back up this key
+securely along with the database, because losing it makes saved connections
+unreadable. Credentials are never returned by the connections API.
+
+One transfer runs at a time, with a 24-hour deadline. Status, transferred bytes,
+file counts, and cancellation are available in Settings. The most recent job is
+saved; jobs interrupted by a server restart must be started again. Transfers hold
+the file-mutation lock to prevent overlapping app writes, and exclude internal
+`.trynas-*` folders. Local symlinks are rejected. Copying files can overwrite
+existing destination content; cancellation does not roll back completed changes.
+
+### Attach providers as storage
+
+In **Settings → Storage providers**, click **Attach as storage** on a saved
+connection. Administrators can then open **All files** and use the **Storage**
+selector to switch between local storage and attached providers. Attachments
+persist across restarts. **Detach storage** removes the provider from the file
+browser without deleting its files or its saved connection.
+
+Attached storage supports direct folder browsing, downloads, uploads, new
+folders, and permanent file/folder deletion. Double-click opens a folder or
+downloads a file; Ctrl/Cmd-click selects, and Shift-click selects a range.
+Search filters the current remote folder. Browser uploads refuse to overwrite
+an existing file. Remote deletion requires confirmation and does not use the
+local trash. Local permissions, quotas, favorites, and public share links apply
+to local storage; attached providers currently remain administrator-only.
+
+Operations use the provider's configured remote directory as their root. One
+direct remote operation runs at a time, and sync jobs cannot overlap direct
+remote operations. Provider operations have a 15-minute request deadline;
+failures may leave completed uploads or deletions in place.

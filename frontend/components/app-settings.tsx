@@ -1,5 +1,6 @@
 "use client";
 
+import { StorageProvidersPanel } from "@/components/storage-providers";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
           </form>}
         </CardContent>
       </Card>
+      {server && <StorageProvidersPanel />}
       {server && <Card><CardHeader><CardTitle>Server configuration</CardTitle><p className="text-sm text-muted-foreground">Edit these options in .env and restart the backend.</p></CardHeader><CardContent><dl className="grid gap-4 sm:grid-cols-2">{Object.entries(server).map(([key, value]) => <div key={key}><dt className="text-xs text-muted-foreground">{{ storageRoot: "Storage root", address: "Listen address", cookieSecure: "Secure cookies", corsOrigin: "Allowed frontend origin", smartUseSudo: "SMART via sudo" }[key] || key}</dt><dd className="break-all text-sm font-medium">{typeof value === "boolean" ? value ? "Enabled" : "Disabled" : value}</dd></div>)}</dl></CardContent></Card>}
     </div>
   );

@@ -95,7 +95,7 @@ func checkBrowserMutation(w http.ResponseWriter, r *http.Request) bool {
 			return false
 		}
 	}
-	if r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/files/upload" && r.URL.Path != "/api/auth/logout" {
+	if r.Method == "POST" && strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/files/upload" && r.URL.Path != "/api/storage/upload" && r.URL.Path != "/api/auth/logout" {
 		kind, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil || kind != "application/json" {
 			bad(w, "application/json required", 415)
