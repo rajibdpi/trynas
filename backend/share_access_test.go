@@ -195,3 +195,70 @@ func TestNeverAndPresetShareExpiry(t *testing.T) {
 	}
 	expect(t, jsonRequest(a, user, "POST", "/api/shares", map[string]any{"path": "shared/file.txt", "never": true, "days": 7}, a.createShare), 400)
 }
+
+func TestMultipleItemsOneShare(t *testing.T) {
+	a, _, user := setup(t)
+	write(t, a, "one/file.txt", "one")
+	write(t, a, "two/file.txt", "two")
+	write(t, a, "folder/public.txt", "public")
+	write(t, a, "folder/private/secret.txt", "secret")
+	for _, p := range []string{"one", "two", "folder"} {
+		grant(t, a, user, p, "read")
+	}
+	grant(t, a, user, "folder/private", "none")
+	made := jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"one/file.txt", "two/file.txt", "folder", "folder/public.txt", "folder"}, "never": true}, a.createShare)
+	expect(t, made, 200)
+	var share struct {
+		Token string
+		Paths []string
+	}
+	if err := json.Unmarshal(made.Body.Bytes(), &share); err != nil {
+		t.Fatal(err)
+	}
+	if len(share.Paths) != 3 {
+		t.Fatalf("overlaps not removed: %v", share.Paths)
+	}
+	listed := request(a, user, "GET", "/api/shares", nil, a.shares)
+	expect(t, listed, 200)
+	if !strings.Contains(listed.Body.String(), "one/file.txt") || !strings.Contains(listed.Body.String(), "two/file.txt") {
+		t.Fatal("share listing missing paths")
+	}
+	router := chi.NewRouter()
+	router.Get("/s/{token}", a.publicShare)
+	get := func(query string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest("GET", "/s/"+share.Token+query, nil))
+		return w
+	}
+	page := get("")
+	expect(t, page, 200)
+	if !strings.Contains(page.Body.String(), "3 shared items") {
+		t.Fatal("missing collection page")
+	}
+	archive := get("?download=1")
+	expect(t, archive, 200)
+	reader, err := zip.NewReader(bytes.NewReader(archive.Body.Bytes()), int64(archive.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := map[string]string{}
+	for _, entry := range reader.File {
+		if entry.FileInfo().IsDir() {
+			continue
+		}
+		f, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(f)
+		f.Close()
+		contents[entry.Name] = string(b)
+	}
+	if contents["one/file.txt"] != "one" || contents["two/file.txt"] != "two" || contents["folder/public.txt"] != "public" || len(contents) != 3 {
+		t.Fatalf("incorrect collection ZIP: %v", contents)
+	}
+	grant(t, a, user, "two", "none")
+	expect(t, get("?download=1"), 404)
+	expect(t, jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"one/file.txt", "two/file.txt"}, "days": 7}, a.createShare), 403)
+	expect(t, jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"one/file.txt", "../secret"}, "days": 7}, a.createShare), 400)
+}

@@ -38,12 +38,15 @@ func serveShareQR(w http.ResponseWriter, r *http.Request, token string) {
 	_, _ = w.Write(png)
 }
 
-func serveSharePage(w http.ResponseWriter, r *http.Request, name string, size int64, folder bool) {
+func serveSharePage(w http.ResponseWriter, r *http.Request, name string, size int64, folder bool, collection ...bool) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	kind, detail, download := "Shared file", fmt.Sprintf("%.2f MiB", float64(size)/1048576), "Download file"
 	if folder {
 		kind, detail, download = "Shared folder", "Download as ZIP", "Download folder ZIP"
+	}
+	if len(collection) > 0 && collection[0] {
+		kind, detail, download = "Shared collection", "Selected files and folders", "Download all (ZIP)"
 	}
 	if err := sharePageTemplate.Execute(w, struct{ Name, Size, Kind, Download string }{name, detail, kind, download}); err != nil {
 		return

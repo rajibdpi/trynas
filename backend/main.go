@@ -507,15 +507,21 @@ func (a *App) toggleFavorite(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) shares(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
-	rows, _ := a.db.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id) FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
+	rows, _ := a.db.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]') FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
 	defer rows.Close()
 	out := []map[string]any{}
 	for rows.Next() {
 		var id int
 		var p, tok, exp, created string
 		var protected bool
-		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected)
-		out = append(out, map[string]any{"id": id, "path": p, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected})
+		var pathsJSON string
+		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON)
+		var paths []string
+		_ = json.Unmarshal([]byte(pathsJSON), &paths)
+		if len(paths) == 0 {
+			paths = []string{p}
+		}
+		out = append(out, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected})
 	}
 	jsonOut(w, out)
 }
@@ -523,30 +529,72 @@ func (a *App) createShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
 	var x struct {
 		Path      string
+		Paths     []string
 		Days      int
 		ExpiresAt string
 		Password  string
 		Never     bool
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&x); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&x); err != nil {
 		bad(w, "invalid share settings", 400)
 		return
 	}
-	p, err := cleanPath(x.Path)
-	if err != nil || !a.can(u, p, false) {
-		bad(w, "folder permission denied", 403)
+	paths := x.Paths
+	if len(paths) == 0 {
+		paths = []string{x.Path}
+	}
+	if len(paths) > 500 {
+		bad(w, "share at most 500 items", 400)
 		return
 	}
-	full, err := safe(a.root, p)
-	if err != nil {
-		bad(w, "invalid path", 400)
-		return
+	var cleaned []string
+	for _, path := range paths {
+		p, err := cleanPath(path)
+		if err != nil {
+			bad(w, "invalid share path", 400)
+			return
+		}
+		if !a.can(u, p, false) {
+			bad(w, "folder permission denied", 403)
+			return
+		}
+		full, err := safe(a.root, p)
+		if err != nil {
+			bad(w, "invalid path", 400)
+			return
+		}
+		st, err := os.Stat(full)
+		if err != nil || (!st.IsDir() && !st.Mode().IsRegular()) {
+			bad(w, "select existing files or folders", 400)
+			return
+		}
+		duplicate := false
+		for _, existing := range cleaned {
+			if existing == p {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			cleaned = append(cleaned, p)
+		}
 	}
-	st, err := os.Stat(full)
-	if err != nil || (!st.IsDir() && !st.Mode().IsRegular()) {
-		bad(w, "select a file or folder to share", 400)
-		return
+	// A selected folder already includes its selected descendants.
+	paths = nil
+	for _, p := range cleaned {
+		covered := false
+		for _, other := range cleaned {
+			if p != other && under(p, other) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			paths = append(paths, p)
+		}
 	}
+	p := paths[0]
+	var err error
 	now := time.Now().UTC()
 	var expires time.Time
 	if x.Never {
@@ -598,6 +646,12 @@ func (a *App) createShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := res.LastInsertId()
+	for _, item := range paths {
+		if _, err = tx.Exec("INSERT INTO share_items(share_id,path) VALUES(?,?)", id, item); err != nil {
+			bad(w, "could not save shared items", 500)
+			return
+		}
+	}
 	if len(hash) > 0 {
 		if _, err = tx.Exec("INSERT INTO share_passwords(share_id,password_hash) VALUES(?,?)", id, string(hash)); err != nil {
 			bad(w, "could not protect share", 500)
@@ -609,7 +663,7 @@ func (a *App) createShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.log(u.ID, "share", p)
-	jsonOut(w, map[string]any{"id": id, "path": p, "token": tok, "expiresAt": expiryText, "passwordProtected": len(hash) > 0})
+	jsonOut(w, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": expiryText, "passwordProtected": len(hash) > 0})
 }
 func (a *App) deleteShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
@@ -632,6 +686,26 @@ func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 		bad(w, "share not found or expired", 404)
 		return
 	}
+	paths, err := a.sharePaths(shareID, p)
+	if err != nil {
+		bad(w, "share unavailable", 500)
+		return
+	}
+	for _, item := range paths {
+		if !a.can(owner, item, false) {
+			bad(w, "share access revoked", 404)
+			return
+		}
+		full, err := safe(a.root, item)
+		if err != nil {
+			bad(w, "share unavailable", 404)
+			return
+		}
+		if _, err = os.Stat(full); err != nil {
+			bad(w, "shared item not found", 404)
+			return
+		}
+	}
 	f, e := safe(a.root, p)
 	if e != nil {
 		bad(w, "invalid", 400)
@@ -652,7 +726,15 @@ func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Query().Get("download") != "1" {
-		serveSharePage(w, r, filepath.Base(f), st.Size(), st.IsDir())
+		if len(paths) > 1 {
+			serveSharePage(w, r, fmt.Sprintf("%d shared items", len(paths)), 0, true, true)
+		} else {
+			serveSharePage(w, r, filepath.Base(f), st.Size(), st.IsDir())
+		}
+		return
+	}
+	if len(paths) > 1 {
+		a.downloadSharedItems(w, r, owner, paths, "shared-items.zip")
 		return
 	}
 	if st.IsDir() {

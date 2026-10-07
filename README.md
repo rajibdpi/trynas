@@ -39,8 +39,11 @@ starting the standalone app against the same database.
 
 ## Included features
 
-- Responsive NAS dashboard: CPU, RAM, uptime and storage usage
+- Responsive NAS dashboard with live CPU, memory, storage and network traffic graphs
+- Fixed navbar with background blur, file search and a profile/logout dropdown
+- Collapsible sidebar with icon-only navigation
 - File/folder browser with list and grid views
+- Double-click to open and Ctrl-click to select files and folders
 - Multi-file upload and drag & drop
 - Recursive search
 - Create folder, rename, copy, move and ZIP
@@ -155,26 +158,63 @@ quota, duplicate-name, or destination-conflict check installs none of that
 request's files. Existing files are never overwritten. Symbolic links and
 reserved `.trynas-*` paths are blocked. Temporary upload data is cleaned up.
 
-Select files with checkboxes or **Select all**, then copy, move, favorite, ZIP,
-or send them to trash. Bulk actions return individual outcomes and preserve
+## Browse and select files
+
+In list and grid views, use these controls:
+
+| Action | Behavior |
+| --- | --- |
+| Click an item | Leave selection unchanged |
+| Ctrl-click | Add or remove an individual file or folder from the selection |
+| Double-click | Open a folder or preview a file |
+
+Use **Ctrl-click** to select individual items. Once an item is selected,
+**Select all** appears to select all visible items. Shift-click and Cmd-click
+do not select items. Selection clears when changing folders or search terms.
+Focus an item's name and press **Enter** or **Space**
+to open it with the keyboard. Favorites also open on double-click.
+
+Use the search field beside **Upload** in the file browser header, or enter at
+least two characters in the navbar search and press **Enter** to open results.
+Search includes descendants of the current folder. List/grid toggles, Folder
+and Refresh controls are also in the file browser header.
+
+Select items, then copy, move, favorite, ZIP, or send them to trash.
+Bulk actions return individual outcomes and preserve
 failed selections for retry. Each ZIP action creates one archive per selected
 item. Right-click or use the three-dot button for a keyboard-accessible Radix
 context/dropdown menu. Forms, confirmations and previews use Radix dialogs
 styled with the app's shadcn-compatible component system. Appearance follows
-the system theme initially; the sun/moon button persists your chosen theme.
+the system theme initially; the navbar's sun/moon button persists your chosen theme.
+
+The navbar stays fixed with a blurred background. Its panel toggle collapses
+the desktop sidebar to icons or expands it; on mobile it opens or closes
+navigation. The account dropdown offers **Profile** and **Logout**.
+
+Dashboard cards show rolling 60-second graphs. CPU, memory and storage update
+every five seconds; network traffic updates every three seconds, with separate
+download and upload lines. Hover over graph points for measured values. Storage
+shows your quota usage, with an automatic bytes-used scale for unlimited quotas.
 
 ## Share files and folders
 
 Choose **Share link** from a file or folder's menu. Under **Expires at**, choose
 **Never**, **1 day**, **7 days**, **15 days**, **30 days**, or **Custom**. Custom
-shows a date/time picker in your local timezone, up to 365 days ahead. Optionally set an 8–72 byte
-password; leave it blank for access through the link alone.
+shows a date/time picker in your local timezone, up to 365 days ahead. Optionally
+set an 8–72 byte password; leave it blank for access through the link alone.
 
 Recipients open the shared page and enter the password when required. Files
 download directly; folders download as ZIP archives containing only items the
 share owner can read. Reserved paths and symbolic links are excluded. The page
 also offers a downloadable QR code for the link. Protected shares remain
 password-protected when opened through their QR code.
+
+To share a selection with one link, **Ctrl-click** the files and folders, then
+choose **Share** in the selection toolbar. **Select all** can include every
+visible item. Set one password and expiry for the entire link. Recipients use
+**Download all (ZIP)** for multiple items. Selected folders include their
+readable contents; overlapping selections are included once. A link supports
+up to 500 selected items. **Shared links** lists the items included in each link.
 
 **Shared links** shows each link's expiry in your local time and whether it is
 password protected. Revoking a link, reaching its expiry or removing the owner's

@@ -12,7 +12,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  CheckSquare,
+  Check,
   Copy,
   Download,
   Eye,
@@ -64,7 +64,6 @@ import { cn } from "@/lib/utils";
 import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { CommonNavbar } from "@/components/common-navbar";
-import { selectFiles } from "@/lib/file-selection";
 import { NetworkTrafficGraph, type TrafficSample } from "@/components/network-traffic-graph";
 import { UsageGraph, HistoryGraph, type UsageSample, type HistorySample } from "@/components/usage-graph";
 
@@ -957,7 +956,6 @@ function FileBrowser({
       : null,
   );
   const input = useRef<HTMLInputElement>(null),
-    selectionAnchor = useRef<string | null>(null),
     controller = useRef<AbortController | null>(null),
     dragDepth = useRef(0);
   const [draggingFiles, setDraggingFiles] = useState(false);
@@ -968,11 +966,9 @@ function FileBrowser({
   }, [query]);
   useEffect(() => {
     setSelected([]);
-    selectionAnchor.current = null;
   }, [path]);
   useEffect(() => {
     setSelected([]);
-    selectionAnchor.current = null;
   }, [debounced]);
   useEffect(() => () => controller.current?.abort(), []);
   const items =
@@ -984,7 +980,6 @@ function FileBrowser({
       ) || [],
     );
     setSelected((old) => old.filter((p) => visible.has(p)));
-    if (selectionAnchor.current && !visible.has(selectionAnchor.current)) selectionAnchor.current = null;
   }, [listing.data, search.data, debounced]);
   const writable = listing.data?.writable || false;
   const reload = async () => {
@@ -1035,6 +1030,52 @@ function FileBrowser({
       });
     else void perform(action, paths).catch((e) => notify(message(e)));
   };
+  const shareSelection = (paths: string[]) =>
+        ask({
+          title: "Create share link",
+          description:
+            "Create one link for all selected files and folders (ZIP). Add an optional password and choose an expiry in your local time. Access follows your folder permissions.",
+          fields: [
+            {
+              key: "expiry",
+              label: "Expires at",
+              value: "7",
+              options: [
+                { value: "never", label: "Never" },
+                { value: "1", label: "1 day" },
+                { value: "7", label: "7 days" },
+                { value: "15", label: "15 days" },
+                { value: "30", label: "30 days" },
+                { value: "custom", label: "Custom" },
+              ],
+            },
+            {
+              key: "expiresAt",
+              label: "Expires at (local date and time)",
+              type: "datetime-local",
+              value: (() => { const expiry = new Date(Date.now() + 7 * 86400000); return new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })(),
+              required: true,
+              visibleWhen: { key: "expiry", value: "custom" },
+            },
+            { key: "password", label: "Password (optional, 8–72 bytes)", type: "password", value: "" },
+          ],
+          submit: "Create link",
+          run: async (v) => {
+            let settings: { never?: boolean; days?: number; expiresAt?: string };
+            if (v.expiry === "never") settings = { never: true };
+            else if (v.expiry === "custom") {
+              const expiry = new Date(v.expiresAt);
+              if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= Date.now())
+                throw new Error("Choose a future expiry date and time");
+              settings = { expiresAt: expiry.toISOString() };
+            } else settings = { days: Number(v.expiry) };
+            const result = await api("/api/shares", {
+              method: "POST",
+              body: JSON.stringify({ paths, ...settings, password: v.password }),
+            });
+            notify(`Share link: ${shareURL(result.token)}`);
+          },
+        });
   const fileActions = (item: Item): Action[] => [
     {
       label: item.dir ? "Open folder" : "Preview",
@@ -1097,52 +1138,7 @@ function FileBrowser({
     {
       label: "Share link",
       icon: Link2,
-      run: () =>
-        ask({
-          title: "Create share link",
-          description:
-            "Share this file or folder (ZIP). Add an optional password and choose an expiry in your local time. Access follows your folder permissions.",
-          fields: [
-            {
-              key: "expiry",
-              label: "Expires at",
-              value: "7",
-              options: [
-                { value: "never", label: "Never" },
-                { value: "1", label: "1 day" },
-                { value: "7", label: "7 days" },
-                { value: "15", label: "15 days" },
-                { value: "30", label: "30 days" },
-                { value: "custom", label: "Custom" },
-              ],
-            },
-            {
-              key: "expiresAt",
-              label: "Expires at (local date and time)",
-              type: "datetime-local",
-              value: (() => { const expiry = new Date(Date.now() + 7 * 86400000); return new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })(),
-              required: true,
-              visibleWhen: { key: "expiry", value: "custom" },
-            },
-            { key: "password", label: "Password (optional, 8–72 bytes)", type: "password", value: "" },
-          ],
-          submit: "Create link",
-          run: async (v) => {
-            let settings: { never?: boolean; days?: number; expiresAt?: string };
-            if (v.expiry === "never") settings = { never: true };
-            else if (v.expiry === "custom") {
-              const expiry = new Date(v.expiresAt);
-              if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= Date.now())
-                throw new Error("Choose a future expiry date and time");
-              settings = { expiresAt: expiry.toISOString() };
-            } else settings = { days: Number(v.expiry) };
-            const result = await api("/api/shares", {
-              method: "POST",
-              body: JSON.stringify({ path: item.path, ...settings, password: v.password }),
-            });
-            notify(`Share link: ${shareURL(result.token)}`);
-          },
-        }),
+      run: () => shareSelection([item.path]),
     },
     {
       label: "Move to trash",
@@ -1189,13 +1185,10 @@ function FileBrowser({
       if (input.current) input.current.value = "";
     }
   };
-  const selectItem = (p: string, event: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }, checkbox = false) => {
-    const anchor = selectionAnchor.current;
-    const modifiers = { shift: event.shiftKey, additive: checkbox || event.ctrlKey || event.metaKey };
-    setSelected(old => selectFiles(items.map(item => item.path), old, p, anchor, modifiers).selected);
-    if (!event.shiftKey || anchor === null || !items.some(item => item.path === anchor)) selectionAnchor.current = p;
+  const selectItem = (p: string, event: { ctrlKey: boolean }) => {
+    if (!event.ctrlKey) return;
+    setSelected(old => old.includes(p) ? old.filter(path => path !== p) : [...old, p]);
   };
-  const all = items.length > 0 && items.every((x) => selected.includes(x.path));
   return (
     <Card
       className={cn("file-browser relative", draggingFiles && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
@@ -1395,19 +1388,23 @@ function FileBrowser({
             selected.length > 0 && "has-selection",
           )}
         >
-          <label className="mr-2 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={all}
-              aria-label="Select all visible files"
-              onChange={() => setSelected(all ? [] : items.map((x) => x.path))}
-            />
-            <span>
-              {selected.length ? `${selected.length} selected` : "Select all"}
-            </span>
-          </label>
+          <span className="mr-2 text-sm text-muted-foreground">
+            {selected.length ? `${selected.length} selected` : "Ctrl-click to select files and folders"}
+          </span>
           {selected.length > 0 && (
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={items.every(item => selected.includes(item.path))}
+                onClick={() => setSelected(items.map(item => item.path))}
+              >
+                Select all
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])}>
+                <Link2 />
+                Share
+              </Button>
               <Button variant="outline" size="sm" onClick={() => bulk("copy")}>
                 <Copy />
                 Copy
@@ -1436,7 +1433,7 @@ function FileBrowser({
                 <Trash2 />
                 Trash
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }}>
+              <Button variant="ghost" size="sm" onClick={() => { setSelected([]); }}>
                 Clear
               </Button>
             </>
@@ -1492,13 +1489,7 @@ function FileBrowser({
                       view === "list" ? "min-w-0 flex-1" : "mb-3",
                     )}
                   >
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${item.name}`}
-                      checked={selected.includes(item.path)}
-                      onClick={(event) => selectItem(item.path, event, true)}
-                      onChange={() => {}}
-                    />
+                    <span className="relative shrink-0">
                     {item.dir ? (
                       <span className="folder-icon">
                         <Folder className="size-5" />
@@ -1506,6 +1497,13 @@ function FileBrowser({
                     ) : (
                       <FileTypeIcon name={item.name} />
                     )}
+                    {selected.includes(item.path) && (
+                      <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
+                        <Check className="size-3" strokeWidth={3} aria-hidden="true" />
+                        <span className="sr-only">Selected</span>
+                      </span>
+                    )}
+                    </span>
                     <button
                       className="min-w-0 text-left"
                       aria-pressed={selected.includes(item.path)}
@@ -2117,7 +2115,8 @@ function SharesPanel({
             className="flex flex-wrap items-center gap-2 border-b py-4"
           >
             <div className="min-w-0 flex-1">
-              <p className="break-all text-sm font-semibold">{item.path || "Storage root"}</p>
+              <p className="break-all text-sm font-semibold">{item.paths?.length > 1 ? `${item.paths.length} shared items` : item.path || "Storage root"}</p>
+              {item.paths?.length > 1 && <p className="break-all text-xs text-muted-foreground">{item.paths.join(", ")}</p>}
               {item.passwordProtected && <p className="text-xs text-primary">Password protected</p>}
               <p className="text-xs text-muted-foreground">
                 {item.expiresAt
