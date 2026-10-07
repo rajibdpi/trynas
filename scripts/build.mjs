@@ -19,7 +19,10 @@ if(args.some(arg=>!(["--all","--target"].includes(arg)||targets.join(",")===arg)
 for(const target of targets)if(!available.includes(target))throw new Error(`Unsupported target: ${target}`);
 function run(command,params,cwd,extraEnv={}){const windowsPnpm=process.platform==="win32"&&command==="pnpm";const result=spawnSync(windowsPnpm?"cmd.exe":command,windowsPnpm?["/d","/s","/c",[command,...params].join(" ")]:params,{cwd,env:{...process.env,...extraEnv},stdio:"inherit",shell:false});if(result.error)throw result.error;if(result.status!==0)throw new Error(`${command} exited with ${result.status}`)}
 if(!existsSync(join(frontend,"node_modules")))run("pnpm",["install","--frozen-lockfile"],frontend);
-console.log("Exporting frontend for same-origin standalone hosting...");
+// Never reuse a prior static export or the running dev server's build directory.
+rmSync(join(frontend,".next"),{recursive:true,force:true});
+rmSync(join(frontend,"out"),{recursive:true,force:true});
+console.log("Building the current frontend from clean release output...");
 run("pnpm",["build"],frontend,{TRYNAS_EMBEDDED_BUILD:"true",NEXT_PUBLIC_EMBEDDED:"true",NEXT_PUBLIC_API_URL:""});
 const exported=join(frontend,"out");if(!existsSync(join(exported,"index.html")))throw new Error("Static frontend export is missing");
 const assets=join(backend,"web");rmSync(assets,{recursive:true,force:true});cpSync(exported,assets,{recursive:true});
@@ -29,4 +32,6 @@ for(const target of targets){const [os,arch]=target.split("/");const name=`tryna
 // Include every built artifact when building a subset into an existing dist folder.
 for(const name of readdirSync(dist).filter(n=>/^trynas-(linux|windows|darwin)-/.test(n))){if(!sums.some(s=>s.endsWith(`  ${name}`)))sums.push(`${createHash("sha256").update(readFileSync(join(dist,name))).digest("hex")}  ${name}`)}
 writeFileSync(join(dist,"SHA256SUMS"),sums.sort().join("\n")+"\n");
-console.log(`Standalone builds ready in ${dist}. Copy the binary to a writable folder and run it; open http://localhost:8080.`);
+console.log(`Updated frontend and backend embedded in: ${targets.map(target=>`trynas-${target.replace("/","-")}${target.startsWith("windows/")?".exe":""}`).join(", ")}`);
+console.log(`Standalone builds ready in ${dist}. Restart the built executable to serve this release; building does not replace a running process.`);
+console.log("From the project root, stop the development backend and run your executable in dist/ to use the existing .env, database and storage.");

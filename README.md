@@ -324,7 +324,10 @@ that builds releases, install Go, Node.js and pnpm, then run from the project ro
 node scripts/build.mjs
 ```
 
-That creates a binary for your current OS/architecture in `dist/`. Build every
+The command rebuilds both the current frontend and backend. It clears old
+release output, builds the frontend in `.next` separately from dev mode (`.next-dev`),
+and embeds the freshly exported assets in the executable. It creates a binary
+for your current OS/architecture in `dist/`. Build every
 supported 64-bit target with:
 
 ```bash
@@ -336,6 +339,19 @@ Or build selected targets:
 ```bash
 node scripts/build.mjs --target windows/amd64,linux/amd64,darwin/arm64
 ```
+
+Building does not update an already running app. Stop the development backend
+or old release, then run the newly built executable **from the project root**
+to use the same `.env`, database, and storage as dev mode. For Linux amd64:
+
+```bash
+./dist/trynas-linux-amd64
+```
+
+Launching from inside `dist/` uses that directory for relative configuration and
+data paths, which can show a different set of users, settings, and files. Other
+platform binaries are refreshed only when included in the build targets; use
+`--all` to update all six release executables.
 
 Release filenames:
 
