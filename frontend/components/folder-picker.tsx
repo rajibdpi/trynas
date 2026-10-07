@@ -10,6 +10,7 @@ type Listing = {
   items: { name: string; path: string; dir: boolean; writable: boolean }[];
 };
 type PickerProps = {
+  basePath?: string;
   value: string;
   excluded: string[];
   disabled?: boolean;
@@ -60,8 +61,8 @@ export function FolderPicker(props: PickerProps) {
         <ul>
           <FolderBranch
             {...props}
-            path=""
-            name="Storage root"
+            path={props.basePath || ""}
+            name={props.basePath ? "Home" : "Storage root"}
             initialPath={initialPath}
             writable={true}
           />

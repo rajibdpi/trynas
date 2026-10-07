@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"
@@ -29,13 +29,17 @@ import (
 )
 
 type App struct {
-	db          *sql.DB
-	root, trash string
-	mutation    sync.Mutex
-	metrics     sync.Mutex
-	networkLast map[string]networkSample
-	smartCached map[string]any
-	smartAt     time.Time
+	db             *sql.DB
+	root, trash    string
+	mutation       sync.Mutex
+	metrics        sync.Mutex
+	attempts       attemptLimiter
+	providers      providerState
+	archives       sync.Mutex
+	activeArchives int
+	networkLast    map[string]networkSample
+	smartCached    map[string]any
+	smartAt        time.Time
 }
 type User struct {
 	ID       int    `json:"id"`
@@ -47,13 +51,31 @@ type ctxKey string
 const userKey ctxKey = "user"
 
 func main() {
+	if err := loadConfig(); err != nil {
+		log.Fatal(err)
+	}
 	dbPath := env("DB_PATH", "./data/trynas.db")
 	root := env("STORAGE_ROOT", "./storage")
+	var pathErr error
+	root, pathErr = filepath.Abs(root)
+	if pathErr != nil {
+		log.Fatal(pathErr)
+	}
+	dbPath, pathErr = filepath.Abs(dbPath)
+	if pathErr != nil {
+		log.Fatal(pathErr)
+	}
 	trash := filepath.Join(root, ".trynas-trash")
-	_ = os.MkdirAll(filepath.Dir(dbPath), 0755)
-	_ = os.MkdirAll(root, 0755)
-	_ = os.MkdirAll(trash, 0700)
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&_busy_timeout=5000&_journal_mode=WAL")
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0700); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.MkdirAll(root, 0755); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.MkdirAll(trash, 0700); err != nil {
+		log.Fatal(err)
+	}
+	db, err := openDatabase(dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +88,7 @@ func main() {
 	}
 	a.monitorNetwork()
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+	r.Use(middleware.RequestID, middleware.Recoverer)
 	r.Use(a.cors)
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, map[string]any{"ok": true, "name": "TryNAS", "version": "5.0.0"})
@@ -76,6 +98,14 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(a.auth)
 		r.Use(a.guard)
+		r.Get("/api/preferences", a.settings)
+		r.Get("/api/storage/providers", a.storageProviders)
+		r.Get("/api/storage/files", a.remoteStorage)
+		r.Post("/api/storage/files", a.remoteStorage)
+		r.Post("/api/storage/upload", a.remoteStorage)
+		r.Post("/api/storage/providers", a.storageProviders)
+		r.Get("/api/settings", a.settings)
+		r.Post("/api/settings", a.settings)
 		r.Get("/api/users", a.users)
 		r.Post("/api/users", a.saveUser)
 		r.Delete("/api/users/{id}", a.deleteUser)
@@ -109,9 +139,12 @@ func main() {
 		r.Delete("/api/shares/{id}", a.deleteShare)
 	})
 	r.Get("/s/{token}", a.publicShare)
-	addr := env("ADDR", ":8080")
+	r.Post("/s/{token}", a.publicShare)
+	r.Handle("/*", embeddedFrontend())
+	addr := env("ADDR", "127.0.0.1:8080")
 	log.Printf("TryNAS v5 API %s storage=%s", addr, root)
-	log.Fatal(http.ListenAndServe(addr, r))
+	server := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 15 * time.Minute, WriteTimeout: 15 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
+	log.Fatal(server.ListenAndServe())
 }
 func env(k, d string) string {
 	if v := os.Getenv(k); v != "" {
@@ -135,7 +168,11 @@ func (a *App) migrate() error {
 		return err
 	}
 	if n == 0 {
-		h, err := bcrypt.GenerateFromPassword([]byte(env("ADMIN_PASSWORD", "admin123!")), 12)
+		password := env("ADMIN_PASSWORD", "")
+		if len(password) < 12 || len(password) > 72 || (password == "change-this-now" || password == "replace-with-a-strong-random-password") {
+			return fmt.Errorf("set ADMIN_PASSWORD to a strong 12–72 byte password before first startup")
+		}
+		h, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 		if err != nil {
 			return err
 		}
@@ -146,6 +183,9 @@ func (a *App) migrate() error {
 }
 func (a *App) cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !checkBrowserMutation(w, r) {
+			return
+		}
 		o := env("CORS_ORIGIN", "http://localhost:3000")
 		w.Header().Set("Access-Control-Allow-Origin", o)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -166,8 +206,11 @@ func bad(w http.ResponseWriter, s string, c int) { http.Error(w, s, c) }
 func token() string                              { b := make([]byte, 24); _, _ = rand.Read(b); return hex.EncodeToString(b) }
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	var x struct{ Username, Password string }
-	if json.NewDecoder(r.Body).Decode(&x) != nil {
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&x) != nil {
 		bad(w, "bad request", 400)
+		return
+	}
+	if !a.allowAttempt(w, r, "login:"+strings.ToLower(x.Username)) {
 		return
 	}
 	var u User
@@ -178,11 +221,14 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := token()
-	exp := time.Now().Add(7 * 24 * time.Hour)
-	_, _ = a.db.Exec("INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)", t, u.ID, exp)
+	exp := time.Now().UTC().Add(7 * 24 * time.Hour)
+	if _, err = a.db.Exec("INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)", t, u.ID, exp.Format(time.RFC3339Nano)); err != nil {
+		bad(w, "could not create session", 500)
+		return
+	}
 	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Value: t, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: exp, Secure: env("COOKIE_SECURE", "") == "true"})
 	a.log(u.ID, "login", "")
-	jsonOut(w, u)
+	jsonOut(w, a.profile(u))
 }
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 	if c, e := r.Cookie("trynas_session"); e == nil {
@@ -199,7 +245,7 @@ func (a *App) auth(next http.Handler) http.Handler {
 			return
 		}
 		var u User
-		e = a.db.QueryRow(`SELECT u.id,u.username,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>CURRENT_TIMESTAMP`, c.Value).Scan(&u.ID, &u.Username, &u.Role)
+		e = a.db.QueryRow(`SELECT u.id,u.username,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND julianday(s.expires_at)>julianday('now')`, c.Value).Scan(&u.ID, &u.Username, &u.Role)
 		if e != nil {
 			bad(w, "unauthorized", 401)
 			return
@@ -207,7 +253,9 @@ func (a *App) auth(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, u)))
 	})
 }
-func (a *App) me(w http.ResponseWriter, r *http.Request) { jsonOut(w, r.Context().Value(userKey)) }
+func (a *App) me(w http.ResponseWriter, r *http.Request) {
+	jsonOut(w, a.profile(r.Context().Value(userKey).(User)))
+}
 func safe(root, p string) (string, error) {
 	rel, err := cleanPath(p)
 	if err != nil {
@@ -228,6 +276,22 @@ func safe(root, p string) (string, error) {
 		st, err := os.Lstat(current)
 		if err != nil && !os.IsNotExist(err) {
 			return "", err
+		}
+		if err == nil && (runtime.GOOS == "windows" || runtime.GOOS == "darwin") {
+			entries, e := os.ReadDir(filepath.Dir(current))
+			if e != nil {
+				return "", e
+			}
+			exact := false
+			for _, entry := range entries {
+				if entry.Name() == part {
+					exact = true
+					break
+				}
+			}
+			if !exact {
+				return "", fmt.Errorf("use the exact folder and file names shown in the browser")
+			}
 		}
 		if err == nil && st.Mode()&os.ModeSymlink != 0 {
 			return "", fmt.Errorf("symbolic links are not supported")
@@ -469,45 +533,163 @@ func (a *App) toggleFavorite(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) shares(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
-	rows, _ := a.db.Query("SELECT id,path,token,COALESCE(expires_at,''),created_at FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
+	rows, _ := a.db.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]') FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
 	defer rows.Close()
 	out := []map[string]any{}
 	for rows.Next() {
 		var id int
 		var p, tok, exp, created string
-		_ = rows.Scan(&id, &p, &tok, &exp, &created)
-		out = append(out, map[string]any{"id": id, "path": p, "token": tok, "expiresAt": exp, "createdAt": created})
+		var protected bool
+		var pathsJSON string
+		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON)
+		var paths []string
+		_ = json.Unmarshal([]byte(pathsJSON), &paths)
+		if len(paths) == 0 {
+			paths = []string{p}
+		}
+		out = append(out, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected})
 	}
 	jsonOut(w, out)
 }
 func (a *App) createShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
 	var x struct {
-		Path string
-		Days int
+		Path      string
+		Paths     []string
+		Days      int
+		ExpiresAt string
+		Password  string
+		Never     bool
 	}
-	_ = json.NewDecoder(r.Body).Decode(&x)
-	if _, e := safe(a.root, x.Path); e != nil {
-		bad(w, "invalid", 400)
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&x); err != nil {
+		bad(w, "invalid share settings", 400)
 		return
 	}
-	if x.Days < 1 || x.Days > 365 {
-		bad(w, "share expiration must be 1–365 days", 400)
+	paths := x.Paths
+	if len(paths) == 0 {
+		paths = []string{x.Path}
+	}
+	if len(paths) > 500 {
+		bad(w, "share at most 500 items", 400)
 		return
 	}
+	var cleaned []string
+	for _, path := range paths {
+		p, err := cleanPath(path)
+		if err != nil {
+			bad(w, "invalid share path", 400)
+			return
+		}
+		if !a.can(u, p, false) {
+			bad(w, "folder permission denied", 403)
+			return
+		}
+		full, err := safe(a.root, p)
+		if err != nil {
+			bad(w, "invalid path", 400)
+			return
+		}
+		st, err := os.Stat(full)
+		if err != nil || (!st.IsDir() && !st.Mode().IsRegular()) {
+			bad(w, "select existing files or folders", 400)
+			return
+		}
+		duplicate := false
+		for _, existing := range cleaned {
+			if existing == p {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			cleaned = append(cleaned, p)
+		}
+	}
+	// A selected folder already includes its selected descendants.
+	paths = nil
+	for _, p := range cleaned {
+		covered := false
+		for _, other := range cleaned {
+			if p != other && under(p, other) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			paths = append(paths, p)
+		}
+	}
+	p := paths[0]
+	var err error
+	now := time.Now().UTC()
+	var expires time.Time
+	if x.Never {
+		if x.ExpiresAt != "" || x.Days != 0 {
+			bad(w, "choose one expiry option", 400)
+			return
+		}
+	} else if x.ExpiresAt != "" {
+		expires, err = time.Parse(time.RFC3339, x.ExpiresAt)
+		if err != nil || !expires.After(now) || expires.After(now.Add(365*24*time.Hour)) {
+			bad(w, "choose a future expiry within 365 days", 400)
+			return
+		}
+	} else {
+		if x.Days < 1 || x.Days > 365 {
+			bad(w, "share expiration must be 1–365 days", 400)
+			return
+		}
+		expires = now.Add(time.Duration(x.Days) * 24 * time.Hour)
+	}
+	var hash []byte
+	if x.Password != "" {
+		if len(x.Password) < 8 || len(x.Password) > 72 {
+			bad(w, "share password must be 8–72 bytes", 400)
+			return
+		}
+		hash, err = bcrypt.GenerateFromPassword([]byte(x.Password), bcrypt.DefaultCost)
+		if err != nil {
+			bad(w, "could not protect share", 500)
+			return
+		}
+	}
+	tx, err := a.db.Begin()
+	if err != nil {
+		bad(w, "could not create share", 500)
+		return
+	}
+	defer tx.Rollback()
 	tok := token()
-	var exp any = nil
-	if x.Days > 0 {
-		exp = time.Now().Add(time.Duration(x.Days) * 24 * time.Hour)
+	var exp any
+	expiryText := ""
+	if !x.Never {
+		exp = expires.UTC().Format("2006-01-02 15:04:05.999")
+		expiryText = expires.UTC().Format(time.RFC3339)
 	}
-	res, e := a.db.Exec("INSERT INTO shares(user_id,path,token,expires_at) VALUES(?,?,?,?)", u.ID, x.Path, tok, exp)
-	if e != nil {
-		bad(w, e.Error(), 500)
+	res, err := tx.Exec("INSERT INTO shares(user_id,path,token,expires_at) VALUES(?,?,?,?)", u.ID, p, tok, exp)
+	if err != nil {
+		bad(w, "could not create share", 500)
 		return
 	}
 	id, _ := res.LastInsertId()
-	a.log(u.ID, "share", x.Path)
-	jsonOut(w, map[string]any{"id": id, "path": x.Path, "token": tok})
+	for _, item := range paths {
+		if _, err = tx.Exec("INSERT INTO share_items(share_id,path) VALUES(?,?)", id, item); err != nil {
+			bad(w, "could not save shared items", 500)
+			return
+		}
+	}
+	if len(hash) > 0 {
+		if _, err = tx.Exec("INSERT INTO share_passwords(share_id,password_hash) VALUES(?,?)", id, string(hash)); err != nil {
+			bad(w, "could not protect share", 500)
+			return
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		bad(w, "could not create share", 500)
+		return
+	}
+	a.log(u.ID, "share", p)
+	jsonOut(w, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": expiryText, "passwordProtected": len(hash) > 0})
 }
 func (a *App) deleteShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
@@ -516,9 +698,10 @@ func (a *App) deleteShare(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 	tok := chi.URLParam(r, "token")
-	var p string
+	var p, passwordHash string
+	var shareID int64
 	var owner User
-	e := a.db.QueryRow("SELECT path,user_id FROM shares WHERE token=? AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)", tok).Scan(&p, &owner.ID)
+	e := a.db.QueryRow("SELECT s.id,s.path,s.user_id,COALESCE(p.password_hash,'') FROM shares s LEFT JOIN share_passwords p ON p.share_id=s.id WHERE s.token=? AND (s.expires_at IS NULL OR julianday(s.expires_at)>julianday('now'))", tok).Scan(&shareID, &p, &owner.ID, &passwordHash)
 	if e == nil {
 		e = a.db.QueryRow("SELECT username,role FROM users WHERE id=?", owner.ID).Scan(&owner.Username, &owner.Role)
 		if e == nil && !a.can(owner, p, false) {
@@ -528,6 +711,26 @@ func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 	if e != nil {
 		bad(w, "share not found or expired", 404)
 		return
+	}
+	paths, err := a.sharePaths(shareID, p)
+	if err != nil {
+		bad(w, "share unavailable", 500)
+		return
+	}
+	for _, item := range paths {
+		if !a.can(owner, item, false) {
+			bad(w, "share access revoked", 404)
+			return
+		}
+		full, err := safe(a.root, item)
+		if err != nil {
+			bad(w, "share unavailable", 404)
+			return
+		}
+		if _, err = os.Stat(full); err != nil {
+			bad(w, "shared item not found", 404)
+			return
+		}
 	}
 	f, e := safe(a.root, p)
 	if e != nil {
@@ -539,8 +742,70 @@ func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 		bad(w, "not found", 404)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if passwordHash != "" && !a.authorizeShare(w, r, shareID, tok, passwordHash) {
+		return
+	}
+	if r.URL.Query().Get("qr") == "1" {
+		serveShareQR(w, r, tok)
+		return
+	}
+	if r.URL.Query().Get("download") != "1" {
+		items, truncated, err := a.listSharedItems(owner, paths)
+		if err != nil {
+			bad(w, "could not list shared items", 500)
+			return
+		}
+		if len(paths) > 1 {
+			serveSharePage(w, r, fmt.Sprintf("%d shared items", len(paths)), 0, true, items, truncated, true)
+		} else {
+			serveSharePage(w, r, filepath.Base(f), st.Size(), st.IsDir(), items, truncated)
+		}
+		return
+	}
+	if _, present := r.URL.Query()["item"]; present {
+		item, err := cleanPath(r.URL.Query().Get("item"))
+		if err != nil {
+			bad(w, "invalid item", 400)
+			return
+		}
+		included := false
+		for _, root := range paths {
+			if under(item, root) {
+				included = true
+				break
+			}
+		}
+		if !included || !a.can(owner, item, false) {
+			bad(w, "item not shared", 404)
+			return
+		}
+		full, err := safe(a.root, item)
+		if err != nil {
+			bad(w, "item not shared", 404)
+			return
+		}
+		info, err := os.Stat(full)
+		if err != nil {
+			bad(w, "item not found", 404)
+			return
+		}
+		if info.IsDir() {
+			a.downloadSharedFolder(w, r, owner, item, full)
+			return
+		}
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filepath.Base(full)}))
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		http.ServeFile(w, r, full)
+		return
+	}
+	if len(paths) > 1 {
+		a.downloadSharedItems(w, r, owner, paths, "shared-items.zip")
+		return
+	}
 	if st.IsDir() {
-		bad(w, "folder shares are not downloadable in V3", 400)
+		a.downloadSharedFolder(w, r, owner, p, f)
 		return
 	}
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filepath.Base(f)}))

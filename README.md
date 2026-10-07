@@ -2,14 +2,48 @@
 
 TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.js, Tailwind CSS, shadcn/ui-compatible components, Go, and SQLite.
 
-## Native package policy
+## Run frontend and backend with one command
 
-This package intentionally contains **no Dockerfile and no docker-compose.yml**. Run the Go API and Next.js frontend directly on Linux/macOS/WSL. Docker can be added later as a separate deployment layer.
+From the project root:
+
+```bash
+./run-dev.sh
+```
+
+This starts the Go backend and Next.js frontend together. Open
+**http://localhost:3000**; the API runs at **http://localhost:8080** by default.
+Press **Ctrl+C** to stop both servers. If either server exits, the other stops
+automatically. Stop any existing TryNAS servers before running this command.
+
+Development requires Go, Node.js and pnpm (see [Build requirements](#build-requirements)).
+The scripts load `.env` when present and install frontend dependencies if needed.
+For the default development ports, set `CORS_ORIGIN=http://localhost:3000` and
+`NEXT_PUBLIC_API_URL=http://localhost:8080` in `.env`.
+
+## Run the standalone app
+
+With the standalone Linux AMD64 binary built, run from the project root:
+
+```bash
+./dist/trynas-linux-amd64 -config .env
+```
+
+This starts both the web UI and API using the project's configuration, database
+and storage paths. Open **http://localhost:8080** (or the port configured in
+`.env`). Press **Ctrl+C** in the terminal to stop the app.
+
+If the binary is missing, build it first with `node scripts/build.mjs`.
+See [Standalone application for Windows, Linux and macOS](#standalone-application-for-windows-linux-and-macos)
+for other platforms and build requirements. Stop any development backend before
+starting the standalone app against the same database.
 
 ## Included features
 
-- Responsive NAS dashboard: CPU, RAM, uptime and storage usage
+- Responsive NAS dashboard with live CPU, memory, storage and network traffic graphs
+- Fixed navbar with background blur, file search and a profile/logout dropdown
+- Collapsible sidebar with icon-only navigation
 - File/folder browser with list and grid views
+- Double-click to open and Ctrl-click to select files and folders
 - Multi-file upload and drag & drop
 - Recursive search
 - Create folder, rename, copy, move and ZIP
@@ -17,7 +51,7 @@ This package intentionally contains **no Dockerfile and no docker-compose.yml**.
 - Downloads
 - Favorites in SQLite
 - Trash, restore and permanent delete
-- Expiring public share links
+- File and folder share links with optional passwords, exact expiry times and downloadable QR codes
 - SQLite-backed revocable sessions
 - Audit/activity log
 - Filesystem path-traversal protection
@@ -30,7 +64,10 @@ This package intentionally contains **no Dockerfile and no docker-compose.yml**.
 - Database: SQLite in WAL mode
 - Storage: native local/Linux filesystem
 
-## Requirements
+## Build requirements
+
+These tools are needed only to build the standalone executable. Running an
+already-built executable does not require Go, Node.js or pnpm.
 
 - Go 1.27.1 or compatible current Go toolchain
 - Node.js 24+
@@ -61,68 +98,11 @@ ADMIN_USER=admin
 ADMIN_PASSWORD=use-a-long-random-password
 DB_PATH=./data/trynas.db
 STORAGE_ROOT=/mnt/storage
-ADDR=:8080
-CORS_ORIGIN=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:8080
+ADDR=127.0.0.1:8080
 COOKIE_SECURE=false
 ```
 
 For first testing, `STORAGE_ROOT=./storage` is safer. Do not point TryNAS at `/`.
-
-## Run backend
-
-From the project root:
-
-```bash
-./run-backend.sh
-```
-
-API: `http://localhost:8080`
-
-The first startup creates the SQLite database and bootstrap administrator.
-Sign in with `ADMIN_USER` and `ADMIN_PASSWORD` from `.env`. These values only
-initialize the administrator when the database has no users; editing `.env`
-does not change an existing account's password.
-
-## Run frontend
-
-Open a second terminal:
-
-```bash
-./run-frontend.sh
-```
-
-Web UI: `http://localhost:3000`
-
-Or manually:
-
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
-
-## Production native deployment
-
-Build the frontend:
-
-```bash
-cd frontend
-pnpm install
-pnpm build
-pnpm start
-```
-
-Build the backend:
-
-```bash
-cd backend
-go mod download
-go build -o trynas-api .
-./trynas-api
-```
-
-For production, run both processes with systemd and place Nginx/Caddy/Traefik in front with HTTPS. Set `COOKIE_SECURE=true` after HTTPS is enabled.
 
 ## Data layout
 
@@ -134,21 +114,46 @@ TryNAS/
 │   └── trynas.db       # created at runtime
 ├── storage/            # default development storage
 ├── .env
-├── run-backend.sh
-└── run-frontend.sh
+└── dist/               # standalone executables
 ```
 
 Actual NAS files are stored under `STORAGE_ROOT`. SQLite stores application metadata such as users, sessions, favorites, trash metadata, shares and audit logs.
 
 ## Security
 
+The backend defaults to `127.0.0.1:8080` for local access. For LAN or remote
+access, configure the listener explicitly and use HTTPS through a reverse proxy
+with `COOKIE_SECURE=true`. The application does not trust forwarded client-IP
+headers; authentication throttling uses the socket peer address. Behind a proxy,
+that limit is shared by clients using the same proxy connection address.
+
+Configuration and database files are restricted to the service account. New
+sessions store UTC timestamps, and legacy session timestamps are normalized on
+startup. Password attempts are limited to 10 per account/share and 30 per socket
+IP in five minutes. Browser mutations reject untrusted origins, and JSON API
+posts require `application/json`.
+
+Public ZIP downloads allow two concurrent requests, up to 1 GiB of source data
+and ZIP output, and 10,000 archive entries. Requests have a five-minute deadline;
+HTTP transfers have a 15-minute timeout. ZIP delivery releases the mutation lock
+before sending the archive. Larger selections must be split into smaller shares.
+
 Use a strong administrator password, expose only the intended storage directory, and do not expose the development servers directly to the public internet. Use a reverse proxy with HTTPS for remote access.
 
 ## V5 user management and file controls
 
+**Dashboard**, **System & network**, **Activity**, **Users & quotas**,
+**Folder permissions**, **Settings** and **Disk health** are available only to
+administrators. Normal users land on **Files** and see Files, Favorites,
+Shared links and Trash. Restricted pages redirect them to Files, and the
+corresponding backend APIs reject non-admin access.
+
 Administrators have **Users & quotas**, **Folder permissions**, and **Disk health**
-sections. Create an account with an 8–72 byte password and grant access to an
-existing folder. Standard users have no access by default. A blank permission
+sections. Creating an account with an 8–72 byte password also creates a home folder named
+after its username and grants that user write access. Usernames must be single
+folder names, and existing storage items cannot be adopted as new home folders.
+Other folders require explicit grants. Editing an existing username does not
+rename its home folder. A blank permission
 path means storage root. Read grants allow browsing, preview, download, copying
 and sharing; write grants also allow uploads and changes. Copying and creating
 ZIPs require write access at the destination. The nearest explicit rule applies
@@ -176,13 +181,92 @@ quota, duplicate-name, or destination-conflict check installs none of that
 request's files. Existing files are never overwritten. Symbolic links and
 reserved `.trynas-*` paths are blocked. Temporary upload data is cleaned up.
 
-Select files with checkboxes or **Select all**, then copy, move, favorite, ZIP,
-or send them to trash. Bulk actions return individual outcomes and preserve
+## Browse and select files
+
+Choose **Files** in the sidebar or open **/files** to access the All files view
+directly. The dashboard remains at **/**.
+
+In list and grid views, use these controls:
+
+| Action | Behavior |
+| --- | --- |
+| Click an item | Leave selection unchanged |
+| Ctrl-click | Add or remove an individual file or folder from the selection |
+| Shift-click | Select a range from the last clicked item |
+| Ctrl + Shift-click | Add a range to the existing selection |
+| Double-click | Open a folder or preview a file |
+
+Use **Ctrl-click** to select individual items. Once an item is selected,
+**Select all** appears to select all visible items. **Shift-click** selects a
+range in the displayed order; **Ctrl + Shift-click** adds that range to the
+selection. Plain click sets the range anchor without changing selection.
+Selection clears when changing folders or search terms.
+Focus an item's name and press **Enter** or **Space**
+to open it with the keyboard. Favorites also open on double-click.
+
+Use the search field beside **Upload** in the file browser header, or enter at
+least two characters in the navbar search and press **Enter** to open results.
+Search includes descendants of the current folder. List/grid toggles, Folder
+and Refresh controls are also in the file browser header.
+
+Select items, then copy, move, favorite, ZIP, or send them to trash.
+Bulk actions return individual outcomes and preserve
 failed selections for retry. Each ZIP action creates one archive per selected
 item. Right-click or use the three-dot button for a keyboard-accessible Radix
 context/dropdown menu. Forms, confirmations and previews use Radix dialogs
 styled with the app's shadcn-compatible component system. Appearance follows
-the system theme initially; the sun/moon button persists your chosen theme.
+the system theme initially; the navbar's sun/moon button persists your chosen theme.
+
+The navbar stays fixed with a blurred background. Its panel toggle collapses
+the desktop sidebar to icons or expands it; on mobile it opens or closes
+navigation. The account dropdown offers **Profile** and **Logout**.
+
+Action notifications appear as shared toasts at the bottom right, including
+copied links, uploads, moves and deletions. Toasts dismiss automatically or with
+the close button; hovering or focusing a toast pauses dismissal.
+
+Dashboard cards show rolling 60-second graphs. CPU, memory and storage update
+every five seconds; network traffic updates every three seconds, with separate
+download and upload lines. Hover over graph points for measured values. Storage
+shows your quota usage, with an automatic bytes-used scale for unlimited quotas.
+
+## Settings
+
+Administrators can open **Settings** from the sidebar or visit **/settings**.
+Save the workspace app name, default list/grid file view and default share expiry
+(Never, 1, 7, 15 or 30 days). Settings persist in SQLite and supply defaults for
+all users; existing share links retain their own expiry. Other users pick up
+changed defaults when they reload the app.
+
+The page also displays the active storage root, listen address, frontend origin,
+secure-cookie mode and SMART sudo setting. Change those values in `.env` and
+restart the backend. Passwords and other secrets are not displayed on this page.
+
+## Share files and folders
+
+Choose **Share link** from a file or folder's menu. Under **Expires at**, choose
+**Never**, **1 day**, **7 days**, **15 days**, **30 days**, or **Custom**. Custom
+shows a date/time picker in your local timezone, up to 365 days ahead. Optionally
+set an 8–72 byte password; leave it blank for access through the link alone.
+
+Recipients open the shared page and enter the password when required. The page
+lists shared files and folders, including readable folder contents, with names,
+types and individual download buttons. Files
+download directly; folders download as ZIP archives containing only items the
+share owner can read. Reserved paths and symbolic links are excluded. The page
+also offers a downloadable QR code for the link. Protected shares remain
+password-protected when opened through their QR code.
+
+To share a selection with one link, **Ctrl-click** the files and folders, then
+choose **Share** in the selection toolbar. **Select all** can include every
+visible item. Set one password and expiry for the entire link. Recipients use
+**Download all (ZIP)** for multiple items. Selected folders include their
+readable contents; overlapping selections are included once. A link supports
+up to 500 selected items. **Shared links** lists the items included in each link.
+
+**Shared links** shows each link's expiry in your local time and whether it is
+password protected. Revoking a link, reaching its expiry or removing the owner's
+access blocks further downloads. Existing links retain their original settings.
 
 ## Hardware monitoring
 
@@ -205,16 +289,6 @@ is described below. SMART health, temperature, power-on hours and NVMe wear are
 shown when available. Missing smartctl, unsupported controllers, virtual disks,
 or insufficient device access show unavailable data rather than a healthy
 reading. SMART indicates drive-reported condition and does not replace backups.
-
-Validation:
-
-```bash
-cd backend
-go test -race ./...
-cd ../frontend
-pnpm exec tsc --noEmit
-pnpm build
-```
 
 ### SMART permission denied
 
@@ -240,3 +314,181 @@ sudo -n /usr/sbin/smartctl -a -j /dev/nvme0 -d nvme
 Adapt the installer allowlist if your devices have different names or controller
 types. To undo, remove `/etc/sudoers.d/trynas-smartctl` with administrator access,
 set `SMART_USE_SUDO=false`, and restart the backend.
+
+## Standalone application for Windows, Linux and macOS
+
+Build once to embed the complete frontend in the Go executable. On the machine
+that builds releases, install Go, Node.js and pnpm, then run from the project root:
+
+```bash
+node scripts/build.mjs
+```
+
+That creates a binary for your current OS/architecture in `dist/`. Build every
+supported 64-bit target with:
+
+```bash
+node scripts/build.mjs --all
+```
+
+Or build selected targets:
+
+```bash
+node scripts/build.mjs --target windows/amd64,linux/amd64,darwin/arm64
+```
+
+Release filenames:
+
+| Platform | Intel/AMD 64-bit | ARM64 |
+| --- | --- | --- |
+| Windows | `trynas-windows-amd64.exe` | `trynas-windows-arm64.exe` |
+| Linux | `trynas-linux-amd64` | `trynas-linux-arm64` |
+| macOS | `trynas-darwin-amd64` | `trynas-darwin-arm64` |
+
+`dist/SHA256SUMS` contains hashes for the built binaries. Each executable embeds
+the HTML, JavaScript, CSS and icons, and uses a pure-Go SQLite driver. The target
+machine does not need Node.js, pnpm, Go, a separate frontend server, or an external
+SQLite installation. Existing SQLite databases remain usable; stop the old API
+before opening the same database with the new executable.
+
+Run the matching binary from the project root using the commands below.
+Relative `DB_PATH` and `STORAGE_ROOT` values resolve from the terminal's current
+working directory. Always launch from the same directory to keep your existing
+database, storage and accounts.
+
+Existing process environment variables override `.env`; CLI flags override both.
+Use `-help` to view supported flags. Set `ADMIN_USER` and `ADMIN_PASSWORD` in
+`.env` before the first launch. Building does **not** bundle your `.env`,
+database, stored files or credentials.
+
+### Troubleshoot login
+
+If login reports **Invalid username or password**, check which database the
+running instance uses. A fresh database requires an explicit strong `ADMIN_PASSWORD` (12–72 bytes).
+Startup rejects missing passwords and the example placeholder. Set administrator
+credentials before initializing a new installation.
+
+`ADMIN_USER` and `ADMIN_PASSWORD` only initialize an empty database. Adding or
+editing `.env` after the first launch does not reset an existing account. Use
+the original configuration and database to keep your existing login, or sign in
+with another administrator and update the user's password in user management.
+Do not delete the database to fix login: it also contains users, permissions,
+shares, and other application records.
+
+### Start and restart the standalone app
+
+Run these commands from the project root to use its `.env`, database and storage.
+Choose the binary matching your operating system and CPU:
+
+| Platform | Start command (AMD64) |
+| --- | --- |
+| Linux | `./dist/trynas-linux-amd64 -config .env` |
+| macOS | `./dist/trynas-darwin-amd64 -config .env` |
+| Windows PowerShell | `.\dist\trynas-windows-amd64.exe -config .env` |
+
+For ARM64, substitute `arm64` for `amd64` (including Apple Silicon Macs).
+Open **http://localhost:8080**, or the port configured by `ADDR` or `-addr`.
+
+To restart:
+
+1. Press **Ctrl+C** in the terminal running the app and wait for it to exit.
+2. If updating the app, replace the executable or rebuild it with
+   `node scripts/build.mjs`.
+3. Run the same start command from the same working directory, with the same
+   configuration and data paths.
+4. Refresh the browser.
+
+Restart after changing runtime configuration in `.env`. Existing account
+passwords remain stored in the database. Keep the server in its terminal so you
+can stop it with **Ctrl+C**; closing the browser does not stop the server.
+
+### Stop or change the server port
+
+Press **Ctrl+C** in the terminal running TryNAS. Start only one server against
+a given database.
+
+If startup reports `bind: address already in use`, stop the existing server or
+choose another port:
+
+```bash
+./dist/trynas-linux-amd64 -config .env -addr :8090
+```
+
+Then open **http://localhost:8090**. Rebuilding an executable does not stop or
+restart an already running server; stop it and launch the new binary.
+
+SMART monitoring is optional and still needs smartmontools plus disk/controller
+access on the target host. `scripts/install-smart-access.sh` and
+`SMART_USE_SUDO=true` are Linux setup options; Windows and macOS require their own
+appropriate device access. Unsupported SMART fields remain unavailable.
+Cross-built Windows/macOS binaries are unsigned; signing/notarization for public
+distribution is a separate release step. macOS Finder launches and Windows GUI
+launches are not managed installers; the app runs as a terminal/server process.
+
+Rebuild with `node scripts/build.mjs` after changing the app to include those
+changes in the standalone executable.
+
+On Windows/macOS, requests must use the exact path spelling returned by the
+file browser so case aliases cannot bypass folder permission rules. Windows
+reserved device names, alternate data streams, and invalid filename characters
+are rejected.
+
+## Storage providers and sync
+
+Administrators can open **Settings → Storage providers** to add Google Drive,
+SMB/CIFS, SFTP, and Amazon S3 or S3-compatible connections. The app embeds
+[rclone Go backends](https://pkg.go.dev/github.com/rclone/rclone/backend); no
+rclone executable is needed on the TryNAS server.
+
+1. Choose a provider, name the connection, and enter the remote directory and credentials.
+2. Click **Test** to verify access to that directory.
+3. Choose the local folder relative to the TryNAS storage root (empty means the root).
+4. Choose **Local → Remote** or **Remote → Local**, then run a preview before transferring.
+
+**Copy** updates files while keeping extra destination files. **Mirror** makes
+the destination match the source and can delete destination files; running it
+requires the deletion confirmation checkbox. These are one-way operations in
+either direction, not automatic two-way conflict resolution. Files and subfolders
+are transferred recursively, including empty directories where supported.
+
+For Google Drive, run `rclone authorize drive` on your computer and paste the
+returned OAuth token JSON. If you use your own OAuth client, supply the same
+client ID and secret in TryNAS. See [Google Drive setup](https://rclone.org/drive/).
+For SMB, use `share/path` as the remote directory. For SFTP, supply a password or
+private key and a trusted `known_hosts` file path on the TryNAS server; host-key
+verification is required. See [SFTP setup](https://rclone.org/sftp/).
+For S3, use `bucket/path`, provide access keys, and set the region and endpoint as
+needed by your provider.
+
+Connections are encrypted with AES-GCM in the database. The generated
+`.trynas-storage.key` beside the database has mode `0600`; back up this key
+securely along with the database, because losing it makes saved connections
+unreadable. Credentials are never returned by the connections API.
+
+One transfer runs at a time, with a 24-hour deadline. Status, transferred bytes,
+file counts, and cancellation are available in Settings. The most recent job is
+saved; jobs interrupted by a server restart must be started again. Transfers hold
+the file-mutation lock to prevent overlapping app writes, and exclude internal
+`.trynas-*` folders. Local symlinks are rejected. Copying files can overwrite
+existing destination content; cancellation does not roll back completed changes.
+
+### Attach providers as storage
+
+In **Settings → Storage providers**, click **Attach as storage** on a saved
+connection. Administrators can then open **All files** and use the **Storage**
+selector to switch between local storage and attached providers. Attachments
+persist across restarts. **Detach storage** removes the provider from the file
+browser without deleting its files or its saved connection.
+
+Attached storage supports direct folder browsing, downloads, uploads, new
+folders, and permanent file/folder deletion. Double-click opens a folder or
+downloads a file; Ctrl/Cmd-click selects, and Shift-click selects a range.
+Search filters the current remote folder. Browser uploads refuse to overwrite
+an existing file. Remote deletion requires confirmation and does not use the
+local trash. Local permissions, quotas, favorites, and public share links apply
+to local storage; attached providers currently remain administrator-only.
+
+Operations use the provider's configured remote directory as their root. One
+direct remote operation runs at a time, and sync jobs cannot overlap direct
+remote operations. Provider operations have a 15-minute request deadline;
+failures may leave completed uploads or deletions in place.
