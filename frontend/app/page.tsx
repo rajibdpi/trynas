@@ -23,8 +23,6 @@ import {
   Home,
   Link2,
   List,
-  LogOut,
-  Menu,
   MoreHorizontal,
   Moon,
   Move,
@@ -65,6 +63,7 @@ import {
 import { cn } from "@/lib/utils";
 import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
+import { CommonNavbar } from "@/components/common-navbar";
 
 type User = {
  home?: string;
@@ -189,12 +188,14 @@ export default function Page() {
     [username, setUsername] = useState("admin"),
     [password, setPassword] = useState(""),
     [loginError, setLoginError] = useState(""),
-    [signing, setSigning] = useState(false);
+    [signing, setSigning] = useState(false),
+    [signingOut, setSigningOut] = useState(false);
   const [tab, setTab] = useState("dashboard"),
     [path, setPath] = useState(""),
     [pathHistory, setPathHistory] = useState<string[]>([]),
     [forwardHistory, setForwardHistory] = useState<string[]>([]),
     [mobile, setMobile] = useState(false),
+    [sidebarCollapsed, setSidebarCollapsed] = useState(false),
     [dark, setDark] = useState(false),
     [notice, setNotice] = useState(""),
     [command, setCommand] = useState<Command | null>(null),
@@ -444,33 +445,52 @@ export default function Page() {
       break;
   }
   return (
-    <div className="app-shell min-h-screen md:grid md:grid-cols-[260px_1fr]">
+    <div className={cn("app-shell min-h-screen pt-18 md:grid", sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[260px_minmax(0,1fr)]")}>
+      <CommonNavbar
+        user={me}
+        dark={dark}
+        signingOut={signingOut}
+        sidebarCollapsed={sidebarCollapsed}
+        mobileOpen={mobile}
+        onToggleSidebar={() => setSidebarCollapsed(value => !value)}
+        onToggleTheme={toggleTheme}
+        onOpenNavigation={() => setMobile(value => !value)}
+        onHome={() => { setTab("dashboard"); setMobile(false); }}
+        onLogout={() => {
+          setSigningOut(true);
+          void api("/api/auth/logout", { method: "POST" })
+            .then(() => {
+              setMe(null);
+              setPath("");
+              setPathHistory([]);
+              setForwardHistory([]);
+              setTab("dashboard");
+              setMobile(false);
+              setCommand(null);
+              setPreview(null);
+              setNotice("");
+            })
+            .catch((e) => notify(message(e)))
+            .finally(() => setSigningOut(false));
+        }}
+      />
       {mobile && (
         <button
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          className="fixed inset-x-0 bottom-0 top-18 z-30 bg-black/50 md:hidden"
           aria-label="Close navigation"
           onClick={() => setMobile(false)}
         />
       )}
       <aside
+        id="workspace-sidebar"
         className={cn(
-          "app-sidebar fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col p-5 md:sticky md:top-0 md:h-screen",
+          "app-sidebar fixed bottom-0 top-18 left-0 z-40 flex w-[260px] flex-col overflow-y-auto p-5 md:sticky md:top-18 md:h-[calc(100vh-4.5rem)]",
           mobile ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          sidebarCollapsed && "sidebar-collapsed md:w-[76px] md:px-3",
         )}
       >
-        <div className="flex items-center gap-2 px-3 py-4 text-xl font-bold">
-          <span className="brand-mark">
-            <HardDrive className="size-5" />
-          </span>
-          <span>
-            TryNAS
-            <span className="block text-[10px] font-medium uppercase tracking-[.2em] text-slate-400">
-              Your personal cloud
-            </span>
-          </span>
-        </div>
         <nav
-          className="mt-7 flex-1 space-y-1 overflow-auto"
+          className="flex-1 space-y-1 overflow-auto"
           aria-label="Main navigation"
         >
           {nav
@@ -478,7 +498,7 @@ export default function Page() {
             .map((x) => (
               <div key={x.id}>
                 {["dashboard", "system", "users"].includes(x.id) && (
-                  <p className="nav-group">
+                  <p className={cn("nav-group", sidebarCollapsed && "md:hidden")}>
                     {x.id === "dashboard"
                       ? "Workspace"
                       : x.id === "system"
@@ -487,24 +507,27 @@ export default function Page() {
                   </p>
                 )}
                 <button
+                  aria-label={x.label}
+                  title={sidebarCollapsed ? x.label : undefined}
                   aria-current={tab === x.id ? "page" : undefined}
                   className={cn(
                     "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
                     tab === x.id && "is-active",
+                    sidebarCollapsed && "md:justify-center md:px-0",
                   )}
                   onClick={() => {
                     setTab(x.id);
                     setMobile(false);
                   }}
                 >
-                  <x.icon className="size-4" />
-                  <span>{x.label}</span>
+                  <x.icon className="size-4 shrink-0" />
+                  <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
                 </button>
               </div>
             ))}
         </nav>
         {quota.data && (
-          <div className="sidebar-quota">
+          <div className={cn("sidebar-quota", sidebarCollapsed && "md:hidden")}>
             <div className="mb-3 flex items-center gap-2 text-xs font-medium">
               <HardDrive className="size-4" />
               Your storage
@@ -522,55 +545,9 @@ export default function Page() {
             </p>
           </div>
         )}
-        <div className="mt-5 border-t border-white/10 pt-4">
-          <div className="flex items-center gap-2">
-            <span className="user-avatar">
-              {me.username.slice(0, 1).toUpperCase()}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{me.username}</p>
-              <p className="text-xs text-muted-foreground">{me.role}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Toggle dark mode"
-              onClick={toggleTheme}
-            >
-              {dark ? <Sun /> : <Moon />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Sign out"
-              onClick={() =>
-                void api("/api/auth/logout", { method: "POST" })
-                  .then(() => {
-                    setMe(null);
-                    setPath("");
-                    setPathHistory([]);
-                    setForwardHistory([]);
-                    setTab("dashboard");
-                  })
-                  .catch((e) => notify(message(e)))
-              }
-            >
-              <LogOut />
-            </Button>
-          </div>
-        </div>
       </aside>
       <main className="workspace min-w-0 p-4 md:px-9 md:py-7 xl:px-12">
         <header className="workspace-header mb-8 flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            className="md:hidden"
-            aria-label="Open navigation"
-            onClick={() => setMobile(true)}
-          >
-            <Menu />
-          </Button>
           <div>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">
               Workspace /{" "}

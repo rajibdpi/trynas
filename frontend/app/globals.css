@@ -201,8 +201,8 @@ input[type="radio"] {
   height: 32px;
   flex-shrink: 0;
   border-radius: 10px;
-  background: var(--sidebar-active);
-  color: var(--sidebar-active-text);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
   font-size: 13px;
   font-weight: 600;
 }
@@ -236,6 +236,11 @@ input[type="radio"] {
   width: 100%;
   max-width: 1700px;
   margin: 0 auto;
+}
+.common-navbar {
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
 }
 .workspace-header {
   padding-bottom: 24px;
