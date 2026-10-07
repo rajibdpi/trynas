@@ -348,8 +348,8 @@ input[type="radio"] {
 .document-icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
   border-radius: 11px;
 }

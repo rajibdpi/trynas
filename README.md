@@ -160,6 +160,9 @@ reserved `.trynas-*` paths are blocked. Temporary upload data is cleaned up.
 
 ## Browse and select files
 
+Choose **Files** in the sidebar or open **/files** to access the All files view
+directly. The dashboard remains at **/**.
+
 In list and grid views, use these controls:
 
 | Action | Behavior |

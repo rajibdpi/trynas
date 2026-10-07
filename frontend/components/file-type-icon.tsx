@@ -19,8 +19,8 @@ export function FileTypeIcon({ name }: { name: string }) {
   const type = types.find(type => type.extensions.includes(extension));
   const Icon = type?.icon || File;
   const label = type?.label || "File";
-  return <span title={extension ? `${label} (.${extension})` : label} className={`grid size-[38px] shrink-0 place-items-center rounded-[11px] ${type?.color || "text-primary"} ${type?.background || "bg-primary/10"}`}>
-    <Icon className="size-5" aria-hidden="true" />
+  return <span title={extension ? `${label} (.${extension})` : label} className={`grid size-12 shrink-0 place-items-center rounded-xl ${type?.color || "text-primary"} ${type?.background || "bg-primary/10"}`}>
+    <Icon className="size-7" aria-hidden="true" />
     <span className="sr-only">{label}</span>
   </span>;
 }
