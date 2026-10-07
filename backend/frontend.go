@@ -36,7 +36,7 @@ func staticFrontend(assets fs.FS) http.Handler {
 			}
 		}
 		info, err := fs.Stat(assets, name)
-		if err != nil && path.Ext(name) == "" {
+		if (err != nil || info.IsDir()) && path.Ext(name) == "" {
 			if page, pageErr := fs.Stat(assets, name+".html"); pageErr == nil && !page.IsDir() {
 				name += ".html"
 				info, err = page, nil

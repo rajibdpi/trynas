@@ -9,16 +9,19 @@ import (
 
 func TestEmbeddedStaticServing(t *testing.T) {
 	handler := staticFrontend(fstest.MapFS{
-		"index.html":          {Data: []byte("<!doctype html><h1>TryNAS</h1>")},
-		"files.html":          {Data: []byte("<!doctype html><h1>All files</h1>")},
-		"_next/static/app.js": {Data: []byte("console.log('app')")},
-		"assets/private.txt":  {Data: []byte("fixture")},
-		".env":                {Data: []byte("must never serve")},
+		"index.html":                {Data: []byte("<!doctype html><h1>TryNAS</h1>")},
+		"files/__next._tree.txt":    {Data: []byte("RSC payload")},
+		"settings/__next._tree.txt": {Data: []byte("RSC payload")},
+		"settings.html":             {Data: []byte("<!doctype html><h1>Settings</h1>")},
+		"files.html":                {Data: []byte("<!doctype html><h1>All files</h1>")},
+		"_next/static/app.js":       {Data: []byte("console.log('app')")},
+		"assets/private.txt":        {Data: []byte("fixture")},
+		".env":                      {Data: []byte("must never serve")},
 	})
 	for _, test := range []struct {
 		path   string
 		status int
-	}{{"/", 200}, {"/files", 200}, {"/files/", 200}, {"/_next/static/app.js", 200}, {"/api/missing", 404}, {"/s/missing", 404}, {"/.env", 404}, {"/assets/", 404}, {"/missing", 404}} {
+	}{{"/", 200}, {"/files", 200}, {"/files/", 200}, {"/settings", 200}, {"/settings/", 200}, {"/_next/static/app.js", 200}, {"/api/missing", 404}, {"/s/missing", 404}, {"/.env", 404}, {"/assets/", 404}, {"/missing", 404}} {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, httptest.NewRequest("GET", test.path, nil))
 		if w.Code != test.status {
@@ -29,6 +32,9 @@ func TestEmbeddedStaticServing(t *testing.T) {
 		}
 		if strings.HasPrefix(test.path, "/files") && !strings.Contains(w.Body.String(), "All files") {
 			t.Fatal("files route served wrong page")
+		}
+		if strings.HasPrefix(test.path, "/settings") && !strings.Contains(w.Body.String(), "Settings") {
+			t.Fatal("settings route served wrong page")
 		}
 		if test.path == "/_next/static/app.js" && !strings.Contains(w.Header().Get("Cache-Control"), "immutable") {
 			t.Fatal("hashed asset is not cached")

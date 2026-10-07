@@ -16,3 +16,5 @@ backend/web/*
 dist/
 
 .trynas-storage.key
+
+frontend/.next-dev/
