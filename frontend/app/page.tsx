@@ -1457,6 +1457,15 @@ function FileBrowser({
                   onClick={(event) => {
                     const target = event.target as HTMLElement;
                     if (
+                      event.detail > 1 ||
+                      !event.currentTarget.contains(target) ||
+                      target.closest("button, input, label, a, [role='menuitem']")
+                    ) return;
+                    toggle(item.path);
+                  }}
+                  onDoubleClick={(event) => {
+                    const target = event.target as HTMLElement;
+                    if (
                       !event.currentTarget.contains(target) ||
                       target.closest("button, input, label, a, [role='menuitem']")
                     ) return;
@@ -1491,7 +1500,12 @@ function FileBrowser({
                     )}
                     <button
                       className="min-w-0 text-left"
-                      onClick={() => openItem(item)}
+                      title={`Double-click to open ${item.name}`}
+                      onDoubleClick={() => openItem(item)}
+                      onClick={(event) => {
+                        if (event.detail === 0) openItem(item);
+                        else if (event.detail === 1) toggle(item.path);
+                      }}
                     >
                       <span className="block truncate text-sm font-medium">
                         {item.name}
@@ -2044,7 +2058,11 @@ function FavoritesPanel({
             <Star className="size-4 text-amber-500" />
             <button
               className="flex-1 break-all text-left text-sm"
-              onClick={() => openPath(item.path)}
+              title="Double-click to open"
+              onDoubleClick={() => openPath(item.path)}
+              onClick={(event) => {
+                if (event.detail === 0) openPath(item.path);
+              }}
             >
               {item.path}
             </button>
