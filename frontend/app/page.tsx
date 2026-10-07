@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils";
 import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { CommonNavbar } from "@/components/common-navbar";
+import { selectFiles } from "@/lib/file-selection";
 import { NetworkTrafficGraph, type TrafficSample } from "@/components/network-traffic-graph";
 import { UsageGraph, HistoryGraph, type UsageSample, type HistorySample } from "@/components/usage-graph";
 
@@ -956,6 +957,7 @@ function FileBrowser({
       : null,
   );
   const input = useRef<HTMLInputElement>(null),
+    selectionAnchor = useRef<string | null>(null),
     controller = useRef<AbortController | null>(null),
     dragDepth = useRef(0);
   const [draggingFiles, setDraggingFiles] = useState(false);
@@ -966,9 +968,11 @@ function FileBrowser({
   }, [query]);
   useEffect(() => {
     setSelected([]);
+    selectionAnchor.current = null;
   }, [path]);
   useEffect(() => {
     setSelected([]);
+    selectionAnchor.current = null;
   }, [debounced]);
   useEffect(() => () => controller.current?.abort(), []);
   const items =
@@ -980,6 +984,7 @@ function FileBrowser({
       ) || [],
     );
     setSelected((old) => old.filter((p) => visible.has(p)));
+    if (selectionAnchor.current && !visible.has(selectionAnchor.current)) selectionAnchor.current = null;
   }, [listing.data, search.data, debounced]);
   const writable = listing.data?.writable || false;
   const reload = async () => {
@@ -1184,10 +1189,12 @@ function FileBrowser({
       if (input.current) input.current.value = "";
     }
   };
-  const toggle = (p: string) =>
-    setSelected((old) =>
-      old.includes(p) ? old.filter((x) => x !== p) : [...old, p],
-    );
+  const selectItem = (p: string, event: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }, checkbox = false) => {
+    const anchor = selectionAnchor.current;
+    const modifiers = { shift: event.shiftKey, additive: checkbox || event.ctrlKey || event.metaKey };
+    setSelected(old => selectFiles(items.map(item => item.path), old, p, anchor, modifiers).selected);
+    if (!event.shiftKey || anchor === null || !items.some(item => item.path === anchor)) selectionAnchor.current = p;
+  };
   const all = items.length > 0 && items.every((x) => selected.includes(x.path));
   return (
     <Card
@@ -1429,7 +1436,7 @@ function FileBrowser({
                 <Trash2 />
                 Trash
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelected([])}>
+              <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }}>
                 Clear
               </Button>
             </>
@@ -1461,7 +1468,7 @@ function FileBrowser({
                       !event.currentTarget.contains(target) ||
                       target.closest("button, input, label, a, [role='menuitem']")
                     ) return;
-                    toggle(item.path);
+                    selectItem(item.path, event);
                   }}
                   onDoubleClick={(event) => {
                     const target = event.target as HTMLElement;
@@ -1472,7 +1479,7 @@ function FileBrowser({
                     openItem(item);
                   }}
                   className={cn(
-                    "file-item cursor-pointer rounded-xl p-3",
+                    "file-item cursor-pointer select-none rounded-xl p-3",
                     view === "grid" ? "file-tile border" : "file-row",
                     selected.includes(item.path) &&
                       "border-primary bg-primary/5",
@@ -1489,7 +1496,8 @@ function FileBrowser({
                       type="checkbox"
                       aria-label={`Select ${item.name}`}
                       checked={selected.includes(item.path)}
-                      onChange={() => toggle(item.path)}
+                      onClick={(event) => selectItem(item.path, event, true)}
+                      onChange={() => {}}
                     />
                     {item.dir ? (
                       <span className="folder-icon">
@@ -1500,11 +1508,12 @@ function FileBrowser({
                     )}
                     <button
                       className="min-w-0 text-left"
+                      aria-pressed={selected.includes(item.path)}
                       title={`Double-click to open ${item.name}`}
                       onDoubleClick={() => openItem(item)}
                       onClick={(event) => {
                         if (event.detail === 0) openItem(item);
-                        else if (event.detail === 1) toggle(item.path);
+                        else if (event.detail === 1) selectItem(item.path, event);
                       }}
                     >
                       <span className="block truncate text-sm font-medium">
