@@ -2,9 +2,22 @@
 
 TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.js, Tailwind CSS, shadcn/ui-compatible components, Go, and SQLite.
 
-## Native package policy
+## Run with one command
 
-This package intentionally contains **no Dockerfile and no docker-compose.yml**. Run the Go API and Next.js frontend directly on Linux/macOS/WSL. Docker can be added later as a separate deployment layer.
+With the standalone Linux AMD64 binary built, run from the project root:
+
+```bash
+./dist/trynas-linux-amd64 -config .env
+```
+
+This starts both the web UI and API using the project's configuration, database
+and storage paths. Open **http://localhost:8080** (or the port configured in
+`.env`). Press **Ctrl+C** in the terminal to stop the app.
+
+If the binary is missing, build it first with `node scripts/build.mjs`.
+See [Standalone application for Windows, Linux and macOS](#standalone-application-for-windows-linux-and-macos)
+for other platforms and build requirements. Stop any development backend before
+starting the standalone app against the same database.
 
 ## Included features
 
@@ -30,7 +43,10 @@ This package intentionally contains **no Dockerfile and no docker-compose.yml**.
 - Database: SQLite in WAL mode
 - Storage: native local/Linux filesystem
 
-## Requirements
+## Build requirements
+
+These tools are needed only to build the standalone executable. Running an
+already-built executable does not require Go, Node.js or pnpm.
 
 - Go 1.27.1 or compatible current Go toolchain
 - Node.js 24+
@@ -62,85 +78,10 @@ ADMIN_PASSWORD=use-a-long-random-password
 DB_PATH=./data/trynas.db
 STORAGE_ROOT=/mnt/storage
 ADDR=:8080
-CORS_ORIGIN=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:8080
 COOKIE_SECURE=false
 ```
 
 For first testing, `STORAGE_ROOT=./storage` is safer. Do not point TryNAS at `/`.
-
-## Run backend
-
-From the project root:
-
-```bash
-./run-backend.sh
-```
-
-API: `http://localhost:8080`
-
-The first startup creates the SQLite database and bootstrap administrator.
-Sign in with `ADMIN_USER` and `ADMIN_PASSWORD` from `.env`. These values only
-initialize the administrator when the database has no users; editing `.env`
-does not change an existing account's password.
-
-## Run frontend
-
-Open a second terminal:
-
-```bash
-./run-frontend.sh
-```
-
-Web UI: `http://localhost:3000`
-
-Or manually:
-
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
-
-## Restart development servers
-
-Press **Ctrl+C** in each running server terminal. From the project root, start
-the backend again in one terminal and the frontend in another:
-
-```bash
-./run-backend.sh
-```
-
-```bash
-./run-frontend.sh
-```
-
-Open **http://localhost:3000**. Restart the backend after backend configuration
-changes; restart the frontend after changing `NEXT_PUBLIC_API_URL`. These
-development scripts require Go and Node.js/pnpm and are intended for Linux/macOS.
-For Windows, use the standalone executable described below.
-
-## Production native deployment
-
-Build the frontend:
-
-```bash
-cd frontend
-pnpm install
-pnpm build
-pnpm start
-```
-
-Build the backend:
-
-```bash
-cd backend
-go mod download
-go build -o trynas-api .
-./trynas-api
-```
-
-For production, run both processes with systemd and place Nginx/Caddy/Traefik in front with HTTPS. Set `COOKIE_SECURE=true` after HTTPS is enabled.
 
 ## Data layout
 
@@ -152,8 +93,7 @@ TryNAS/
 │   └── trynas.db       # created at runtime
 ├── storage/            # default development storage
 ├── .env
-├── run-backend.sh
-└── run-frontend.sh
+└── dist/               # standalone executables
 ```
 
 Actual NAS files are stored under `STORAGE_ROOT`. SQLite stores application metadata such as users, sessions, favorites, trash metadata, shares and audit logs.
@@ -227,16 +167,6 @@ shown when available. Missing smartctl, unsupported controllers, virtual disks,
 or insufficient device access show unavailable data rather than a healthy
 reading. SMART indicates drive-reported condition and does not replace backups.
 
-Validation:
-
-```bash
-cd backend
-go test -race ./...
-cd ../frontend
-pnpm exec tsc --noEmit
-pnpm build
-```
-
 ### SMART permission denied
 
 If the disk cards report `Permission denied`, the API's Linux account cannot
@@ -298,63 +228,15 @@ machine does not need Node.js, pnpm, Go, a separate frontend server, or an exter
 SQLite installation. Existing SQLite databases remain usable; stop the old API
 before opening the same database with the new executable.
 
-Copy the matching binary into a writable application folder, open a terminal
-there, and run it. Linux/macOS example:
-
-```bash
-chmod +x trynas-linux-amd64
-./trynas-linux-amd64
-```
-
-Windows PowerShell:
-
-```powershell
-.\trynas-windows-amd64.exe
-```
-
-Open **http://localhost:8080**. The executable serves both the UI and API.
-Default data paths are `./data/trynas.db` and `./storage`, relative to the working
-directory. Place `.env` in that directory to configure administrator credentials,
-paths and port, or supply a configuration file and path overrides:
-
-```bash
-./trynas-linux-amd64 -config .env -addr :8090 -root /mnt/storage -db ./data/trynas.db
-```
-
-```powershell
-.\trynas-windows-amd64.exe -addr :8090 -root 'D:\NAS' -db '.\data\trynas.db'
-```
+Run the matching binary from the project root using the commands below.
+Relative `DB_PATH` and `STORAGE_ROOT` values resolve from the terminal's current
+working directory. Always launch from the same directory to keep your existing
+database, storage and accounts.
 
 Existing process environment variables override `.env`; CLI flags override both.
-Use `-help` to view supported flags. The embedded build always uses the same
-origin for API requests and share links; `NEXT_PUBLIC_API_URL` is only needed for
-the separate frontend development server. Set `ADMIN_USER` and `ADMIN_PASSWORD`
-in `.env` before the first launch. Existing users and passwords are preserved.
-Building does **not** bundle your `.env`, database, stored files or credentials.
-
-### Use your existing configuration and users
-
-To keep the database and storage used during development, stop the development
-backend, then launch the binary from the project root:
-
-```bash
-cd /path/to/trynas
-./dist/trynas-linux-amd64 -config .env
-```
-
-On macOS, substitute the matching `trynas-darwin-*` binary. On Windows, run from
-the project root in PowerShell:
-
-```powershell
-.\dist\trynas-windows-amd64.exe -config .env
-```
-
-Relative `DB_PATH` and `STORAGE_ROOT` values resolve from the terminal's current
-working directory, even when `-config` points elsewhere. Running inside `dist`
-therefore uses `dist/.env` when present and may create `dist/data/trynas.db` and
-`dist/storage`. That is a separate installation with separate accounts. To run
-from another directory while keeping existing data, supply absolute paths with
-`-config`, `-db`, and `-root`.
+Use `-help` to view supported flags. Set `ADMIN_USER` and `ADMIN_PASSWORD` in
+`.env` before the first launch. Building does **not** bundle your `.env`,
+database, stored files or credentials.
 
 ### Troubleshoot login
 
@@ -388,7 +270,7 @@ To restart:
 
 1. Press **Ctrl+C** in the terminal running the app and wait for it to exit.
 2. If updating the app, replace the executable or rebuild it with
-   `node scripts/build.mjs --all`.
+   `node scripts/build.mjs`.
 3. Run the same start command from the same working directory, with the same
    configuration and data paths.
 4. Refresh the browser.
@@ -399,8 +281,8 @@ can stop it with **Ctrl+C**; closing the browser does not stop the server.
 
 ### Stop or change the server port
 
-Press **Ctrl+C** in the terminal running TryNAS. For development, stop both the
-backend and frontend terminals. Start only one server against a given database.
+Press **Ctrl+C** in the terminal running TryNAS. Start only one server against
+a given database.
 
 If startup reports `bind: address already in use`, stop the existing server or
 choose another port:
@@ -420,9 +302,8 @@ Cross-built Windows/macOS binaries are unsigned; signing/notarization for public
 distribution is a separate release step. macOS Finder launches and Windows GUI
 launches are not managed installers; the app runs as a terminal/server process.
 
-For development, keep using `./run-backend.sh` and `./run-frontend.sh`. Rebuild
-with `scripts/build.mjs` whenever frontend changes should be included in a new
-standalone executable.
+Rebuild with `node scripts/build.mjs` after changing the app to include those
+changes in the standalone executable.
 
 On Windows/macOS, requests must use the exact path spelling returned by the
 file browser so case aliases cannot bypass folder permission rules. Windows
