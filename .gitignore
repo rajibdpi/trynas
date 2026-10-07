@@ -17,6 +17,3 @@ frontend/dist/*
 .trynas-storage.key
 
 frontend/.next-dev/
-
-# TypeScript incremental compilation cache
-*.tsbuildinfo
