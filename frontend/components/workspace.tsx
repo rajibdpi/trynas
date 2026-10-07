@@ -68,6 +68,7 @@ import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { useNotification } from "@/components/notification-provider";
 import { AppSettingsPanel, defaultSettings, type AppSettings } from "@/components/app-settings";
+import { AttachedStorageBrowser } from "@/components/attached-storage-browser";
 import { CommonNavbar } from "@/components/common-navbar";
 import { NetworkTrafficGraph, type TrafficSample } from "@/components/network-traffic-graph";
 import { UsageGraph, HistoryGraph, type UsageSample, type HistorySample } from "@/components/usage-graph";
@@ -471,7 +472,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       );
       break;
     case "files":
-      content = <FileBrowser {...fileProps} />;
+      content = <AttachedStorageBrowser admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
       break;
     case "system":
       content = <SystemPanel sys={sys.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} />;
