@@ -2,7 +2,25 @@
 
 TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.js, Tailwind CSS, shadcn/ui-compatible components, Go, and SQLite.
 
-## Run with one command
+## Run frontend and backend with one command
+
+From the project root:
+
+```bash
+./run-dev.sh
+```
+
+This starts the Go backend and Next.js frontend together. Open
+**http://localhost:3000**; the API runs at **http://localhost:8080** by default.
+Press **Ctrl+C** to stop both servers. If either server exits, the other stops
+automatically. Stop any existing TryNAS servers before running this command.
+
+Development requires Go, Node.js and pnpm (see [Build requirements](#build-requirements)).
+The scripts load `.env` when present and install frontend dependencies if needed.
+For the default development ports, set `CORS_ORIGIN=http://localhost:3000` and
+`NEXT_PUBLIC_API_URL=http://localhost:8080` in `.env`.
+
+## Run the standalone app
 
 With the standalone Linux AMD64 binary built, run from the project root:
 
