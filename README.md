@@ -195,6 +195,10 @@ The navbar stays fixed with a blurred background. Its panel toggle collapses
 the desktop sidebar to icons or expands it; on mobile it opens or closes
 navigation. The account dropdown offers **Profile** and **Logout**.
 
+Action notifications appear as shared toasts at the bottom right, including
+copied links, uploads, moves and deletions. Toasts dismiss automatically or with
+the close button; hovering or focusing a toast pauses dismissal.
+
 Dashboard cards show rolling 60-second graphs. CPU, memory and storage update
 every five seconds; network traffic updates every three seconds, with separate
 download and upload lines. Hover over graph points for measured values. Storage

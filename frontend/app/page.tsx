@@ -63,6 +63,7 @@ import {
 import { cn } from "@/lib/utils";
 import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
+import { useNotification } from "@/components/notification-provider";
 import { CommonNavbar } from "@/components/common-navbar";
 import { NetworkTrafficGraph, type TrafficSample } from "@/components/network-traffic-graph";
 import { UsageGraph, HistoryGraph, type UsageSample, type HistorySample } from "@/components/usage-graph";
@@ -186,6 +187,8 @@ function useResource<T>(url: string | null, interval = 0) {
   return { data, error, reload };
 }
 export default function Page() {
+  const showNotification = useNotification();
+  const notificationVersion = useRef(0);
   const [me, setMe] = useState<User | null>(null),
     [checking, setChecking] = useState(true),
     [username, setUsername] = useState("admin"),
@@ -201,7 +204,6 @@ export default function Page() {
     [mobile, setMobile] = useState(false),
     [sidebarCollapsed, setSidebarCollapsed] = useState(false),
     [dark, setDark] = useState(false),
-    [notice, setNotice] = useState(""),
     [command, setCommand] = useState<Command | null>(null),
     [preview, setPreview] = useState<Item | null>(null);
   const sys = useResource<any>(me ? "/api/system" : null, 5000),
@@ -298,8 +300,13 @@ export default function Page() {
       setSigning(false);
     }
   };
-  const notify = (text: string) => setNotice(text);
-  const ask = (c: Command) => setCommand(c);
+  const notify = (text: string) => { notificationVersion.current++; showNotification(text); };
+  const ask = (c: Command) => setCommand({ ...c, run: async values => {
+    const before = notificationVersion.current;
+    try { await c.run(values); }
+    catch (error) { notify(message(error)); throw error; }
+    if (notificationVersion.current === before) notify(`${c.title} completed`);
+  } });
   const navigateFolder = (next: string) => {
     if (next === path) return;
     setFileQuery("");
@@ -510,7 +517,6 @@ export default function Page() {
               setMobile(false);
               setCommand(null);
               setPreview(null);
-              setNotice("");
             })
             .catch((e) => notify(message(e)))
             .finally(() => setSigningOut(false));
@@ -622,22 +628,6 @@ export default function Page() {
             <RefreshCw />
           </Button>
         </header>
-        {notice && (
-          <div
-            role="status"
-            className="mb-4 flex items-center gap-3 rounded-lg border bg-card p-3 text-sm"
-          >
-            <span className="flex-1 whitespace-pre-wrap">{notice}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Dismiss notification"
-              onClick={() => setNotice("")}
-            >
-              <X />
-            </Button>
-          </div>
-        )}
         {sys.error && <ErrorText text={sys.error} />}
         <section key={tab}>{content}</section>
       </main>
@@ -1000,7 +990,7 @@ function FileBrowser({
     notify(
       failed.length
         ? failed.map((x: any) => `${x.path}: ${x.error}`).join("\n")
-        : `${result.results.length} item(s) updated`,
+        : `${result.results.length} item(s) ${ ({ copy: "copied", move: "moved", trash: "moved to trash", zip: "archived", favorite: "added to favorites" } as Record<string, string>)[action] || "updated" }`,
     );
     setSelected(failed.map((x: any) => x.path));
     await reload();
