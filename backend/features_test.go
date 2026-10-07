@@ -20,7 +20,7 @@ import (
 func setup(t *testing.T) (*App, User, User) {
 	t.Helper()
 	t.Setenv("ADMIN_USER", "test-admin")
-	t.Setenv("ADMIN_PASSWORD", "test-password")
+	t.Setenv("ADMIN_PASSWORD", "test-password-long")
 	root := t.TempDir()
 	db, err := openDatabase(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {

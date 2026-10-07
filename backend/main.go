@@ -29,13 +29,16 @@ import (
 )
 
 type App struct {
-	db          *sql.DB
-	root, trash string
-	mutation    sync.Mutex
-	metrics     sync.Mutex
-	networkLast map[string]networkSample
-	smartCached map[string]any
-	smartAt     time.Time
+	db             *sql.DB
+	root, trash    string
+	mutation       sync.Mutex
+	metrics        sync.Mutex
+	attempts       attemptLimiter
+	archives       sync.Mutex
+	activeArchives int
+	networkLast    map[string]networkSample
+	smartCached    map[string]any
+	smartAt        time.Time
 }
 type User struct {
 	ID       int    `json:"id"`
@@ -62,7 +65,7 @@ func main() {
 		log.Fatal(pathErr)
 	}
 	trash := filepath.Join(root, ".trynas-trash")
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0700); err != nil {
 		log.Fatal(err)
 	}
 	if err := os.MkdirAll(root, 0755); err != nil {
@@ -84,7 +87,7 @@ func main() {
 	}
 	a.monitorNetwork()
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+	r.Use(middleware.RequestID, middleware.Recoverer)
 	r.Use(a.cors)
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, map[string]any{"ok": true, "name": "TryNAS", "version": "5.0.0"})
@@ -132,9 +135,10 @@ func main() {
 	r.Get("/s/{token}", a.publicShare)
 	r.Post("/s/{token}", a.publicShare)
 	r.Handle("/*", embeddedFrontend())
-	addr := env("ADDR", ":8080")
+	addr := env("ADDR", "127.0.0.1:8080")
 	log.Printf("TryNAS v5 API %s storage=%s", addr, root)
-	log.Fatal(http.ListenAndServe(addr, r))
+	server := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 15 * time.Minute, WriteTimeout: 15 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
+	log.Fatal(server.ListenAndServe())
 }
 func env(k, d string) string {
 	if v := os.Getenv(k); v != "" {
@@ -158,7 +162,11 @@ func (a *App) migrate() error {
 		return err
 	}
 	if n == 0 {
-		h, err := bcrypt.GenerateFromPassword([]byte(env("ADMIN_PASSWORD", "admin123!")), 12)
+		password := env("ADMIN_PASSWORD", "")
+		if len(password) < 12 || len(password) > 72 || (password == "change-this-now" || password == "replace-with-a-strong-random-password") {
+			return fmt.Errorf("set ADMIN_PASSWORD to a strong 12–72 byte password before first startup")
+		}
+		h, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 		if err != nil {
 			return err
 		}
@@ -169,6 +177,9 @@ func (a *App) migrate() error {
 }
 func (a *App) cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !checkBrowserMutation(w, r) {
+			return
+		}
 		o := env("CORS_ORIGIN", "http://localhost:3000")
 		w.Header().Set("Access-Control-Allow-Origin", o)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -189,8 +200,11 @@ func bad(w http.ResponseWriter, s string, c int) { http.Error(w, s, c) }
 func token() string                              { b := make([]byte, 24); _, _ = rand.Read(b); return hex.EncodeToString(b) }
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	var x struct{ Username, Password string }
-	if json.NewDecoder(r.Body).Decode(&x) != nil {
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&x) != nil {
 		bad(w, "bad request", 400)
+		return
+	}
+	if !a.allowAttempt(w, r, "login:"+strings.ToLower(x.Username)) {
 		return
 	}
 	var u User
@@ -201,8 +215,11 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := token()
-	exp := time.Now().Add(7 * 24 * time.Hour)
-	_, _ = a.db.Exec("INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)", t, u.ID, exp)
+	exp := time.Now().UTC().Add(7 * 24 * time.Hour)
+	if _, err = a.db.Exec("INSERT INTO sessions(token,user_id,expires_at) VALUES(?,?,?)", t, u.ID, exp.Format(time.RFC3339Nano)); err != nil {
+		bad(w, "could not create session", 500)
+		return
+	}
 	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Value: t, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: exp, Secure: env("COOKIE_SECURE", "") == "true"})
 	a.log(u.ID, "login", "")
 	jsonOut(w, a.profile(u))
@@ -222,7 +239,7 @@ func (a *App) auth(next http.Handler) http.Handler {
 			return
 		}
 		var u User
-		e = a.db.QueryRow(`SELECT u.id,u.username,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>CURRENT_TIMESTAMP`, c.Value).Scan(&u.ID, &u.Username, &u.Role)
+		e = a.db.QueryRow(`SELECT u.id,u.username,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND julianday(s.expires_at)>julianday('now')`, c.Value).Scan(&u.ID, &u.Username, &u.Role)
 		if e != nil {
 			bad(w, "unauthorized", 401)
 			return

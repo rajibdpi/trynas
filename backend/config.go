@@ -20,6 +20,9 @@ func loadConfig() error {
 			explicit = true
 		}
 	})
+	if err := os.Chmod(*config, 0600); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("secure configuration file: %w", err)
+	}
 	if err := godotenv.Load(*config); err != nil && (explicit || !os.IsNotExist(err)) {
 		return fmt.Errorf("load configuration: %w", err)
 	}

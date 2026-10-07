@@ -1,40 +1,32 @@
 # TryNAS security review — 8 October 2026
 
-Scope: source review, configuration/file permission inspection, focused tests on isolated temporary databases, backend test suite, frontend dependency audit and Go govulncheck. This is not a full penetration test. No production credentials or file contents were exposed in the review.
+The eight main findings have been addressed in source and local development configuration. Remote deployment still requires HTTPS and secure cookies. Rebuild existing standalone binaries before deployment to include these fixes.
 
-## Findings
+## Resolved findings
 
-| Priority | Finding | Evidence and impact | Recommended change |
-| --- | --- | --- | --- |
-| High | Configuration and database readable by other local users | `.env` and `data/trynas.db` have mode 0644. The configuration contains credentials; the database contains password hashes and live session/share tokens. Access depends on parent directory permissions. | Restrict both files to 0600 and their directories to the service account; cover SQLite WAL/SHM files and backups too. |
-| High | Session expiry compares timestamp strings | `backend/main.go:225` compares `expires_at > CURRENT_TIMESTAMP`. A focused test confirmed a session expired one hour ago, stored with +0600, still authenticates. | Normalize existing session timestamps to UTC, store UTC for new sessions and compare actual instants. |
-| High | Password attempts are not throttled | Login and protected-share unlock use bcrypt but have no attempt limits or backoff. Login also decodes an unbounded body. | Add bounded request bodies and per-account/share plus connection-based throttling with trusted proxy handling. |
-| Medium | Cross-origin login accepted | An isolated request with an untrusted Origin and `Content-Type: text/plain` successfully logged in and issued a session. CORS controls reading responses, not whether requests execute. SameSite=Lax reduces some authenticated CSRF scenarios but does not substitute for origin/token checks. | Validate Origin/Referer for browser mutations, enforce expected content types and add CSRF protection appropriate to the cookie-based API. |
-| Medium | Public ZIP requests can consume disk and block writes | `downloadSharedItems` creates an uncapped temporary ZIP and holds the global mutation mutex through serving the response. A slow recipient or repeated public-folder requests can block mutations and consume temporary disk. | Bound archive size/concurrency and request duration; release the global lock before sending the completed archive. |
-| Medium | HTTP server lacks timeouts | `http.ListenAndServe` uses a server with no ReadHeaderTimeout, IdleTimeout or other configured resource limits. | Configure an explicit http.Server and suitable proxy/body limits; account for long NAS transfers. |
-| Medium | Unsafe deployment defaults | Current configuration uses `COOKIE_SECURE=false` and `ADDR=:8080`, with plain HTTP available on all interfaces. The bootstrap fallback password is predictable if administrator settings are omitted. This review did not establish public internet exposure. | Use HTTPS and secure cookies, restrict listener/network exposure, and require explicit strong bootstrap credentials. |
-| Medium | Vulnerable RealIP middleware | govulncheck reports reachable RealIP IP-spoofing findings GO-2026-5774, GO-2026-5775 and GO-2026-5777 in chi v5.2.3; the scanner lists v5.3.0 as fixed. This app installs middleware.RealIP. | Upgrade chi and accept forwarding headers only from trusted proxies before relying on client IP for security controls. |
+| Original finding | Resolution |
+| --- | --- |
+| Configuration and database readable by other local users | Configuration, database and SQLite sidecars use mode 0600; the local data directory uses 0700. New database directories use 0700. |
+| Expired sessions accepted because of string comparisons | Existing session timestamps are normalized to UTC; authentication compares actual timestamps with SQLite julianday. New sessions use UTC. |
+| Unlimited password attempts and login body | Login and share unlock bodies are limited to 4 KiB. Attempts are capped at 10 per account/share and 30 per socket IP per five minutes. Forwarded IP headers are not trusted. |
+| Cross-origin login accepted | Browser mutations validate Origin/Referer and reject cross-site requests; JSON API requests enforce application/json. |
+| Unbounded public ZIP creation and long-held mutation lock | Archives are limited to 1 GiB and 10,000 entries, with two concurrent downloads and a five-minute build context. The mutation lock is released before delivery. |
+| No HTTP server timeouts | Header reads are limited to 10 seconds, idle connections to 60 seconds, and reads/writes to 15 minutes. Headers are capped at 1 MiB. |
+| Unsafe deployment defaults and fallback credentials | Listener defaults to 127.0.0.1:8080; bootstrap requires an explicit 12–72-byte password and rejects example placeholders. Local configuration now uses loopback. |
+| Vulnerable RealIP middleware | Updated chi to 5.3.0 and x/crypto to 0.56.0; removed RealIP middleware. |
 
-## Protections present
+## Verification
 
-- Bcrypt hashes for account and share passwords; cryptographically random 24-byte tokens.
-- HttpOnly and SameSite=Lax cookies; server-side sessions revoked on account password resets.
-- Backend admin checks for monitoring, activity, users, permissions, Settings and disk health.
-- Folder grants applied to listing, searching, file mutations, shared listings and ZIP downloads.
-- Relative-path validation, reserved-path restrictions and symlink rejection; public shares remain scoped to their saved items.
-- Parameterized SQL and escaped React/Go HTML templates.
-- Sandboxed file previews with nosniff, upload request limits, quota checks and serialized mutations.
-- Share expiry and access checks also apply after password unlock. Migration preserves older share expiry values.
+- Backend regression and race tests passed, including expired sessions, origin/content-type rejection, throttling, timestamp migration, permissions, archive limits and releasing the mutation lock before delivery.
+- Updated govulncheck reports zero reachable vulnerable symbols. A dependency-only advisory, GO-2026-5932, remains for unused deprecated OpenPGP code; the scanner reports no fixed module version for it.
+- The preceding frontend dependency audit reported zero known vulnerabilities.
+- Local configuration, database and existing SQLite sidecars were verified as mode 0600; the data directory is 0700.
 
-These measures do not eliminate filesystem races with external local processes changing the storage tree.
+## Deployment requirements and limits
 
-## Verification and limits
+Use HTTPS and COOKIE_SECURE=true for remote access. Configure network exposure deliberately. Behind a proxy, rate limits use the proxy socket IP; trusted forwarded-IP support is not enabled. Limits are process-local and reset on restart.
 
-- Backend `go test ./...` passed.
-- Focused tests reproduced the expired-session and cross-origin-login behavior in temporary databases.
-- Frontend `pnpm audit --json`: zero known vulnerabilities reported by the registry at review time.
-- Go scanner: three reachable chi RealIP findings, plus dependency-level reports in chi and x/crypto. Dependency-only reports, such as SSH/OpenPGP issues, are not proof the vulnerable code is invoked by this app.
-- No browser exploit, proxy/firewall assessment, exhaustive race testing or remediation was performed. Existing deployment may have protections outside this repository.
+Protect backups with equivalent file permissions. Filesystem races involving external processes changing the storage tree remain outside the application's serialized mutations. This review does not establish the security of a production proxy, firewall or host and is not a full penetration test.
 
 ## References
 

@@ -2,6 +2,9 @@ package main
 
 import (
 	"archive/zip"
+	"context"
+	"errors"
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	"html/template"
 	"io"
@@ -15,17 +18,23 @@ import (
 
 // Older releases stored time.Time.String(), including zone and monotonic text.
 func (a *App) normalizeShareExpiries() error {
-	rows, err := a.db.Query("SELECT id,CAST(expires_at AS TEXT) FROM shares WHERE expires_at IS NOT NULL AND julianday(expires_at) IS NULL")
+	if err := a.normalizeExpiries("shares", "id"); err != nil {
+		return err
+	}
+	return a.normalizeExpiries("sessions", "token")
+}
+func (a *App) normalizeExpiries(table, key string) error {
+	rows, err := a.db.Query(fmt.Sprintf("SELECT %s,CAST(expires_at AS TEXT) FROM %s WHERE expires_at IS NOT NULL AND julianday(expires_at) IS NULL", key, table))
 	if err != nil {
 		return err
 	}
 	type correction struct {
-		id     int64
+		id     string
 		expiry string
 	}
 	var updates []correction
 	for rows.Next() {
-		var id int64
+		var id string
 		var text string
 		if err = rows.Scan(&id, &text); err != nil {
 			rows.Close()
@@ -46,7 +55,7 @@ func (a *App) normalizeShareExpiries() error {
 		return err
 	}
 	for _, update := range updates {
-		if _, err = a.db.Exec("UPDATE shares SET expires_at=? WHERE id=?", update.expiry, update.id); err != nil {
+		if _, err = a.db.Exec(fmt.Sprintf("UPDATE %s SET expires_at=? WHERE %s=?", table, key), update.expiry, update.id); err != nil {
 			return err
 		}
 	}
@@ -63,6 +72,9 @@ func (a *App) authorizeShare(w http.ResponseWriter, r *http.Request, id int64, t
 	}
 	errorText := ""
 	if r.Method == http.MethodPost {
+		if !a.allowAttempt(w, r, "share:"+tok) {
+			return false
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, 4096)
 		if err := r.ParseForm(); err != nil {
 			bad(w, "invalid password form", 400)
@@ -119,8 +131,25 @@ func (a *App) sharePaths(id int64, fallback string) ([]string, error) {
 }
 
 func (a *App) downloadSharedItems(w http.ResponseWriter, r *http.Request, owner User, paths []string, name string) {
+	a.archives.Lock()
+	if a.activeArchives >= 2 {
+		a.archives.Unlock()
+		bad(w, "too many archive downloads; retry later", 429)
+		return
+	}
+	a.activeArchives++
+	a.archives.Unlock()
+	defer func() { a.archives.Lock(); a.activeArchives--; a.archives.Unlock() }()
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+	defer cancel()
+	r = r.WithContext(ctx)
 	a.mutation.Lock()
-	defer a.mutation.Unlock()
+	locked := true
+	defer func() {
+		if locked {
+			a.mutation.Unlock()
+		}
+	}()
 	temp, err := os.CreateTemp("", "trynas-share-*.zip")
 	if err != nil {
 		bad(w, "could not create folder download", 500)
@@ -128,7 +157,9 @@ func (a *App) downloadSharedItems(w http.ResponseWriter, r *http.Request, owner 
 	}
 	defer os.Remove(temp.Name())
 	defer temp.Close()
-	archive := zip.NewWriter(temp)
+	archive := zip.NewWriter(&archiveWriter{target: temp, ctx: ctx})
+	var inputBytes int64
+	entries := 0
 	seen := map[string]bool{}
 	for _, p := range paths {
 		full, resolveErr := safe(a.root, p)
@@ -196,6 +227,16 @@ func (a *App) downloadSharedItems(w http.ResponseWriter, r *http.Request, owner 
 			if seen[header.Name] {
 				return nil
 			}
+			entries++
+			if entries > maxSharedArchiveEntries {
+				return fmt.Errorf("%w: too many entries", errArchiveLimit)
+			}
+			if !st.IsDir() {
+				if st.Size() > maxSharedArchiveBytes-inputBytes {
+					return fmt.Errorf("%w: files exceed 1 GiB", errArchiveLimit)
+				}
+				inputBytes += st.Size()
+			}
 			seen[header.Name] = true
 			target, err := archive.CreateHeader(header)
 			if err != nil || st.IsDir() {
@@ -206,7 +247,7 @@ func (a *App) downloadSharedItems(w http.ResponseWriter, r *http.Request, owner 
 				return err
 			}
 			defer file.Close()
-			_, err = io.Copy(target, file)
+			_, err = io.Copy(target, io.LimitReader(file, st.Size()))
 			return err
 		})
 		if err != nil {
@@ -215,6 +256,10 @@ func (a *App) downloadSharedItems(w http.ResponseWriter, r *http.Request, owner 
 	}
 	closeErr := archive.Close()
 	if err != nil || closeErr != nil {
+		if errors.Is(err, errArchiveLimit) || errors.Is(closeErr, errArchiveLimit) {
+			bad(w, "shared ZIP exceeds the 1 GiB or 10,000-entry limit", 413)
+			return
+		}
 		bad(w, "could not archive shared folder", 500)
 		return
 	}
@@ -227,6 +272,8 @@ func (a *App) downloadSharedItems(w http.ResponseWriter, r *http.Request, owner 
 		bad(w, "could not read folder download", 500)
 		return
 	}
+	a.mutation.Unlock()
+	locked = false
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	w.Header().Set("X-Content-Type-Options", "nosniff")

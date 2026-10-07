@@ -98,7 +98,7 @@ ADMIN_USER=admin
 ADMIN_PASSWORD=use-a-long-random-password
 DB_PATH=./data/trynas.db
 STORAGE_ROOT=/mnt/storage
-ADDR=:8080
+ADDR=127.0.0.1:8080
 COOKIE_SECURE=false
 ```
 
@@ -120,6 +120,23 @@ TryNAS/
 Actual NAS files are stored under `STORAGE_ROOT`. SQLite stores application metadata such as users, sessions, favorites, trash metadata, shares and audit logs.
 
 ## Security
+
+The backend defaults to `127.0.0.1:8080` for local access. For LAN or remote
+access, configure the listener explicitly and use HTTPS through a reverse proxy
+with `COOKIE_SECURE=true`. The application does not trust forwarded client-IP
+headers; authentication throttling uses the socket peer address. Behind a proxy,
+that limit is shared by clients using the same proxy connection address.
+
+Configuration and database files are restricted to the service account. New
+sessions store UTC timestamps, and legacy session timestamps are normalized on
+startup. Password attempts are limited to 10 per account/share and 30 per socket
+IP in five minutes. Browser mutations reject untrusted origins, and JSON API
+posts require `application/json`.
+
+Public ZIP downloads allow two concurrent requests, up to 1 GiB of source data
+and ZIP output, and 10,000 archive entries. Requests have a five-minute deadline;
+HTTP transfers have a 15-minute timeout. ZIP delivery releases the mutation lock
+before sending the archive. Larger selections must be split into smaller shares.
 
 Use a strong administrator password, expose only the intended storage directory, and do not expose the development servers directly to the public internet. Use a reverse proxy with HTTPS for remote access.
 
@@ -347,9 +364,9 @@ database, stored files or credentials.
 ### Troubleshoot login
 
 If login reports **Invalid username or password**, check which database the
-running instance uses. A fresh database launched without administrator settings
-creates username `admin` with password `admin123!`. Configure a strong password
-before initializing a new installation.
+running instance uses. A fresh database requires an explicit strong `ADMIN_PASSWORD` (12–72 bytes).
+Startup rejects missing passwords and the example placeholder. Set administrator
+credentials before initializing a new installation.
 
 `ADMIN_USER` and `ADMIN_PASSWORD` only initialize an empty database. Adding or
 editing `.env` after the first launch does not reset an existing account. Use

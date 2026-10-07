@@ -74,7 +74,7 @@ func (a *App) settings(w http.ResponseWriter, r *http.Request) {
 	}
 	result := map[string]any{"settings": settings}
 	if user.Role == "admin" && r.URL.Path != "/api/preferences" {
-		result["server"] = map[string]any{"storageRoot": a.root, "address": env("ADDR", ":8080"), "cookieSecure": env("COOKIE_SECURE", "false") == "true", "corsOrigin": env("CORS_ORIGIN", "http://localhost:3000"), "smartUseSudo": env("SMART_USE_SUDO", "false") == "true"}
+		result["server"] = map[string]any{"storageRoot": a.root, "address": env("ADDR", "127.0.0.1:8080"), "cookieSecure": env("COOKIE_SECURE", "false") == "true", "corsOrigin": env("CORS_ORIGIN", "http://localhost:3000"), "smartUseSudo": env("SMART_USE_SUDO", "false") == "true"}
 	}
 	jsonOut(w, result)
 }

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 cd "$(dirname "$0")"
 if [ -f .env ]; then
+  chmod 600 .env
   set -a
   . ./.env
   set +a
