@@ -1240,7 +1240,17 @@ function FileBrowser({
                 ))}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
+            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+            <input
+              className="!pl-9"
+              placeholder="Search files and folders…"
+              aria-label="Search files"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
             <Button
               variant="outline"
               disabled={!writable || !!upload}
@@ -1298,23 +1308,12 @@ function FileBrowser({
             >
               <RefreshCw />
             </Button>
-          </div>
-        </div>
-        <div className="mt-3 flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-            <input
-              className="!pl-9"
-              placeholder="Search files and folders…"
-              aria-label="Search files"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+            <div className="flex gap-2" role="group" aria-label="File view">
           <Button
             variant={view === "list" ? "secondary" : "outline"}
             size="icon"
             aria-label="List view"
+            aria-pressed={view === "list"}
             onClick={() => setView("list")}
           >
             <List />
@@ -1323,10 +1322,13 @@ function FileBrowser({
             variant={view === "grid" ? "secondary" : "outline"}
             size="icon"
             aria-label="Grid view"
+            aria-pressed={view === "grid"}
             onClick={() => setView("grid")}
           >
             <Grid2X2 />
           </Button>
+        </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
