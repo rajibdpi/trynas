@@ -141,7 +141,7 @@ const nav = [
   { id: "activity", label: "Activity", icon: Activity },
   { id: "users", label: "Users & quotas", icon: Users, admin: true },
   { id: "permissions", label: "Folder permissions", icon: Shield, admin: true },
-  { id: "settings", label: "App settings", icon: Settings, admin: true },
+  { id: "settings", label: "Settings", icon: Settings, admin: true },
   { id: "hardware", label: "Disk health", icon: HardDrive, admin: true },
 ];
 
@@ -452,7 +452,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   };
   switch (tab) {
     case "settings":
-      content = me.role === "admin" ? <AppSettingsPanel onSaved={setAppSettings} /> : <ErrorText text="App settings are available to administrators." />;
+      content = me.role === "admin" ? <AppSettingsPanel onSaved={setAppSettings} /> : <ErrorText text="Settings are available to administrators." />;
       break;
     case "dashboard":
       content = (

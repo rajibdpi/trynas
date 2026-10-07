@@ -207,9 +207,9 @@ every five seconds; network traffic updates every three seconds, with separate
 download and upload lines. Hover over graph points for measured values. Storage
 shows your quota usage, with an automatic bytes-used scale for unlimited quotas.
 
-## App settings
+## Settings
 
-Administrators can open **App settings** from the sidebar or visit **/settings**.
+Administrators can open **Settings** from the sidebar or visit **/settings**.
 Save the workspace app name, default list/grid file view and default share expiry
 (Never, 1, 7, 15 or 30 days). Settings persist in SQLite and supply defaults for
 all users; existing share links retain their own expiry. Other users pick up

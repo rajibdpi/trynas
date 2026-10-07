@@ -32,7 +32,7 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
           {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
           {loading ? <p>Loading settings…</p> : <form className="space-y-5" onSubmit={async event => {
             event.preventDefault(); setSaving(true); setError("");
-            try { const saved = await api("/api/settings", { method: "POST", body: JSON.stringify(settings) }); setSettings(saved); onSaved(saved); notify("App settings saved"); }
+            try { const saved = await api("/api/settings", { method: "POST", body: JSON.stringify(settings) }); setSettings(saved); onSaved(saved); notify("Settings saved"); }
             catch (error) { const text = error instanceof Error ? error.message : "Could not save settings"; setError(text); notify(text); }
             finally { setSaving(false); }
           }}>
