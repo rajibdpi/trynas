@@ -203,7 +203,9 @@ Choose **Share link** from a file or folder's menu. Under **Expires at**, choose
 shows a date/time picker in your local timezone, up to 365 days ahead. Optionally
 set an 8–72 byte password; leave it blank for access through the link alone.
 
-Recipients open the shared page and enter the password when required. Files
+Recipients open the shared page and enter the password when required. The page
+lists shared files and folders, including readable folder contents, with names,
+types and individual download buttons. Files
 download directly; folders download as ZIP archives containing only items the
 share owner can read. Reserved paths and symbolic links are excluded. The page
 also offers a downloadable QR code for the link. Protected shares remain

@@ -77,6 +77,16 @@ func TestProtectedFolderShare(t *testing.T) {
 	if !strings.Contains(page.Body.String(), "Download folder ZIP") {
 		t.Fatal("missing folder page")
 	}
+	if !strings.Contains(page.Body.String(), "shared/public.txt") || strings.Contains(page.Body.String(), "secret.txt") || strings.Contains(page.Body.String(), ".trynas-hidden") || strings.Contains(page.Body.String(), "link.txt") {
+		t.Fatal("incorrect public folder listing")
+	}
+	expect(t, get("GET", "?download=1&item=shared%2Fpublic.txt", "", nil), 401)
+	individual := get("GET", "?download=1&item=shared%2Fpublic.txt", "", cookie)
+	expect(t, individual, 200)
+	if individual.Body.String() != "public" {
+		t.Fatal("incorrect individual download")
+	}
+	expect(t, get("GET", "?download=1&item=shared%2Fprivate%2Fsecret.txt", "", cookie), 404)
 	archive := get("GET", "?download=1", "", cookie)
 	expect(t, archive, 200)
 	reader, err := zip.NewReader(bytes.NewReader(archive.Body.Bytes()), int64(archive.Body.Len()))
@@ -235,6 +245,16 @@ func TestMultipleItemsOneShare(t *testing.T) {
 	if !strings.Contains(page.Body.String(), "3 shared items") {
 		t.Fatal("missing collection page")
 	}
+	for _, name := range []string{"file.txt", "folder/public.txt"} {
+		if !strings.Contains(page.Body.String(), name) {
+			t.Fatal("missing shared item", name)
+		}
+	}
+	expect(t, get("?download=1&item=one%2Ffile.txt"), 200)
+	expect(t, get("?download=1&item=folder%2Fprivate%2Fsecret.txt"), 404)
+	expect(t, get("?download=1&item=..%2Fsecret"), 400)
+	write(t, a, "one/unshared.txt", "unshared")
+	expect(t, get("?download=1&item=one%2Funshared.txt"), 404)
 	archive := get("?download=1")
 	expect(t, archive, 200)
 	reader, err := zip.NewReader(bytes.NewReader(archive.Body.Bytes()), int64(archive.Body.Len()))

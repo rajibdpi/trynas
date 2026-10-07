@@ -726,11 +726,52 @@ func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Query().Get("download") != "1" {
-		if len(paths) > 1 {
-			serveSharePage(w, r, fmt.Sprintf("%d shared items", len(paths)), 0, true, true)
-		} else {
-			serveSharePage(w, r, filepath.Base(f), st.Size(), st.IsDir())
+		items, truncated, err := a.listSharedItems(owner, paths)
+		if err != nil {
+			bad(w, "could not list shared items", 500)
+			return
 		}
+		if len(paths) > 1 {
+			serveSharePage(w, r, fmt.Sprintf("%d shared items", len(paths)), 0, true, items, truncated, true)
+		} else {
+			serveSharePage(w, r, filepath.Base(f), st.Size(), st.IsDir(), items, truncated)
+		}
+		return
+	}
+	if _, present := r.URL.Query()["item"]; present {
+		item, err := cleanPath(r.URL.Query().Get("item"))
+		if err != nil {
+			bad(w, "invalid item", 400)
+			return
+		}
+		included := false
+		for _, root := range paths {
+			if under(item, root) {
+				included = true
+				break
+			}
+		}
+		if !included || !a.can(owner, item, false) {
+			bad(w, "item not shared", 404)
+			return
+		}
+		full, err := safe(a.root, item)
+		if err != nil {
+			bad(w, "item not shared", 404)
+			return
+		}
+		info, err := os.Stat(full)
+		if err != nil {
+			bad(w, "item not found", 404)
+			return
+		}
+		if info.IsDir() {
+			a.downloadSharedFolder(w, r, owner, item, full)
+			return
+		}
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filepath.Base(full)}))
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		http.ServeFile(w, r, full)
 		return
 	}
 	if len(paths) > 1 {
