@@ -166,11 +166,15 @@ In list and grid views, use these controls:
 | --- | --- |
 | Click an item | Leave selection unchanged |
 | Ctrl-click | Add or remove an individual file or folder from the selection |
+| Shift-click | Select a range from the last clicked item |
+| Ctrl + Shift-click | Add a range to the existing selection |
 | Double-click | Open a folder or preview a file |
 
 Use **Ctrl-click** to select individual items. Once an item is selected,
-**Select all** appears to select all visible items. Shift-click and Cmd-click
-do not select items. Selection clears when changing folders or search terms.
+**Select all** appears to select all visible items. **Shift-click** selects a
+range in the displayed order; **Ctrl + Shift-click** adds that range to the
+selection. Plain click sets the range anchor without changing selection.
+Selection clears when changing folders or search terms.
 Focus an item's name and press **Enter** or **Space**
 to open it with the keyboard. Favorites also open on double-click.
 

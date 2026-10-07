@@ -956,6 +956,7 @@ function FileBrowser({
       : null,
   );
   const input = useRef<HTMLInputElement>(null),
+    selectionAnchor = useRef<string | null>(null),
     controller = useRef<AbortController | null>(null),
     dragDepth = useRef(0);
   const [draggingFiles, setDraggingFiles] = useState(false);
@@ -966,9 +967,11 @@ function FileBrowser({
   }, [query]);
   useEffect(() => {
     setSelected([]);
+    selectionAnchor.current = null;
   }, [path]);
   useEffect(() => {
     setSelected([]);
+    selectionAnchor.current = null;
   }, [debounced]);
   useEffect(() => () => controller.current?.abort(), []);
   const items =
@@ -980,6 +983,7 @@ function FileBrowser({
       ) || [],
     );
     setSelected((old) => old.filter((p) => visible.has(p)));
+    if (selectionAnchor.current && !visible.has(selectionAnchor.current)) selectionAnchor.current = null;
   }, [listing.data, search.data, debounced]);
   const writable = listing.data?.writable || false;
   const reload = async () => {
@@ -1185,7 +1189,16 @@ function FileBrowser({
       if (input.current) input.current.value = "";
     }
   };
-  const selectItem = (p: string, event: { ctrlKey: boolean }) => {
+  const selectItem = (p: string, event: { ctrlKey: boolean; shiftKey: boolean }) => {
+    const start = items.findIndex(item => item.path === selectionAnchor.current);
+    const end = items.findIndex(item => item.path === p);
+    if (event.shiftKey && start >= 0 && end >= 0) {
+      const range = items.slice(Math.min(start, end), Math.max(start, end) + 1).map(item => item.path);
+      setSelected(old => event.ctrlKey ? [...new Set([...old, ...range])] : range);
+      return;
+    }
+    selectionAnchor.current = p;
+    if (event.shiftKey) { setSelected([p]); return; }
     if (!event.ctrlKey) return;
     setSelected(old => old.includes(p) ? old.filter(path => path !== p) : [...old, p]);
   };
@@ -1433,7 +1446,7 @@ function FileBrowser({
                 <Trash2 />
                 Trash
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => { setSelected([]); }}>
+              <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }}>
                 Clear
               </Button>
             </>
