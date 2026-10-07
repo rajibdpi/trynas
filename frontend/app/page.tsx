@@ -520,7 +520,7 @@ export default function Page() {
                     setMobile(false);
                   }}
                 >
-                  <x.icon className="size-4 shrink-0" />
+                  <x.icon className="size-5 shrink-0" />
                   <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
                 </button>
               </div>
