@@ -94,6 +94,7 @@ type Field = {
   options?: { value: string; label: string }[];
   required?: boolean;
   disabled?: boolean;
+  visibleWhen?: { key: string; value: string };
 };
 type Command = {
   title: string;
@@ -745,7 +746,8 @@ function CommandDialog({
           )}
           {command?.fields
             .filter(
-              (f) => !(command.destinationFolders && f.key === "destination"),
+              (f) => !(command.destinationFolders && f.key === "destination") &&
+                (!f.visibleWhen || (values[f.visibleWhen.key] ?? command.fields.find(field => field.key === f.visibleWhen!.key)?.value) === f.visibleWhen.value),
             )
             .map((f) => (
               <label key={f.key} className="block text-sm font-medium">
@@ -1037,7 +1039,6 @@ function FileBrowser({
     {
       label: "Download",
       icon: Download,
-      disabled: item.dir,
       run: () => {
         window.location.href =
           API + "/api/files/download?path=" + encodeURIComponent(item.path);
@@ -1091,29 +1092,48 @@ function FileBrowser({
     {
       label: "Share link",
       icon: Link2,
-      disabled: item.dir,
       run: () =>
         ask({
           title: "Create share link",
           description:
-            "Anyone with this link can download the file. Access is revoked if your folder permissions are removed.",
+            "Share this file or folder (ZIP). Add an optional password and choose an expiry in your local time. Access follows your folder permissions.",
           fields: [
             {
-              key: "days",
-              label: "Expires in days (1–365)",
-              type: "number",
+              key: "expiry",
+              label: "Expires at",
               value: "7",
-              required: true,
+              options: [
+                { value: "never", label: "Never" },
+                { value: "1", label: "1 day" },
+                { value: "7", label: "7 days" },
+                { value: "15", label: "15 days" },
+                { value: "30", label: "30 days" },
+                { value: "custom", label: "Custom" },
+              ],
             },
+            {
+              key: "expiresAt",
+              label: "Expires at (local date and time)",
+              type: "datetime-local",
+              value: (() => { const expiry = new Date(Date.now() + 7 * 86400000); return new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })(),
+              required: true,
+              visibleWhen: { key: "expiry", value: "custom" },
+            },
+            { key: "password", label: "Password (optional, 8–72 bytes)", type: "password", value: "" },
           ],
           submit: "Create link",
           run: async (v) => {
-            const days = Number(v.days);
-            if (!Number.isInteger(days) || days < 1 || days > 365)
-              throw new Error("Choose 1–365 days");
+            let settings: { never?: boolean; days?: number; expiresAt?: string };
+            if (v.expiry === "never") settings = { never: true };
+            else if (v.expiry === "custom") {
+              const expiry = new Date(v.expiresAt);
+              if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= Date.now())
+                throw new Error("Choose a future expiry date and time");
+              settings = { expiresAt: expiry.toISOString() };
+            } else settings = { days: Number(v.expiry) };
             const result = await api("/api/shares", {
               method: "POST",
-              body: JSON.stringify({ path: item.path, days }),
+              body: JSON.stringify({ path: item.path, ...settings, password: v.password }),
             });
             notify(`Share link: ${shareURL(result.token)}`);
           },
@@ -2070,7 +2090,8 @@ function SharesPanel({
             className="flex flex-wrap items-center gap-2 border-b py-4"
           >
             <div className="min-w-0 flex-1">
-              <p className="break-all text-sm font-semibold">{item.path}</p>
+              <p className="break-all text-sm font-semibold">{item.path || "Storage root"}</p>
+              {item.passwordProtected && <p className="text-xs text-primary">Password protected</p>}
               <p className="text-xs text-muted-foreground">
                 {item.expiresAt
                   ? `Expires ${new Date(item.expiresAt).toLocaleString()}`

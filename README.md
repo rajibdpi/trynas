@@ -48,7 +48,7 @@ starting the standalone app against the same database.
 - Downloads
 - Favorites in SQLite
 - Trash, restore and permanent delete
-- Expiring public share links
+- File and folder share links with optional passwords, exact expiry times and downloadable QR codes
 - SQLite-backed revocable sessions
 - Audit/activity log
 - Filesystem path-traversal protection
@@ -162,6 +162,23 @@ item. Right-click or use the three-dot button for a keyboard-accessible Radix
 context/dropdown menu. Forms, confirmations and previews use Radix dialogs
 styled with the app's shadcn-compatible component system. Appearance follows
 the system theme initially; the sun/moon button persists your chosen theme.
+
+## Share files and folders
+
+Choose **Share link** from a file or folder's menu. Under **Expires at**, choose
+**Never**, **1 day**, **7 days**, **15 days**, **30 days**, or **Custom**. Custom
+shows a date/time picker in your local timezone, up to 365 days ahead. Optionally set an 8–72 byte
+password; leave it blank for access through the link alone.
+
+Recipients open the shared page and enter the password when required. Files
+download directly; folders download as ZIP archives containing only items the
+share owner can read. Reserved paths and symbolic links are excluded. The page
+also offers a downloadable QR code for the link. Protected shares remain
+password-protected when opened through their QR code.
+
+**Shared links** shows each link's expiry in your local time and whether it is
+password protected. Revoking a link, reaching its expiry or removing the owner's
+access blocks further downloads. Existing links retain their original settings.
 
 ## Hardware monitoring
 

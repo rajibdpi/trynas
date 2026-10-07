@@ -127,6 +127,7 @@ func main() {
 		r.Delete("/api/shares/{id}", a.deleteShare)
 	})
 	r.Get("/s/{token}", a.publicShare)
+	r.Post("/s/{token}", a.publicShare)
 	r.Handle("/*", embeddedFrontend())
 	addr := env("ADDR", ":8080")
 	log.Printf("TryNAS v5 API %s storage=%s", addr, root)
@@ -506,45 +507,109 @@ func (a *App) toggleFavorite(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) shares(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
-	rows, _ := a.db.Query("SELECT id,path,token,COALESCE(expires_at,''),created_at FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
+	rows, _ := a.db.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id) FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
 	defer rows.Close()
 	out := []map[string]any{}
 	for rows.Next() {
 		var id int
 		var p, tok, exp, created string
-		_ = rows.Scan(&id, &p, &tok, &exp, &created)
-		out = append(out, map[string]any{"id": id, "path": p, "token": tok, "expiresAt": exp, "createdAt": created})
+		var protected bool
+		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected)
+		out = append(out, map[string]any{"id": id, "path": p, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected})
 	}
 	jsonOut(w, out)
 }
 func (a *App) createShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
 	var x struct {
-		Path string
-		Days int
+		Path      string
+		Days      int
+		ExpiresAt string
+		Password  string
+		Never     bool
 	}
-	_ = json.NewDecoder(r.Body).Decode(&x)
-	if _, e := safe(a.root, x.Path); e != nil {
-		bad(w, "invalid", 400)
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&x); err != nil {
+		bad(w, "invalid share settings", 400)
 		return
 	}
-	if x.Days < 1 || x.Days > 365 {
-		bad(w, "share expiration must be 1–365 days", 400)
+	p, err := cleanPath(x.Path)
+	if err != nil || !a.can(u, p, false) {
+		bad(w, "folder permission denied", 403)
 		return
 	}
+	full, err := safe(a.root, p)
+	if err != nil {
+		bad(w, "invalid path", 400)
+		return
+	}
+	st, err := os.Stat(full)
+	if err != nil || (!st.IsDir() && !st.Mode().IsRegular()) {
+		bad(w, "select a file or folder to share", 400)
+		return
+	}
+	now := time.Now().UTC()
+	var expires time.Time
+	if x.Never {
+		if x.ExpiresAt != "" || x.Days != 0 {
+			bad(w, "choose one expiry option", 400)
+			return
+		}
+	} else if x.ExpiresAt != "" {
+		expires, err = time.Parse(time.RFC3339, x.ExpiresAt)
+		if err != nil || !expires.After(now) || expires.After(now.Add(365*24*time.Hour)) {
+			bad(w, "choose a future expiry within 365 days", 400)
+			return
+		}
+	} else {
+		if x.Days < 1 || x.Days > 365 {
+			bad(w, "share expiration must be 1–365 days", 400)
+			return
+		}
+		expires = now.Add(time.Duration(x.Days) * 24 * time.Hour)
+	}
+	var hash []byte
+	if x.Password != "" {
+		if len(x.Password) < 8 || len(x.Password) > 72 {
+			bad(w, "share password must be 8–72 bytes", 400)
+			return
+		}
+		hash, err = bcrypt.GenerateFromPassword([]byte(x.Password), bcrypt.DefaultCost)
+		if err != nil {
+			bad(w, "could not protect share", 500)
+			return
+		}
+	}
+	tx, err := a.db.Begin()
+	if err != nil {
+		bad(w, "could not create share", 500)
+		return
+	}
+	defer tx.Rollback()
 	tok := token()
-	var exp any = nil
-	if x.Days > 0 {
-		exp = time.Now().Add(time.Duration(x.Days) * 24 * time.Hour)
+	var exp any
+	expiryText := ""
+	if !x.Never {
+		exp = expires.UTC().Format("2006-01-02 15:04:05.999")
+		expiryText = expires.UTC().Format(time.RFC3339)
 	}
-	res, e := a.db.Exec("INSERT INTO shares(user_id,path,token,expires_at) VALUES(?,?,?,?)", u.ID, x.Path, tok, exp)
-	if e != nil {
-		bad(w, e.Error(), 500)
+	res, err := tx.Exec("INSERT INTO shares(user_id,path,token,expires_at) VALUES(?,?,?,?)", u.ID, p, tok, exp)
+	if err != nil {
+		bad(w, "could not create share", 500)
 		return
 	}
 	id, _ := res.LastInsertId()
-	a.log(u.ID, "share", x.Path)
-	jsonOut(w, map[string]any{"id": id, "path": x.Path, "token": tok})
+	if len(hash) > 0 {
+		if _, err = tx.Exec("INSERT INTO share_passwords(share_id,password_hash) VALUES(?,?)", id, string(hash)); err != nil {
+			bad(w, "could not protect share", 500)
+			return
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		bad(w, "could not create share", 500)
+		return
+	}
+	a.log(u.ID, "share", p)
+	jsonOut(w, map[string]any{"id": id, "path": p, "token": tok, "expiresAt": expiryText, "passwordProtected": len(hash) > 0})
 }
 func (a *App) deleteShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(userKey).(User)
@@ -553,9 +618,10 @@ func (a *App) deleteShare(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 	tok := chi.URLParam(r, "token")
-	var p string
+	var p, passwordHash string
+	var shareID int64
 	var owner User
-	e := a.db.QueryRow("SELECT path,user_id FROM shares WHERE token=? AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)", tok).Scan(&p, &owner.ID)
+	e := a.db.QueryRow("SELECT s.id,s.path,s.user_id,COALESCE(p.password_hash,'') FROM shares s LEFT JOIN share_passwords p ON p.share_id=s.id WHERE s.token=? AND (s.expires_at IS NULL OR julianday(s.expires_at)>julianday('now'))", tok).Scan(&shareID, &p, &owner.ID, &passwordHash)
 	if e == nil {
 		e = a.db.QueryRow("SELECT username,role FROM users WHERE id=?", owner.ID).Scan(&owner.Username, &owner.Role)
 		if e == nil && !a.can(owner, p, false) {
@@ -576,8 +642,21 @@ func (a *App) publicShare(w http.ResponseWriter, r *http.Request) {
 		bad(w, "not found", 404)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if passwordHash != "" && !a.authorizeShare(w, r, shareID, tok, passwordHash) {
+		return
+	}
+	if r.URL.Query().Get("qr") == "1" {
+		serveShareQR(w, r, tok)
+		return
+	}
+	if r.URL.Query().Get("download") != "1" {
+		serveSharePage(w, r, filepath.Base(f), st.Size(), st.IsDir())
+		return
+	}
 	if st.IsDir() {
-		bad(w, "folder shares are not downloadable in V3", 400)
+		a.downloadSharedFolder(w, r, owner, p, f)
 		return
 	}
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filepath.Base(f)}))

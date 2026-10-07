@@ -44,8 +44,13 @@ func (a *App) migrateV5() error {
 	_, err := a.db.Exec(`CREATE TABLE IF NOT EXISTS user_homes(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,path TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS user_limits(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,quota_bytes INTEGER NOT NULL DEFAULT 0 CHECK(quota_bytes>=0));
  CREATE TABLE IF NOT EXISTS permissions(user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,path TEXT NOT NULL,access TEXT NOT NULL CHECK(access IN ('none','read','write')),PRIMARY KEY(user_id,path));
- CREATE TABLE IF NOT EXISTS file_owners(path TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),bytes INTEGER NOT NULL CHECK(bytes>=0));`)
-	return err
+ CREATE TABLE IF NOT EXISTS file_owners(path TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),bytes INTEGER NOT NULL CHECK(bytes>=0));
+ CREATE TABLE IF NOT EXISTS share_passwords(share_id INTEGER PRIMARY KEY REFERENCES shares(id) ON DELETE CASCADE,password_hash TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS share_sessions(token TEXT PRIMARY KEY,share_id INTEGER NOT NULL REFERENCES shares(id) ON DELETE CASCADE,expires_at TEXT NOT NULL);`)
+	if err != nil {
+		return err
+	}
+	return a.normalizeShareExpiries()
 }
 func (a *App) can(u User, p string, write bool) bool {
 	p, err := cleanPath(p)
@@ -184,8 +189,8 @@ func (a *App) guard(next http.Handler) http.Handler {
 					return
 				}
 				st, err := os.Stat(f)
-				if err != nil || st.IsDir() {
-					bad(w, "select a file to share", 400)
+				if err != nil || (!st.IsDir() && !st.Mode().IsRegular()) {
+					bad(w, "select a file or folder to share", 400)
 					return
 				}
 			}
