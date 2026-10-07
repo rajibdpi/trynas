@@ -31,6 +31,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings,
   Server,
   Shield,
   Star,
@@ -66,6 +67,7 @@ import { cn } from "@/lib/utils";
 import { FolderPicker } from "@/components/folder-picker";
 import { FileTypeIcon } from "@/components/file-type-icon";
 import { useNotification } from "@/components/notification-provider";
+import { AppSettingsPanel, defaultSettings, type AppSettings } from "@/components/app-settings";
 import { CommonNavbar } from "@/components/common-navbar";
 import { NetworkTrafficGraph, type TrafficSample } from "@/components/network-traffic-graph";
 import { UsageGraph, HistoryGraph, type UsageSample, type HistorySample } from "@/components/usage-graph";
@@ -139,6 +141,7 @@ const nav = [
   { id: "activity", label: "Activity", icon: Activity },
   { id: "users", label: "Users & quotas", icon: Users, admin: true },
   { id: "permissions", label: "Folder permissions", icon: Shield, admin: true },
+  { id: "settings", label: "App settings", icon: Settings, admin: true },
   { id: "hardware", label: "Disk health", icon: HardDrive, admin: true },
 ];
 
@@ -192,6 +195,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const pathname = usePathname();
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
+  const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
   const [me, setMe] = useState<User | null>(null),
     [checking, setChecking] = useState(true),
     [username, setUsername] = useState("admin"),
@@ -211,14 +215,22 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     [preview, setPreview] = useState<Item | null>(null);
   useEffect(() => {
     if (pathname === "/files") setTab("files");
-    else setTab(previous => previous === "files" ? "dashboard" : previous);
+    else if (pathname === "/settings") setTab("settings");
+    else setTab(previous => ["files", "settings"].includes(previous) ? "dashboard" : previous);
   }, [pathname]);
   const selectTab = (next: string) => {
     setTab(next);
     setMobile(false);
-    const route = next === "files" ? "/files" : "/";
+    const route = ["files", "settings"].includes(next) ? `/${next}` : "/";
     if (window.location.pathname !== route) window.history.pushState(null, "", route);
   };
+  useEffect(() => {
+    if (!me) return;
+    const controller = new AbortController();
+    void api("/api/settings", { signal: controller.signal }).then(data => setAppSettings(data.settings)).catch(() => {});
+    return () => controller.abort();
+  }, [me?.id]);
+  useEffect(() => { document.title = appSettings.appName; }, [appSettings.appName]);
   const sys = useResource<any>(me ? "/api/system" : null, 5000),
     network = useResource<any>(me ? "/api/network" : null, 3000),
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
@@ -422,6 +434,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     );
   let content: ReactNode = null;
   const fileProps = {
+    defaultView: appSettings.fileView,
+    defaultShareExpiry: appSettings.shareExpiry,
     query: fileQuery,
     setQuery: setFileQuery,
     path,
@@ -437,6 +451,9 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     onChanged: () => void quota.reload(),
   };
   switch (tab) {
+    case "settings":
+      content = me.role === "admin" ? <AppSettingsPanel onSaved={setAppSettings} /> : <ErrorText text="App settings are available to administrators." />;
+      break;
     case "dashboard":
       content = (
         <>
@@ -505,6 +522,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   return (
     <div className={cn("app-shell min-h-screen pt-18 md:grid", sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[260px_minmax(0,1fr)]")}>
       <CommonNavbar
+        appName={appSettings.appName}
         user={me}
         dark={dark}
         signingOut={signingOut}
@@ -567,8 +585,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                         : "Administration"}
                   </p>
                 )}
-                {x.id === "files" ? (
-                <Link href="/files"
+                {["files", "settings"].includes(x.id) ? (
+                <Link href={`/${x.id}`}
                   aria-label={x.label}
                   title={sidebarCollapsed ? x.label : undefined}
                   aria-current={tab === x.id ? "page" : undefined}
@@ -580,7 +598,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                   onClick={event => {
                     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                     event.preventDefault();
-                    selectTab("files");
+                    selectTab(x.id);
                   }}
                 >
                   <x.icon className="size-5 shrink-0" />
@@ -933,6 +951,8 @@ function Overview({
 }
 
 function FileBrowser({
+  defaultView,
+  defaultShareExpiry,
   query,
   setQuery,
   path,
@@ -947,6 +967,8 @@ function FileBrowser({
   notify,
   onChanged,
 }: {
+  defaultView: "list" | "grid";
+  defaultShareExpiry: string;
   query: string;
   setQuery: (value: string) => void;
   path: string;
@@ -965,7 +987,7 @@ function FileBrowser({
     "/api/files?path=" + encodeURIComponent(path),
   );
   const [debounced, setDebounced] = useState(query.trim()),
-    [view, setView] = useState("grid"),
+    [view, setView] = useState(defaultView),
     [selected, setSelected] = useState<string[]>([]),
     [upload, setUpload] = useState<{
       loaded: number;
@@ -973,6 +995,7 @@ function FileBrowser({
       stage: string;
     } | null>(null),
     [uploadError, setUploadError] = useState("");
+  useEffect(() => setView(defaultView), [defaultView]);
   const search = useResource<Item[]>(
     debounced.length >= 2
       ? `/api/files/search?q=${encodeURIComponent(debounced)}&path=${encodeURIComponent(path)}`
@@ -1066,7 +1089,7 @@ function FileBrowser({
             {
               key: "expiry",
               label: "Expires at",
-              value: "7",
+              value: defaultShareExpiry,
               options: [
                 { value: "never", label: "Never" },
                 { value: "1", label: "1 day" },

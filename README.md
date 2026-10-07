@@ -207,6 +207,18 @@ every five seconds; network traffic updates every three seconds, with separate
 download and upload lines. Hover over graph points for measured values. Storage
 shows your quota usage, with an automatic bytes-used scale for unlimited quotas.
 
+## App settings
+
+Administrators can open **App settings** from the sidebar or visit **/settings**.
+Save the workspace app name, default list/grid file view and default share expiry
+(Never, 1, 7, 15 or 30 days). Settings persist in SQLite and supply defaults for
+all users; existing share links retain their own expiry. Other users pick up
+changed defaults when they reload the app.
+
+The page also displays the active storage root, listen address, frontend origin,
+secure-cookie mode and SMART sudo setting. Change those values in `.env` and
+restart the backend. Passwords and other secrets are not displayed on this page.
+
 ## Share files and folders
 
 Choose **Share link** from a file or folder's menu. Under **Expires at**, choose

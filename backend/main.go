@@ -94,6 +94,8 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(a.auth)
 		r.Use(a.guard)
+		r.Get("/api/settings", a.settings)
+		r.Post("/api/settings", a.settings)
 		r.Get("/api/users", a.users)
 		r.Post("/api/users", a.saveUser)
 		r.Delete("/api/users/{id}", a.deleteUser)
