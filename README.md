@@ -535,39 +535,24 @@ Build once to embed the complete frontend in the Go executable. On the machine
 that builds releases, install Go, Node.js and pnpm, then run from the project root:
 
 ```bash
-go run ./scripts/build
+node scripts/build.mjs
 ```
 
-Set a unique `ADMIN_PASSWORD` (8–72 bytes) in the project `.env` before building.
-Release builds embed its bcrypt hash to initialize a fresh database without a
-runtime password. A runtime `ADMIN_PASSWORD` overrides this fallback. `ADMIN_USER`
-defaults to `admin`. The executable also contains a recoverable encoded copy of
-the password so first startup can print the initial credentials in the terminal.
-The password is displayed only when creating a new admin account. Rebuilding does
-not reset existing accounts.
+The command rebuilds both the current frontend and backend. It clears old
+release output, builds the frontend in `.next` separately from dev mode (`.next-dev`),
+and embeds the freshly exported assets in the executable. It creates a binary
+for your current OS/architecture in `dist/`. Build every
+supported 64-bit target with:
 
-The Go release command rebuilds the frontend and backend. It clears `.next`
-and `frontend/dist`, generates a fresh static export, and embeds that export
-in each Go executable. Development output stays in `frontend/.next-dev`.
-The default target is the current operating system and architecture.
+```bash
+node scripts/build.mjs --all
+```
 
-| Command | Result |
-| --- | --- |
-| `go run ./scripts/build` | Full release build for the current machine |
-| `go run ./scripts/build --all` | Full builds for all six supported targets |
-| `go run ./scripts/build --target linux/arm64,windows/amd64` | Full builds for selected targets |
-| `go run ./scripts/build --skip-frontend` | Rebuild Go using existing exported UI assets |
-| `go run ./scripts/build --help` | Show build options |
+Or build selected targets:
 
-`--skip-frontend` can also be combined with `--target` or `--all`. It does not
-include frontend source edits; use a full build when the UI changes. `--all`
-and `--target` cannot be used together. Supported targets are Linux, Windows,
-and macOS (`darwin`), each on `amd64` and `arm64`.
-
-Binaries are written to the root `dist/` directory, alongside `SHA256SUMS`.
-A subset build preserves other target binaries and includes their existing
-checksums. Rebuild all targets before distributing a complete updated release.
-Each existing binary is replaced only after its new build succeeds.
+```bash
+./dist/trynas-linux-amd64
+```
 
 Building does not update an already running app. Stop the development backend
 or old release, then run the newly built executable **from the project root**
