@@ -538,6 +538,13 @@ that builds releases, install Go, Node.js and pnpm, then run from the project ro
 node scripts/build.mjs
 ```
 
+Each build uses default username `admin` and password `Admin@123!` and saves them
+in `dist/admin-credentials.txt` (owner-only access on Unix) and prints the username
+and password in the build terminal. It applies only to
+fresh databases created with the binaries built in that run. Runtime `ADMIN_USER`
+and `ADMIN_PASSWORD` override the defaults; rebuilding does not reset existing
+accounts. Protect the credentials file and binaries, which contain this password.
+
 The command rebuilds both the current frontend and backend. It clears old
 release output, builds the frontend in `.next` separately from dev mode (`.next-dev`),
 and embeds the freshly exported assets in the executable. It creates a binary
@@ -588,16 +595,29 @@ database, storage and accounts.
 
 Existing process environment variables override `.env`; CLI flags override both.
 Use `-help` to view supported flags. Set `ADMIN_USER` and `ADMIN_PASSWORD` in
+<<<<<<< HEAD
 `.env` before the first launch to override the build-time password. Building embeds
 the administrator password hash and a recoverable encoded password from `.env`, not the configuration file,
 database, or stored files.
+=======
+`.env` before the first launch. Building does **not** bundle your `.env`,
+database, or stored files. It embeds a default first-start admin password.
+>>>>>>> f2ce768 (feat: implement default admin credentials and enhance build process)
 
 ### Troubleshoot login
 
 If login reports **Invalid username or password**, check which database the
+<<<<<<< HEAD
 running instance uses. A fresh database uses runtime `ADMIN_PASSWORD` (8–72 bytes)
 when supplied, otherwise the release's build-time password hash. Builds require a
 valid password in `.env`; direct Go builds require a runtime password.
+=======
+running instance uses. A fresh database uses runtime `ADMIN_PASSWORD` (8–72 bytes) when supplied,
+or the standalone build’s default.
+Standalone builds provide a fallback password in `dist/admin-credentials.txt`.
+Development startup rejects missing passwords; all startups reject the example placeholder. Set administrator
+credentials before initializing a new installation.
+>>>>>>> f2ce768 (feat: implement default admin credentials and enhance build process)
 
 `ADMIN_USER` and `ADMIN_PASSWORD` only initialize an empty database. Adding or
 editing `.env` after the first launch does not reset an existing account. Use
