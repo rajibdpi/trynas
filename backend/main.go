@@ -50,6 +50,10 @@ type ctxKey string
 
 const userKey ctxKey = "user"
 
+// Standalone builds supply a default first-start password through Go linker flags.
+// Development still requires ADMIN_PASSWORD; runtime configuration takes precedence.
+var buildAdminPassword string
+
 func main() {
 	if err := loadConfig(); err != nil {
 		log.Fatal(err)
@@ -168,9 +172,9 @@ func (a *App) migrate() error {
 		return err
 	}
 	if n == 0 {
-		password := env("ADMIN_PASSWORD", "")
-		if len(password) < 12 || len(password) > 72 || (password == "change-this-now" || password == "replace-with-a-strong-random-password") {
-			return fmt.Errorf("set ADMIN_PASSWORD to a strong 12–72 byte password before first startup")
+		password := env("ADMIN_PASSWORD", buildAdminPassword)
+		if len(password) < 8 || len(password) > 72 || (password == "change-this-now" || password == "replace-with-a-strong-random-password") {
+			return fmt.Errorf("set ADMIN_PASSWORD to a strong 8–72 byte password before first startup")
 		}
 		h, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 		if err != nil {
