@@ -1,0 +1,54 @@
+package main
+
+import (
+	"path/filepath"
+	"testing"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+func TestBuildAdminDefaults(t *testing.T) {
+	original := buildAdminPassword
+	t.Cleanup(func() { buildAdminPassword = original })
+	buildAdminPassword = "Admin@123!"
+	for _, override := range []string{"", "runtime-password-long"} {
+		t.Run(override, func(t *testing.T) {
+			t.Setenv("ADMIN_USER", "")
+			t.Setenv("ADMIN_PASSWORD", override)
+			db, err := openDatabase(filepath.Join(t.TempDir(), "test.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			a := &App{db: db}
+			if err := a.migrate(); err != nil {
+				t.Fatal(err)
+			}
+			var username, hash string
+			if err := db.QueryRow("SELECT username,password_hash FROM users").Scan(&username, &hash); err != nil {
+				t.Fatal(err)
+			}
+			password := buildAdminPassword
+			if override != "" {
+				password = override
+			}
+			if username != "admin" {
+				t.Fatalf("username = %q", username)
+			}
+			if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("ADMIN_PASSWORD", "different-runtime-password")
+			if err := a.migrate(); err != nil {
+				t.Fatal(err)
+			}
+			var unchanged string
+			if err := db.QueryRow("SELECT password_hash FROM users").Scan(&unchanged); err != nil {
+				t.Fatal(err)
+			}
+			if unchanged != hash {
+				t.Fatal("migration reset existing password")
+			}
+		})
+	}
+}
