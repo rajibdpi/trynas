@@ -519,7 +519,7 @@ export function FileBrowser({
             >
               <RefreshCw />
             </Button>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Sort files"><ArrowDownWideNarrow />By {sortLabels[sortBy].toLowerCase()}<ChevronDown /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
                 {(["name", "size", "type", "modified"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortBy(value)} className="justify-between py-2.5"><span>{sortLabels[value]}</span>{sortBy === value && <Check className="size-4" />}</DropdownMenuItem>)}
@@ -527,7 +527,7 @@ export function FileBrowser({
                 {(["asc", "desc"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortDirection(value)} className="justify-between py-2.5"><span>{value === "asc" ? "Ascending" : "Descending"}</span>{sortDirection === value && <Check className="size-4" />}</DropdownMenuItem>)}
               </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Change file view">{view === "large" ? <Grid2X2 /> : view === "grid" ? <Grip /> : <List />}View<ChevronDown /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44 rounded-xl p-1.5">
                 <p className="px-3 py-2 text-xs text-muted-foreground">View</p>
