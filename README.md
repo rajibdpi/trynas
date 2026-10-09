@@ -5,6 +5,8 @@ TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.
 For platform-specific setup, verified binary installation, and upgrades, see
 [Installation](installation.md), including Go-free `get.sh` (Linux/macOS) and `get.ps1` (Windows) installers.
 
+For daily commands and a map of the source code, see [Developer guide](CONTRIBUTING.md).
+
 ## Run development servers
 
 Install the [build requirements](#build-requirements), then run these commands
@@ -280,7 +282,8 @@ under `frontend/modules/`.
 `main.go` calls `cmd.Execute()`, which loads configuration and starts the
 server. `cmd/server.go` initializes storage and the database, then creates the
 application. `app/` creates the feature modules, wires their dependencies,
-and registers HTTP routes. Startup errors return to `main.go` for logging
+and registers HTTP routes. Embedded module aliases expose feature methods
+directly, preserving the application API without duplicate forwarding methods. Startup errors return to `main.go` for logging
 and a nonzero exit status.
 `core/` contains shared state, models, path helpers, and security
 helpers. Each feature's `module.go` declares the operations it needs through a
