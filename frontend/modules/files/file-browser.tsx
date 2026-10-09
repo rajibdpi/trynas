@@ -345,6 +345,13 @@ export function FileBrowser({
           <span className="mb-4 grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary"><Upload className="size-8"/></span>
           <p className="text-xl font-semibold">{!writable ? "This folder is read-only" : upload ? "An upload is already in progress" : "Drop files to upload"}</p>
           <p className="mt-2 break-all text-sm text-muted-foreground">{!writable ? "Choose a folder with write access." : upload ? "Wait for the current upload to finish." : `Upload to /${path || " (storage root)"}`}</p>
+        <div className="upload-hint mt-5 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+          <Upload className="size-4" />
+          <span>Drag and drop files to upload</span>
+          <span className="hidden sm:inline">
+            · Right-click for more actions
+          </span>
+        </div>
         </div>
       </div>}
       <CardHeader>
@@ -687,13 +694,6 @@ export function FileBrowser({
             }
           />
         )}
-        <div className="upload-hint mt-5 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-          <Upload className="size-4" />
-          <span>Drag and drop files to upload</span>
-          <span className="hidden sm:inline">
-            · Right-click for more actions
-          </span>
-        </div>
       </CardContent>
     </Card>
   );
