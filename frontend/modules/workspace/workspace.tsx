@@ -172,6 +172,10 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       setPathHistory([]); setForwardHistory([]);
       setPassword("");
       setLoginError("");
+      if (window.location.pathname === "/login") {
+        if (user.role === "admin") window.history.replaceState(null, "", "/dashboard");
+        else writeFileLocation(user.home || "", undefined, undefined, true);
+      }
     } catch (e) {
       setLoginError(
         e instanceof ApiError
@@ -382,6 +386,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
               setMobile(false);
               setCommand(null);
               setPreview(null);
+              window.history.replaceState(null, "", "/login");
             })
             .catch((e) => notify(message(e)))
             .finally(() => setSigningOut(false));
