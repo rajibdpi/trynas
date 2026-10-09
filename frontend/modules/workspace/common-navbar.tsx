@@ -1,5 +1,6 @@
 "use client";
 
+import { API } from "@/modules/shared/api";
 import { useState } from "react";
 import { cn } from "@/modules/shared/utils";
 import { ChevronDown, HardDrive, LogOut, PanelLeftClose, PanelLeftOpen, Moon, Sun, UserRound, Search } from "lucide-react";
@@ -9,8 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 
 type NavbarUser = { username: string; role: string; home?: string };
 
-export function CommonNavbar({ appName = "TryNAS", user, dark, signingOut, sidebarCollapsed, mobileOpen, searchQuery, onSearchQueryChange, onSearch, onToggleSidebar, onToggleTheme, onOpenNavigation, onHome, onLogout }: {
+export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingOut, sidebarCollapsed, mobileOpen, searchQuery, onSearchQueryChange, onSearch, onToggleSidebar, onToggleTheme, onOpenNavigation, onHome, onLogout }: {
   appName?: string;
+  logoUrl?: string;
   user: NavbarUser;
   dark: boolean;
   signingOut: boolean;
@@ -31,7 +33,7 @@ export function CommonNavbar({ appName = "TryNAS", user, dark, signingOut, sideb
       <header className="common-navbar fixed inset-x-0 top-0 z-40 flex h-18 items-center gap-3 border-b px-4 md:pl-0 md:pr-8">
         <div className={cn("flex shrink-0 items-center gap-2 md:h-full md:border-r", sidebarCollapsed ? "md:w-[76px] md:justify-center" : "md:w-[260px] md:px-5")}>
         <button className="flex min-w-0 items-center gap-2 rounded-lg text-lg font-semibold focus-visible:outline-2 focus-visible:outline-primary" onClick={onHome} aria-label={`${appName} dashboard`}>
-          <span className="brand-mark"><HardDrive className="size-5" /></span>
+          <span className="brand-mark">{logoUrl ? <img src={logoUrl.startsWith("/api/branding/logo") ? API + logoUrl : logoUrl} alt="" className="size-8 object-contain" referrerPolicy="no-referrer" /> : <HardDrive className="size-5" />}</span>
           <span className={cn("hidden max-w-36 truncate sm:inline", sidebarCollapsed && "md:hidden")}>{appName}</span>
         </button>
         <Button variant="ghost" size="icon" className="md:hidden" aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} aria-controls="workspace-sidebar" onClick={onOpenNavigation}>

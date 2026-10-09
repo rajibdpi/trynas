@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -51,6 +52,19 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		settings.AppName = strings.TrimSpace(settings.AppName)
+		settings.LogoURL = strings.TrimSpace(settings.LogoURL)
+		settings.FooterText = strings.TrimSpace(settings.FooterText)
+		if utf8.RuneCountInString(settings.FooterText) > 200 {
+			core.Bad(w, "footer text must be at most 200 characters", 400)
+			return
+		}
+		if settings.LogoURL != "" {
+			logo, err := url.Parse(settings.LogoURL)
+			if err != nil || len(settings.LogoURL) > 2048 || strings.ContainsAny(settings.LogoURL, "\r\n\\") || !((logo.Scheme == "https" || logo.Scheme == "http") && logo.Host != "" && logo.User == nil || logo.Scheme == "" && logo.Host == "" && strings.HasPrefix(settings.LogoURL, "/") && !strings.HasPrefix(settings.LogoURL, "//")) {
+				core.Bad(w, "logo must be an HTTP(S) URL or a path starting with /", 400)
+				return
+			}
+		}
 		if settings.AppName == "" || utf8.RuneCountInString(settings.AppName) > 40 || strings.ContainsAny(settings.AppName, "\r\n") {
 			core.Bad(w, "app name must be 1–40 characters", 400)
 			return

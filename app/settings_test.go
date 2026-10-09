@@ -19,7 +19,7 @@ func TestBasicAppSettings(t *testing.T) {
 	if response.Settings.AppName != "TryNAS" || response.Settings.FileView != "grid" || response.Settings.ShareExpiry != "7" {
 		t.Fatal("incorrect defaults")
 	}
-	configured := core.AppSettings{AppName: "Home NAS", FileView: "list", ShareExpiry: "15"}
+	configured := core.AppSettings{AppName: "Home NAS", LogoURL: "https://example.com/logo.png", FooterText: "© My home", FileView: "list", ShareExpiry: "15"}
 	expect(t, jsonRequest(a, user, "POST", "/api/settings", configured, a.Settings), 403)
 	expect(t, jsonRequest(a, admin, "POST", "/api/settings", configured, a.Settings), 200)
 	saved, err := a.ReadSettings()
@@ -35,6 +35,14 @@ func TestBasicAppSettings(t *testing.T) {
 	for _, badSettings := range []core.AppSettings{{AppName: "", FileView: "grid", ShareExpiry: "7"}, {AppName: "Test", FileView: "bad", ShareExpiry: "7"}, {AppName: "Test", FileView: "grid", ShareExpiry: "365"}, {AppName: strings.Repeat("a", 41), FileView: "list", ShareExpiry: "never"}} {
 		expect(t, jsonRequest(a, admin, "POST", "/api/settings", badSettings, a.Settings), 400)
 	}
+	for _, logo := range []string{"javascript:alert(1)", "data:image/svg+xml,test", "//example.com/logo.png", "https://user:password@example.com/logo.png"} {
+		invalid := configured
+		invalid.LogoURL = logo
+		expect(t, jsonRequest(a, admin, "POST", "/api/settings", invalid, a.Settings), 400)
+	}
+	invalid := configured
+	invalid.FooterText = strings.Repeat("x", 201)
+	expect(t, jsonRequest(a, admin, "POST", "/api/settings", invalid, a.Settings), 400)
 	after, _ := a.ReadSettings()
 	if after != configured {
 		t.Fatal("invalid settings changed saved configuration")
