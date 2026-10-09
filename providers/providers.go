@@ -500,7 +500,7 @@ func (a *Module) EncryptConnections(plain []byte) ([]byte, error) {
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, err
 	}
-	return json.Marshal(core.EncryptedConnections{nonce, gcm.Seal(nil, nonce, plain, []byte("trynas-storage-v1"))})
+	return json.Marshal(core.EncryptedConnections{Nonce: nonce, Data: gcm.Seal(nil, nonce, plain, []byte("trynas-storage-v1"))})
 }
 
 func (a *Module) DecryptConnections(raw []byte) ([]byte, error) {
