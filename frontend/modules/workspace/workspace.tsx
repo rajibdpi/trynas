@@ -507,9 +507,11 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           </nav>
           <div className="server-status ml-auto hidden sm:flex">
             <span
-              className={cn("status-dot", sys.error && "bg-destructive!")}
+              className={cn("status-dot", me.role === "admin" && sys.error && "bg-destructive!")}
             />
-            {sys.error
+            {me.role !== "admin"
+              ? "Connected"
+              : sys.error
               ? "Server unavailable"
               : sys.data
                 ? sys.data.hostname
