@@ -86,7 +86,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   useEffect(() => {
     if (!me) return;
     const controller = new AbortController();
-    void api("/api/preferences", { signal: controller.signal }).then(data => setAppSettings(data.settings)).catch(() => { });
+    void api("/api/preferences", { signal: controller.signal }).then(data => setAppSettings({ ...defaultSettings, ...data.settings })).catch(() => { });
     return () => controller.abort();
   }, [me?.id]);
   useEffect(() => { document.title = appSettings.appName; }, [appSettings.appName]);
@@ -264,7 +264,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         Connecting to TryNAS…
       </main>
     );
-  if (!me) return <><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} /></>;
+  if (!me) return <><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></>;
   let content: ReactNode = null;
   const fileProps = {
     defaultView: appSettings.fileView,
@@ -356,6 +356,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     <div className={cn("app-shell min-h-screen pt-18 md:grid", sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[260px_minmax(0,1fr)]")}>
       <CommonNavbar
         appName={appSettings.appName}
+        logoUrl={appSettings.logoUrl}
         user={me}
         dark={dark}
         signingOut={signingOut}
@@ -496,7 +497,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         </header>
         {sys.error && <ErrorText text={sys.error} />}
         <section key={activeTab}>{content}</section>
-        <div className="mt-auto pt-8"><AppFooter appName={appSettings.appName} /></div>
+        <div className="mt-auto pt-8"><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
       {preview && <Preview item={preview} close={() => { setPreview(null); writeFileLocation(path); }} />}
