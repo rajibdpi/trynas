@@ -114,7 +114,7 @@ func (a *Module) Mkdir(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, e.Error(), 500)
 		return
 	}
-	a.Log(u.ID, "mkdir", x.Path)
+	a.Log(u.ID, "mkdir", x.Path, u.IP)
 	core.JSON(w, map[string]bool{"ok": true})
 }
 

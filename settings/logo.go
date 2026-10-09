@@ -53,7 +53,7 @@ func (a *Module) UploadLogo(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "could not save logo", 500)
 		return
 	}
-	a.Log(user.ID, "settings", "logo")
+	a.Log(user.ID, "settings", "logo", user.IP)
 	core.JSON(w, map[string]string{"logoUrl": fmt.Sprintf("/api/branding/logo?v=%x", sha256.Sum256(data))})
 }
 

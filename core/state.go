@@ -31,6 +31,7 @@ type State struct {
 }
 
 type User struct {
+	IP       string `json:"-"`
 	ID       int    `json:"id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`

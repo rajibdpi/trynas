@@ -239,7 +239,7 @@ func (a *Module) StorageProviders(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "could not save connection", 500)
 			return
 		}
-		a.Log(u.ID, "storage-connect", c.Name)
+		a.Log(u.ID, "storage-connect", c.Name, u.IP)
 		c.Options = nil
 		core.JSON(w, c)
 		return
@@ -263,7 +263,7 @@ func (a *Module) StorageProviders(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "could not update attachment", 500)
 			return
 		}
-		a.Log(u.ID, "storage-"+input.Action, selected.Name)
+		a.Log(u.ID, "storage-"+input.Action, selected.Name, u.IP)
 		core.JSON(w, map[string]bool{"ok": true})
 		return
 	}
@@ -273,7 +273,7 @@ func (a *Module) StorageProviders(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "could not remove connection", 500)
 			return
 		}
-		a.Log(u.ID, "storage-disconnect", selected.Name)
+		a.Log(u.ID, "storage-disconnect", selected.Name, u.IP)
 		core.JSON(w, map[string]bool{"ok": true})
 		return
 	}
@@ -430,7 +430,7 @@ func (a *Module) RunTransfer(ctx context.Context, job *core.TransferJob, c core.
 	if a.SaveStorageJob(job) != nil {
 		job.Status = "failed"
 	}
-	a.Log(u.ID, "storage-"+job.Status, c.Name+" "+job.Direction+" "+job.Mode)
+	a.Log(u.ID, "storage-"+job.Status, c.Name+" "+job.Direction+" "+job.Mode, u.IP)
 }
 
 func (a *Module) SaveStorageJob(job *core.TransferJob) error {

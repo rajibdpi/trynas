@@ -59,7 +59,7 @@ func (a *Module) TrashOne(u core.User, p string) error {
 		_ = os.Rename(dst, src)
 		return err
 	}
-	a.Log(u.ID, "trash", p)
+	a.Log(u.ID, "trash", p, u.IP)
 	return nil
 }
 
@@ -128,7 +128,7 @@ func (a *Module) RestoreV5(w http.ResponseWriter, r *http.Request) {
 		core.Report(w, err)
 		return
 	}
-	a.Log(u.ID, "restore", p)
+	a.Log(u.ID, "restore", p, u.IP)
 	core.JSON(w, map[string]bool{"ok": true})
 }
 
@@ -183,6 +183,6 @@ func (a *Module) PurgeV5(w http.ResponseWriter, r *http.Request) {
 		core.Report(w, err)
 		return
 	}
-	a.Log(u.ID, "purge-trash", id)
+	a.Log(u.ID, "purge-trash", id, u.IP)
 	core.JSON(w, map[string]bool{"ok": true})
 }

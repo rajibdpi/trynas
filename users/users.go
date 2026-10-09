@@ -184,7 +184,7 @@ func (a *Module) SaveUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	committed = true
-	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "save-user", x.Username)
+	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "save-user", x.Username, core.ClientIP(r))
 	core.JSON(w, map[string]any{"id": x.ID})
 }
 
@@ -216,7 +216,7 @@ func (a *Module) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "user deletion failed", 500)
 		return
 	}
-	a.Log(u.ID, "delete-user", strconv.Itoa(id))
+	a.Log(u.ID, "delete-user", strconv.Itoa(id), u.IP)
 	core.JSON(w, map[string]bool{"ok": true})
 }
 

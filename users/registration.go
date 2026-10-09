@@ -135,7 +135,7 @@ func (a *Module) ApproveRegistration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	committed = true
-	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "approve-user", name)
+	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "approve-user", name, core.ClientIP(r))
 	core.JSON(w, map[string]any{"id": uid})
 }
 
@@ -162,6 +162,6 @@ func (a *Module) RejectRegistration(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "request not found", 404)
 		return
 	}
-	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "reject-registration", strconv.Itoa(id))
+	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "reject-registration", strconv.Itoa(id), core.ClientIP(r))
 	core.JSON(w, map[string]bool{"ok": true})
 }
