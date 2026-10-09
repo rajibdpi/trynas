@@ -13,7 +13,7 @@ import (
 func (a *Module) TrashOne(u core.User, p string) error {
 	p, err := core.CleanPath(p)
 	if err != nil || p == "" {
-		return core.OperationError{"select a file or folder", 400}
+		return core.OperationError{Message: "select a file or folder", Status: 400}
 	}
 	if err = a.AllowTree(u, p, true); err != nil {
 		return core.Forbidden(err.Error())

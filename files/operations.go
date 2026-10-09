@@ -16,14 +16,14 @@ import (
 func (a *Module) Destination(u core.User, p string) (string, error) {
 	p, err := core.CleanPath(p)
 	if err != nil || p == "" {
-		return "", core.OperationError{"invalid destination", 400}
+		return "", core.OperationError{Message: "invalid destination", Status: 400}
 	}
 	if !a.Can(u, p, true) || !a.Can(u, path.Dir(p), true) {
 		return "", core.Forbidden("destination folder permission denied")
 	}
 	f, err := core.Safe(a.Root, p)
 	if err != nil {
-		return "", core.OperationError{err.Error(), 400}
+		return "", core.OperationError{Message: err.Error(), Status: 400}
 	}
 	if _, err = os.Lstat(f); err == nil {
 		return "", core.Conflict("destination exists")
@@ -33,7 +33,7 @@ func (a *Module) Destination(u core.User, p string) (string, error) {
 	}
 	st, err := os.Stat(filepath.Dir(f))
 	if err != nil || !st.IsDir() {
-		return "", core.OperationError{"destination folder does not exist", 400}
+		return "", core.OperationError{Message: "destination folder does not exist", Status: 400}
 	}
 	return f, nil
 }
@@ -78,11 +78,11 @@ func (a *Module) MoveOwned(from, to, src, dst string) error {
 func (a *Module) CopyOrMove(u core.User, from, to string, move bool) error {
 	from, err := core.CleanPath(from)
 	if err != nil || from == "" {
-		return core.OperationError{"select a file or folder", 400}
+		return core.OperationError{Message: "select a file or folder", Status: 400}
 	}
 	to, err = core.CleanPath(to)
 	if err != nil || core.Under(to, from) {
-		return core.OperationError{"destination cannot be inside the source", 400}
+		return core.OperationError{Message: "destination cannot be inside the source", Status: 400}
 	}
 	if err = a.AllowTree(u, from, move); err != nil {
 		return core.Forbidden(err.Error())
@@ -138,7 +138,7 @@ func (a *Module) CopyOrMove(u core.User, from, to string, move bool) error {
 			return e
 		}
 		if e = a.CheckQuota(u.ID, size); e != nil {
-			return core.OperationError{e.Error(), 413}
+			return core.OperationError{Message: e.Error(), Status: 413}
 		}
 		stage, e := os.MkdirTemp(filepath.Dir(dst), ".trynas-copy-")
 		if e != nil {
@@ -310,7 +310,7 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 func (a *Module) ZipOne(u core.User, p string) error {
 	p, err := core.CleanPath(p)
 	if err != nil || p == "" {
-		return core.OperationError{"select a file or folder", 400}
+		return core.OperationError{Message: "select a file or folder", Status: 400}
 	}
 	if err = a.AllowTree(u, p, false); err != nil {
 		return core.Forbidden(err.Error())
@@ -368,7 +368,7 @@ func (a *Module) ZipOne(u core.User, p string) error {
 		return err
 	}
 	if err = a.CheckQuota(u.ID, st.Size()); err != nil {
-		return core.OperationError{err.Error(), 413}
+		return core.OperationError{Message: err.Error(), Status: 413}
 	}
 	if err = temp.Close(); err != nil {
 		return err

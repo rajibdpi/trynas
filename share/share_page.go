@@ -94,7 +94,7 @@ func (a *Module) ListSharedItems(owner core.User, paths []string) ([]core.Shared
 			if st.IsDir() {
 				kind, size = "Folder", "ZIP download"
 			}
-			items = append(items, core.SharedPageItem{name, kind, size, "?download=1&item=" + url.QueryEscape(p), st.IsDir()})
+			items = append(items, core.SharedPageItem{Name: name, Kind: kind, Size: size, DownloadURL: "?download=1&item=" + url.QueryEscape(p), Folder: st.IsDir()})
 			return nil
 		})
 		if err != nil {
@@ -117,7 +117,7 @@ func ServeSharePage(w http.ResponseWriter, r *http.Request, name string, size in
 	if len(collection) > 0 && collection[0] {
 		kind, detail, download = "Shared collection", "Selected files and folders", "Download all (ZIP)"
 	}
-	if err := SharePageTemplate.Execute(w, core.SharedPageData{name, detail, kind, download, items, truncated}); err != nil {
+	if err := SharePageTemplate.Execute(w, core.SharedPageData{Name: name, Size: detail, Kind: kind, Download: download, Items: items, Truncated: truncated}); err != nil {
 		return
 	}
 }

@@ -34,7 +34,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   return (
     <NotificationContext.Provider value={notify}>
       {children}
-      <div role="region" aria-label="Notifications" aria-live="polite" aria-relevant="additions" className="pointer-events-none fixed bottom-4 right-4 z-[100] flex max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-sm flex-col gap-3 overflow-y-auto">
+      <div role="region" aria-label="Notifications" aria-live="polite" aria-relevant="additions" className="pointer-events-none fixed bottom-4 right-4 z-100 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm flex-col gap-3 overflow-y-auto">
         {toasts.map(toast => <NotificationToast key={toast.id} toast={toast} dismiss={dismiss} />)}
       </div>
     </NotificationContext.Provider>
