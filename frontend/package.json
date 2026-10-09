@@ -15,10 +15,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
+    "mammoth": "^1.13.0",
     "next": "16.3.8",
     "react": "latest",
     "react-dom": "latest",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
