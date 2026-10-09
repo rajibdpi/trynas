@@ -2,25 +2,47 @@
 
 TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.js, Tailwind CSS, shadcn/ui-compatible components, Go, and SQLite.
 
-## Run frontend and backend with one command
+## Run development servers
 
-From the project root:
+Install the [build requirements](#build-requirements), then run these commands
+from the project root:
 
 ```bash
+cp .env.example .env
+# Edit .env and set a unique ADMIN_PASSWORD before the first launch.
+chmod 600 .env
 go run ./scripts/dev
 ```
 
-This starts the Go backend and Next.js frontend together. Open
-**http://localhost:3000**; the API runs at **http://localhost:8080** by default.
-Press **Ctrl+C** to stop both servers. If either server exits, the other stops
-automatically. Stop any existing TryNAS servers before running this command.
+Open **http://localhost:3000** for the Next.js frontend. The Go API listens on
+**http://localhost:8080** by default. The Go command loads `.env`, installs
+frontend dependencies with `pnpm install --frozen-lockfile` if `node_modules`
+is missing, compiles the backend, and starts both servers.
 
-Development requires Go, Node.js and pnpm (see [Build requirements](#build-requirements)).
-The Go command loads `.env` when present and installs frontend dependencies if needed.
-Next.js supports frontend hot reload. Restart the command after Go backend changes.
-Backend flags such as `--config`, `--addr`, `--root`, and `--db` are supported.
-For the default development ports, set `CORS_ORIGIN=http://localhost:3000` and
-`NEXT_PUBLIC_API_URL=http://localhost:8080` in `.env`.
+Press **Ctrl+C** to stop both servers and their child processes. If either
+server exits, the other stops automatically. Stop existing TryNAS servers first.
+Frontend edits use Next.js hot reload; restart the command after Go backend edits.
+The command leaves `frontend/.env.local` unchanged.
+
+For the default development ports, configure:
+
+```dotenv
+ADDR=127.0.0.1:8080
+CORS_ORIGIN=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:8080
+COOKIE_SECURE=false
+```
+
+Backend flags override environment values. For example:
+
+```bash
+go run ./scripts/dev --config .env --addr 127.0.0.1:8081
+go run ./scripts/dev --help
+```
+
+When changing the backend port, also update `NEXT_PUBLIC_API_URL` to match.
+The frontend uses port 3000. `--root` and `--db` override storage and database
+paths. The existing `./run-dev.sh` command also forwards to this Go runner.
 
 ## Run the standalone app
 
@@ -162,8 +184,9 @@ To prevent startup at boot and stop the app, run
 
 ## Build requirements
 
-These tools are needed only to build the standalone executable. Running an
-already-built executable does not require Go, Node.js or pnpm.
+These tools are needed for development and full release builds. Running an
+already-built executable does not require Go, Node.js or pnpm. Backend-only
+builds with `--skip-frontend` need Go and existing `frontend/dist` assets.
 
 - Go 1.27.1 or compatible current Go toolchain
 - Node.js 24+
@@ -210,6 +233,9 @@ TryNAS/
 ├── cmd/                # command execution and server startup
 │   ├── root.go         # Execute entry point and configuration loading
 │   └── server.go       # storage initialization and HTTP server
+├── scripts/
+│   ├── build/          # Go release builder
+│   └── dev/            # Go development server runner
 ├── app/                # dependency wiring and HTTP routes
 ├── core/               # shared state, models, and helpers
 ├── files/              # file operations (other features also have root folders)
@@ -269,7 +295,7 @@ the overview, and `modules/shared` contains the API client, types, helpers,
 notifications, and shared dialogs. Reusable UI primitives remain in
 `components/ui/`.
 
-Development and systemd startup commands are unchanged. The release builder
+Use `go run ./scripts/dev` for development. The release builder
 generates the Next.js static export in `frontend/dist/` and embeds
 that folder directly in the standalone executable. Rebuild after source changes:
 
@@ -494,24 +520,28 @@ Release binaries contain no default administrator password. Set `ADMIN_PASSWORD`
 to `admin`. Building does not print or write credentials, and rebuilding does not
 reset existing accounts.
 
-The Go release command rebuilds both the current frontend and backend.
-Node.js and pnpm are still required to compile the Next.js UI. To rebuild only
-the backend using the existing `frontend/dist` assets, run
-`go run ./scripts/build --skip-frontend`. It clears old
-release output, builds the frontend in `.next` separately from dev mode (`.next-dev`),
-and embeds the freshly exported assets in the executable. It creates a binary
-for your current OS/architecture in `dist/`. Build every
-supported 64-bit target with:
+The Go release command rebuilds the frontend and backend. It clears `.next`
+and `frontend/dist`, generates a fresh static export, and embeds that export
+in each Go executable. Development output stays in `frontend/.next-dev`.
+The default target is the current operating system and architecture.
 
-```bash
-go run ./scripts/build --all
-```
+| Command | Result |
+| --- | --- |
+| `go run ./scripts/build` | Full release build for the current machine |
+| `go run ./scripts/build --all` | Full builds for all six supported targets |
+| `go run ./scripts/build --target linux/arm64,windows/amd64` | Full builds for selected targets |
+| `go run ./scripts/build --skip-frontend` | Rebuild Go using existing exported UI assets |
+| `go run ./scripts/build --help` | Show build options |
 
-Or build selected targets:
+`--skip-frontend` can also be combined with `--target` or `--all`. It does not
+include frontend source edits; use a full build when the UI changes. `--all`
+and `--target` cannot be used together. Supported targets are Linux, Windows,
+and macOS (`darwin`), each on `amd64` and `arm64`.
 
-```bash
-go run ./scripts/build --target windows/amd64,linux/amd64,darwin/arm64
-```
+Binaries are written to the root `dist/` directory, alongside `SHA256SUMS`.
+A subset build preserves other target binaries and includes their existing
+checksums. Rebuild all targets before distributing a complete updated release.
+Each existing binary is replaced only after its new build succeeds.
 
 Building does not update an already running app. Stop the development backend
 or old release, then run the newly built executable **from the project root**
