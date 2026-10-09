@@ -686,7 +686,7 @@ export function FileBrowser({
                   >
                     <span className="relative shrink-0">
                       {item.dir ? (
-                        <span className={cn("folder-icon", view === "large" ? "!size-16" : "!size-12")}>
+                        <span className={cn("folder-icon", view === "large" ? "size-16!" : "size-12!")}>
                           <Folder className={view === "large" ? "size-14" : "size-10"} />
                         </span>
                       ) : (
