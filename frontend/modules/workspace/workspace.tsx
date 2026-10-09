@@ -74,6 +74,11 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     if (me?.role !== "admin" && nav.find(item => item.id === next)?.admin) next = "files";
     setTab(next);
     setMobile(false);
+    if (next === "dashboard") {
+      setPath(me?.rootAccessible ? "" : (me?.home || ""));
+      setFileQuery(""); setPreview(null); setPathHistory([]); setForwardHistory([]);
+      void sys.reload(); void quota.reload(); void network.reload();
+    }
     const folder = resetFiles ? (me?.rootAccessible ? "" : (me?.home || "")) : path;
     const route = next === "files" ? fileLocationURL(folder) : `/${next}`;
     if (next === "files") {
@@ -94,6 +99,12 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const sys = useResource<any>(me?.role === "admin" ? "/api/system" : null, 5000),
     network = useResource<any>(me?.role === "admin" ? "/api/network" : null, 3000),
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
+  useEffect(() => {
+    if (!me || (pathname !== "/dashboard" && pathname !== "/")) return;
+    setPath(me.rootAccessible ? "" : (me.home || ""));
+    setFileQuery(""); setPreview(null); setPathHistory([]); setForwardHistory([]);
+    void sys.reload(); void quota.reload(); void network.reload();
+  }, [pathname, me?.id]);
   const [trafficSamples, setTrafficSamples] = useState<TrafficSample[]>([]);
   const [usageSamples, setUsageSamples] = useState<UsageSample[]>([]);
   const [storageSamples, setStorageSamples] = useState<HistorySample[]>([]);
