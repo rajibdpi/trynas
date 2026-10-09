@@ -124,7 +124,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   }, [network.data, me?.id]);
   useEffect(() => {
     let active = true;
-    void api("/api/me")
+    void api("/api/me", { signal: AbortSignal.timeout(10000) })
       .then((u) => {
         if (active) { setMe(u); setPath(u.home || "") }
       })

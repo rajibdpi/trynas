@@ -1,5 +1,6 @@
-export const API = process.env.NEXT_PUBLIC_EMBEDDED === "true" ? "" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
-export function shareURL(token:string){return `${API || (typeof window !== "undefined" ? window.location.origin : "")}/s/${token}`;}
+// Development requests use the Next.js proxy so LAN clients never call their own localhost.
+export const API = process.env.NEXT_PUBLIC_EMBEDDED === "true" || process.env.NODE_ENV === "development" ? "" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
+export function shareURL(token: string) { return `${API || (typeof window !== "undefined" ? window.location.origin : "")}/s/${token}`; }
 export class ApiError extends Error {
   constructor(
     public status: number,

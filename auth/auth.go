@@ -17,8 +17,8 @@ func (a *Module) Cors(next http.Handler) http.Handler {
 			return
 		}
 		w.Header().Add("Vary", "Origin")
-		o := core.Env("CORS_ORIGIN", "http://localhost:3000")
-		if r.Header.Get("Origin") == o {
+		o := r.Header.Get("Origin")
+		if o != "" && core.ConfiguredBrowserOrigin(o) {
 			w.Header().Set("Access-Control-Allow-Origin", o)
 		}
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
