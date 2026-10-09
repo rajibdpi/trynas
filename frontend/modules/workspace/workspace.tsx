@@ -491,19 +491,20 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         )}
       </aside>
       <main className="workspace flex min-h-[calc(100dvh-4.5rem)] min-w-0 flex-col p-4 md:px-9 md:py-7 xl:px-12">
-        <header className="workspace-header mb-8 flex items-center gap-3">
-          <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">
-              Workspace /{" "}
-              {me.role === "admin" ? "Administrator" : "Personal storage"}
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              {nav.find((x) => x.id === activeTab)?.label}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Everything you need. In one place.
-            </p>
-          </div>
+        <header className="mb-6 flex items-center gap-3">
+          <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
+            <ol className="flex flex-wrap items-center gap-2 text-sm font-medium">
+              <li><Link href={me.role === "admin" ? "/dashboard" : fileLocationURL(me.home || "")} onClick={event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); selectTab(me.role === "admin" ? "dashboard" : "files", true); }} className="text-muted-foreground hover:text-foreground">Workspace</Link></li>
+              <li aria-hidden="true" className="text-muted-foreground">/</li>
+              <li>{activeTab === "files" ? <Link href={fileLocationURL(fileLocation?.storage ? "" : me.rootAccessible ? "" : (me.home || ""), undefined, fileLocation?.storage || undefined)} onClick={event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (fileLocation?.storage) writeFileLocation("", undefined, fileLocation.storage); else selectTab("files", true); }} className="hover:text-primary" aria-current={!(fileLocation?.path || path) ? "page" : undefined}>{fileLocation?.storage ? "Attached storage" : "Files"}</Link> : <span aria-current="page" className="font-medium">{nav.find(item => item.id === activeTab)?.label}</span>}</li>
+              {activeTab === "files" && (fileLocation?.path ?? path).split("/").filter(Boolean).map((name, index, parts) => {
+                const folder = parts.slice(0, index + 1).join("/");
+                const current = index === parts.length - 1;
+                const accessible = !!fileLocation?.storage || me.rootAccessible || folder === me.home || folder.startsWith(`${me.home}/`);
+                return <li key={folder} className="flex min-w-0 items-center gap-2"><span aria-hidden="true" className="text-muted-foreground">/</span>{current || !accessible ? <span aria-current={current ? "page" : undefined} className="break-all font-medium">{name}</span> : <Link href={fileLocationURL(folder, undefined, fileLocation?.storage || undefined)} onClick={event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); if (fileLocation?.storage) writeFileLocation(folder, undefined, fileLocation.storage); else navigateFolder(folder); }} className="break-all text-muted-foreground hover:text-primary">{name}</Link>}</li>;
+              })}
+            </ol>
+          </nav>
           <div className="server-status ml-auto hidden sm:flex">
             <span
               className={cn("status-dot", sys.error && "bg-destructive!")}
