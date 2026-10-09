@@ -14,6 +14,11 @@ export function ActivityPanel() {
       </CardHeader>
       <CardContent>
         <ErrorText text={activity.error} />
+        <div className="hidden grid-cols-[110px_1fr_180px] gap-1 border-b pb-3 text-xs font-semibold text-muted-foreground sm:grid">
+          <span>User</span>
+          <span>Description</span>
+          <span>Time</span>
+        </div>
         {activity.data?.map((item, i) => (
           <div
             key={i}
