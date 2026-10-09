@@ -73,8 +73,8 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "app name must be 1–40 characters", 400)
 			return
 		}
-		if settings.FileView != "grid" && settings.FileView != "list" {
-			core.Bad(w, "choose list or grid view", 400)
+		if settings.FileView != "grid" && settings.FileView != "list" && settings.FileView != "large" {
+			core.Bad(w, "choose large tiles, tiles, or list view", 400)
 			return
 		}
 		switch settings.ShareExpiry {
