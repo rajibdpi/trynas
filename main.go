@@ -1,5 +1,15 @@
 package main
 
-import "github.com/rajibdpi/trynas/app"
+import (
+	"log"
+	"os"
 
-func main() { app.Run() }
+	"github.com/rajibdpi/trynas/cmd"
+)
+
+func main() {
+	if err := cmd.Execute(); err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
+}

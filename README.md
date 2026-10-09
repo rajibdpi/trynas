@@ -205,14 +205,17 @@ TryNAS/
 ├── main.go             # standalone entry point
 ├── go.mod
 ├── go.sum
-├── app/                # startup, dependency wiring, HTTP routes
+├── cmd/                # command execution and server startup
+│   ├── root.go         # Execute entry point and configuration loading
+│   └── server.go       # storage initialization and HTTP server
+├── app/                # dependency wiring and HTTP routes
 ├── core/               # shared state, models, and helpers
 ├── files/              # file operations (other features also have root folders)
 ├── providers/          # storage provider code
 ├── frontend/           # all UI source, Go static handler, and embedded assets
 │   ├── modules/        # frontend feature folders
 │   ├── frontend.go     # Go handler for the embedded web UI
-│   └── web/            # generated static assets for standalone builds
+│   └── dist/           # generated static assets for standalone builds
 ├── data/
 │   └── trynas.db       # created at runtime
 ├── storage/            # default development storage
@@ -243,8 +246,11 @@ under `frontend/modules/`.
 | `metrics` | System, network, SMART monitoring | System and disk health panels, graphs |
 | `activity` | Audit recording and listing | Activity panel |
 
-`main.go` delegates startup to `app/`. That package creates the
-feature modules, wires their dependencies, and registers HTTP routes.
+`main.go` calls `cmd.Execute()`, which loads configuration and starts the
+server. `cmd/server.go` initializes storage and the database, then creates the
+application. `app/` creates the feature modules, wires their dependencies,
+and registers HTTP routes. Startup errors return to `main.go` for logging
+and a nonzero exit status.
 `core/` contains shared state, models, path helpers, and security
 helpers. Each feature's `module.go` declares the operations it needs through a
 `Dependencies` interface, implemented by the application. Feature packages do

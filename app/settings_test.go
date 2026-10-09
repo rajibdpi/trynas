@@ -19,7 +19,7 @@ func TestBasicAppSettings(t *testing.T) {
 	if response.Settings.AppName != "TryNAS" || response.Settings.FileView != "grid" || response.Settings.ShareExpiry != "7" {
 		t.Fatal("incorrect defaults")
 	}
-	configured := core.AppSettings{"Home NAS", "list", "15"}
+	configured := core.AppSettings{AppName: "Home NAS", FileView: "list", ShareExpiry: "15"}
 	expect(t, jsonRequest(a, user, "POST", "/api/settings", configured, a.Settings), 403)
 	expect(t, jsonRequest(a, admin, "POST", "/api/settings", configured, a.Settings), 200)
 	saved, err := a.ReadSettings()
@@ -32,7 +32,7 @@ func TestBasicAppSettings(t *testing.T) {
 	if strings.Contains(limited.Body.String(), "storageRoot") || !strings.Contains(limited.Body.String(), "Home NAS") {
 		t.Fatal("incorrect user settings response")
 	}
-	for _, badSettings := range []core.AppSettings{{"", "grid", "7"}, {"Test", "bad", "7"}, {"Test", "grid", "365"}, {strings.Repeat("a", 41), "list", "never"}} {
+	for _, badSettings := range []core.AppSettings{{AppName: "", FileView: "grid", ShareExpiry: "7"}, {AppName: "Test", FileView: "bad", ShareExpiry: "7"}, {AppName: "Test", FileView: "grid", ShareExpiry: "365"}, {AppName: strings.Repeat("a", 41), FileView: "list", ShareExpiry: "never"}} {
 		expect(t, jsonRequest(a, admin, "POST", "/api/settings", badSettings, a.Settings), 400)
 	}
 	after, _ := a.ReadSettings()
