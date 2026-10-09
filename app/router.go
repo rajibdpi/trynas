@@ -53,6 +53,8 @@ func (a *App) Router() http.Handler {
 		r.Get("/api/files/search", a.SearchFiles)
 		r.Get("/api/files/download", a.Download)
 		r.Get("/api/files/preview", a.Preview)
+		r.Get("/api/files/edit", a.EditFile)
+		r.Post("/api/files/edit", a.EditFile)
 		r.Post("/api/files/folder", a.Mkdir)
 		r.Post("/api/files/upload", a.UploadV5)
 		r.Post("/api/files/rename", a.RenameV5)

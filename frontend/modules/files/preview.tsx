@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { FileEditor } from "@/modules/files/file-editor";
 import { Download, ZoomIn, ZoomOut } from "lucide-react";
 import { API } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,7 @@ function MediaPreview({ url, video }: { url: string; video?: boolean }) {
 }
 
 export function Preview({ item, close }: { item: Item; close: () => void }) {
+  const [editing, setEditing] = useState(false);
   const ext = item.name.split(".").pop()?.toLowerCase() || "",
     url = `${API}/api/files/preview?path=${encodeURIComponent(item.path)}`;
   let content: ReactNode = (
@@ -87,7 +89,7 @@ export function Preview({ item, close }: { item: Item; close: () => void }) {
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) close();
+        if (!open && (!editing || window.confirm("Close editor? Unsaved changes will be discarded."))) close();
       }}
     >
       <DialogContent className="max-w-5xl">
@@ -95,8 +97,9 @@ export function Preview({ item, close }: { item: Item; close: () => void }) {
         <DialogDescription className="mb-4 break-all text-xs text-muted-foreground">
           {item.path}
         </DialogDescription>
-        {content}
-        <div className="mt-4">
+        {editing ? <FileEditor key={item.path} path={item.path} close={() => setEditing(false)} /> : content}
+        <div className="mt-4 flex items-center gap-3">
+          {!editing && item.writable && (content as React.ReactElement).type === DocumentPreview && ext !== "pdf" && <Button variant="outline" onClick={() => setEditing(true)}>Edit file</Button>}
           <Button asChild>
             <a
               href={`${API}/api/files/download?path=${encodeURIComponent(item.path)}`}
