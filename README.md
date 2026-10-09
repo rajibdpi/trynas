@@ -739,3 +739,24 @@ Use HTTPS for production access. Session cookies are automatically secure with
 direct TLS. When terminating TLS at a reverse proxy, set `COOKIE_SECURE=true`
 and the exact frontend origin in `CORS_ORIGIN`. The app does not trust arbitrary
 forwarded headers to decide cookie security.
+
+## Self-registration and account approval
+
+Self-registration is off by default. Administrators can turn **Allow
+self-registration** on or off under **Settings → Basic configurations**.
+When enabled, the sign-in page offers **Request an account**. A valid username
+and an 8–72 byte password create a pending request; no active account, session,
+or storage folder is created yet.
+
+In **Users & quotas → Pending account requests**, an administrator can approve
+with a quota or reject the request. Approval creates a regular user, its
+`STORAGE_ROOT/<username>` folder, and write access to that folder. Existing
+storage items are never adopted or overwritten; a conflict leaves the request
+pending. Failed approval rolls back the account and newly created empty folder.
+
+Turning registration off blocks new requests immediately while keeping existing
+requests available for review. Existing users and admin-created accounts are
+unaffected. Requests are rate-limited, capped at 1,000 pending entries, and store
+password hashes rather than plaintext passwords. Restart the backend after
+updating source so it creates the registration-request table; rebuild releases
+to include the updated frontend.

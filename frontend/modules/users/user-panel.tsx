@@ -1,5 +1,6 @@
 "use client";
 
+import { RegistrationRequests } from "./registration-requests";
 import { Plus } from "lucide-react";
 import { api } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ export function UserPanel({
         </p>
       </CardHeader>
       <CardContent>
+        <RegistrationRequests ask={ask} notify={notify} onChanged={() => { void users.reload(); onChanged(); }} />
         <ErrorText text={users.error} />
         {users.data?.map((user) => (
           <div
