@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { ZipPreview } from "@/modules/files/zip-preview";
 import { OfficePreview } from "@/modules/files/office-preview";
 import { FileEditor } from "@/modules/files/file-editor";
 import { Download, ZoomIn, ZoomOut } from "lucide-react";
@@ -78,6 +79,7 @@ export function Preview({ item, close }: { item: Item; close: () => void }) {
   );
   if (["jpg", "jpeg", "png", "gif", "webp", "svg", "avif", "bmp", "ico", "apng"].includes(ext))
     content = <ImagePreview key={url} url={url} name={item.name} />;
+  else if (ext === "zip") content = <ZipPreview key={url} path={item.path} />;
   else if (["xlsx", "xls", "xlsm", "xlsb", "ods", "docx", "doc"].includes(ext))
     content = <OfficePreview key={url} url={url} ext={ext} size={item.size} />;
   else if (["mp4", "webm", "m4v", "mov", "ogv"].includes(ext))
