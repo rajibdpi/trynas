@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { api } from "@/modules/shared/api";
 import { HardDrive, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -18,6 +20,25 @@ export function LoginPanel({
   toggleTheme: () => void;
   signIn: () => Promise<void>;
 }) {
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [registrationError, setRegistrationError] = useState("");
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    void api("/api/auth/registration", { signal: controller.signal }).then(data => setRegistrationEnabled(data.enabled)).catch(() => {});
+    return () => controller.abort();
+  }, []);
+  const register = async () => {
+    setRequesting(true); setRegistrationError(""); setNotice("");
+    try {
+      await api("/api/auth/register", { method: "POST", body: JSON.stringify({ username, password }) });
+      setPassword(""); setRegistering(false);
+      setNotice("Account requested. Wait for administrator approval before signing in.");
+    } catch (error) { setRegistrationError(error instanceof Error ? error.message : "Could not request account"); }
+    finally { setRequesting(false); }
+  };
   return (
       <main className="login-screen grid min-h-screen place-items-center p-4">
         <Card className="w-full max-w-md">
@@ -26,9 +47,9 @@ export function LoginPanel({
               <HardDrive />
               TryNAS <span className="text-xs">V5</span>
             </div>
-            <CardTitle className="mt-4 text-2xl">Welcome back</CardTitle>
+            <CardTitle className="mt-4 text-2xl">{registering ? "Request an account" : "Welcome back"}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Sign in to your private NAS.
+              {registering ? "An administrator must approve your account and create your folder." : "Sign in to your private NAS."}
             </p>
           </CardHeader>
           <CardContent>
@@ -36,7 +57,7 @@ export function LoginPanel({
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                void signIn();
+                void (registering ? register() : signIn());
               }}
             >
               <label className="block text-sm">
@@ -52,20 +73,23 @@ export function LoginPanel({
                 Password
                 <input
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete={registering ? "new-password" : "current-password"}
+                  minLength={registering ? 8 : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </label>
-              {loginError && (
+              {(registering ? registrationError : loginError || registrationError) && (
                 <p role="alert" className="text-sm text-destructive">
-                  {loginError}
+                  {registering ? registrationError : loginError || registrationError}
                 </p>
               )}
-              <Button className="w-full" disabled={signing}>
-                {signing ? "Signing in…" : "Sign in"}
+              <Button className="w-full" disabled={signing || requesting}>
+                {requesting ? "Requesting…" : registering ? "Request account" : signing ? "Signing in…" : "Sign in"}
               </Button>
+              {notice && <p role="status" className="text-sm">{notice}</p>}
+              {registrationEnabled && <Button type="button" variant="outline" className="w-full" disabled={signing || requesting} onClick={() => { setRegistering(!registering); setRegistrationError(""); setNotice(""); setPassword(""); }}>{registering ? "Back to sign in" : "Request an account"}</Button>}
               <Button
                 type="button"
                 variant="ghost"

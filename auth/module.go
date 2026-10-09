@@ -6,6 +6,7 @@ import (
 
 // Dependencies describes the operations this module needs from other modules.
 type Dependencies interface {
+	ReadSettings() (core.AppSettings, error)
 	Log(uid int, act, p string)
 	Profile(u core.User) map[string]any
 }

@@ -1,7 +1,8 @@
 package core
 
 type AppSettings struct {
-	AppName     string `json:"appName"`
-	FileView    string `json:"fileView"`
-	ShareExpiry string `json:"shareExpiry"`
+	RegistrationEnabled bool   `json:"registrationEnabled"`
+	AppName             string `json:"appName"`
+	FileView            string `json:"fileView"`
+	ShareExpiry         string `json:"shareExpiry"`
 }

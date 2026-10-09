@@ -17,6 +17,8 @@ func (a *App) Router() http.Handler {
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		core.JSON(w, map[string]any{"ok": true, "name": "TryNAS", "version": "5.0.0"})
 	})
+	r.Get("/api/auth/registration", a.RegistrationOptions)
+	r.Post("/api/auth/register", a.Register)
 	r.Post("/api/auth/login", a.Login)
 	r.Post("/api/auth/logout", a.Logout)
 	r.Group(func(r chi.Router) {
@@ -30,6 +32,9 @@ func (a *App) Router() http.Handler {
 		r.Post("/api/storage/providers", a.StorageProviders)
 		r.Get("/api/settings", a.Settings)
 		r.Post("/api/settings", a.Settings)
+		r.Get("/api/users/requests", a.RegistrationRequests)
+		r.Post("/api/users/requests/{id}/approve", a.ApproveRegistration)
+		r.Delete("/api/users/requests/{id}", a.RejectRegistration)
 		r.Get("/api/users", a.Users)
 		r.Post("/api/users", a.SaveUser)
 		r.Delete("/api/users/{id}", a.DeleteUser)

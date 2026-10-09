@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useNotification } from "@/modules/shared/notification-provider";
 
-export type AppSettings = { appName: string; fileView: "list" | "grid"; shareExpiry: string };
-export const defaultSettings: AppSettings = { appName: "TryNAS", fileView: "grid", shareExpiry: "7" };
+export type AppSettings = { appName: string; fileView: "list" | "grid"; shareExpiry: string; registrationEnabled: boolean };
+export const defaultSettings: AppSettings = { appName: "TryNAS", fileView: "grid", shareExpiry: "7", registrationEnabled: false };
 export const expiryOptions = [{ value: "never", label: "Never" }, { value: "1", label: "1 day" }, { value: "7", label: "7 days" }, { value: "15", label: "15 days" }, { value: "30", label: "30 days" }];
 
 export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings) => void }) {
@@ -41,6 +41,7 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
               <label className="space-y-2 text-sm font-medium"><span>App name</span><input value={settings.appName} maxLength={40} required onChange={event => setSettings({ ...settings, appName: event.target.value })} /></label>
               <label className="space-y-2 text-sm font-medium"><span>Default file view</span><select value={settings.fileView} onChange={event => setSettings({ ...settings, fileView: event.target.value as AppSettings["fileView"] })}><option value="grid">Grid</option><option value="list">List</option></select></label>
               <label className="space-y-2 text-sm font-medium"><span>Default share expiry</span><select value={settings.shareExpiry} onChange={event => setSettings({ ...settings, shareExpiry: event.target.value })}>{expiryOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="space-y-2 text-sm font-medium sm:col-span-2"><span className="flex items-center gap-2"><input type="checkbox" checked={settings.registrationEnabled ?? false} onChange={event => setSettings({ ...settings, registrationEnabled: event.target.checked })} />Allow self-registration</span><p className="text-xs text-muted-foreground">New accounts need administrator approval. Turning this off stops new requests; existing requests can still be reviewed.</p></label>
             </fieldset>
             <Button disabled={saving || !server} type="submit">{saving ? "Saving…" : "Save settings"}</Button>
           </form>}
