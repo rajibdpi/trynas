@@ -124,3 +124,23 @@ func (w *ArchiveWriter) Write(p []byte) (int, error) {
 	w.Written += int64(n)
 	return n, err
 }
+
+// SecureCookie supports direct TLS and explicit HTTPS reverse-proxy deployments.
+// Forwarded headers are intentionally not trusted without proxy configuration.
+func SecureCookie(r *http.Request) bool {
+	return r.TLS != nil || Env("COOKIE_SECURE", "false") == "true"
+}
+
+// SecurityHeaders prevents sensitive responses from being stored by browsers
+// and intermediaries, without changing immutable frontend asset caching.
+func SecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		w.Header().Set("Referrer-Policy", "same-origin")
+		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/s/") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
