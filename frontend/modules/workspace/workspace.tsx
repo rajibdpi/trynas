@@ -58,9 +58,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     [command, setCommand] = useState<Command | null>(null),
     [preview, setPreview] = useState<Item | null>(null);
   useEffect(() => {
-    if ((pathname === "/files" || pathname.startsWith("/files/"))) setTab("files");
-    else if (pathname === "/settings") setTab("settings");
-    else setTab(previous => ["files", "settings"].includes(previous) ? "dashboard" : previous);
+    const section = pathname.split("/").filter(Boolean)[0] || "dashboard";
+    setTab(nav.some(item => item.id === section) ? section : "dashboard");
   }, [pathname]);
   const activeTab = me && me.role !== "admin" && nav.find(item => item.id === tab)?.admin ? "files" : tab;
   useEffect(() => {
@@ -69,12 +68,18 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       if (!(window.location.pathname === "/files" || window.location.pathname.startsWith("/files/"))) writeFileLocation(me.home || "", undefined, undefined, true);
     }
   }, [me?.role, tab]);
-  const selectTab = (next: string) => {
+  const selectTab = (next: string, resetFiles = false) => {
     if (me?.role !== "admin" && nav.find(item => item.id === next)?.admin) next = "files";
     setTab(next);
     setMobile(false);
-    const route = next === "files" ? fileLocationURL(path) : next === "settings" ? "/settings" : "/";
-    if (next === "files") writeFileLocation(path);
+    const folder = resetFiles ? (me?.rootAccessible ? "" : (me?.home || "")) : path;
+    const route = next === "files" ? fileLocationURL(folder) : `/${next}`;
+    if (next === "files") {
+      setPath(folder);
+      setPreview(null);
+      setFileQuery("");
+      writeFileLocation(folder);
+    }
     else if (window.location.pathname !== route) window.history.pushState(null, "", route);
   };
   useEffect(() => {
@@ -412,8 +417,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                         : "Administration"}
                   </p>
                 )}
-                {["files", "settings"].includes(x.id) ? (
-                  <Link href={`/${x.id}`}
+                <Link href={x.id === "files" ? fileLocationURL(me.rootAccessible ? "" : (me.home || "")) : `/${x.id}`}
                     aria-label={x.label}
                     title={sidebarCollapsed ? x.label : undefined}
                     aria-current={activeTab === x.id ? "page" : undefined}
@@ -425,30 +429,13 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                     onClick={event => {
                       if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                       event.preventDefault();
-                      selectTab(x.id);
+                      selectTab(x.id, true);
                     }}
                   >
                     <x.icon className="size-5 shrink-0" />
                     <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
                   </Link>
-                ) : (
-                  <button
-                    aria-label={x.label}
-                    title={sidebarCollapsed ? x.label : undefined}
-                    aria-current={activeTab === x.id ? "page" : undefined}
-                    className={cn(
-                      "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
-                      activeTab === x.id && "is-active",
-                      sidebarCollapsed && "md:justify-center md:px-0",
-                    )}
-                    onClick={() => {
-                      selectTab(x.id);
-                    }}
-                  >
-                    <x.icon className="size-5 shrink-0" />
-                    <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
-                  </button>
-                )}
+
               </div>
             ))}
         </nav>
