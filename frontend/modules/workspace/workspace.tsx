@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AppFooter } from "@/components/app-footer";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { HardDrive, RefreshCw } from "lucide-react";
 import { api, ApiError } from "@/modules/shared/api";
@@ -36,6 +36,7 @@ import { Preview } from "@/modules/files/preview";
 import { LoginPanel } from "@/modules/auth/login-panel";
 
 export default function Workspace({ initialTab = "dashboard" }: { initialTab?: string }) {
+  const router = useRouter();
   const pathname = usePathname();
   const fileLocation = useFileLocation();
   const showNotification = useNotification();
@@ -137,6 +138,11 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     };
   }, []);
   useEffect(() => {
+    if (checking || me || pathname === "/login") return;
+    const destination = window.location.pathname + window.location.search + window.location.hash;
+    router.replace(`/login?next=${encodeURIComponent(destination)}`);
+  }, [checking, me, pathname, router]);
+  useEffect(() => {
     const expired = () => {
       setMe(null);
       setCommand(null);
@@ -173,8 +179,15 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       setPassword("");
       setLoginError("");
       if (window.location.pathname === "/login") {
-        if (user.role === "admin") window.history.replaceState(null, "", "/dashboard");
-        else writeFileLocation(user.home || "", undefined, undefined, true);
+        const requested = new URLSearchParams(window.location.search).get("next");
+        let destination = user.role === "admin" ? "/dashboard" : fileLocationURL(user.home || "");
+        if (requested?.startsWith("/") && !requested.startsWith("//") && !/[\\\r\n]/.test(requested)) {
+          const target = new URL(requested, window.location.origin);
+          const section = target.pathname.split("/").filter(Boolean)[0] || "dashboard";
+          const menu = nav.find(item => item.id === section);
+          if (target.origin === window.location.origin && menu && (!menu.admin || user.role === "admin")) destination = target.pathname + target.search + target.hash;
+        }
+        router.replace(destination);
       }
     } catch (e) {
       setLoginError(
