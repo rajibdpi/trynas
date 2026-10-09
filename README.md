@@ -509,6 +509,15 @@ Adapt the installer allowlist if your devices have different names or controller
 types. To undo, remove `/etc/sudoers.d/trynas-smartctl` with administrator access,
 set `SMART_USE_SUDO=false`, and restart the backend.
 
+## GitHub releases
+
+Push a version tag such as `v1.0.0` to run `.github/workflows/release.yml`.
+After tests pass, it creates a draft release with all six platform binaries,
+checksums, installers, and the installation guide. Review and publish the draft
+in GitHub Releases, or run the workflow manually for an existing tag and select
+its publishing option. See [GitHub releases](installation.md#github-releases)
+for the full process. No release is published by a local build command.
+
 ## Standalone application for Windows, Linux and macOS
 
 Build once to embed the complete frontend in the Go executable. On the machine

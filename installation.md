@@ -204,10 +204,37 @@ ones with `go run ./scripts/build --target linux/arm64,windows/amd64`.
 `--skip-frontend` reuses `frontend/dist` and requires only Go, but does not include
 new frontend edits. See [Build requirements](README.md#build-requirements).
 
-Release maintainers must upload the matching `trynas-*` files and `SHA256SUMS`
-as assets on the same GitHub release tag for remote installation to work.
-Publish all six binaries when offering installation for every supported platform.
-Builds and local installation do not automatically publish anything.
+## GitHub releases
+
+The workflow in `.github/workflows/release.yml` builds and packages releases.
+Commit the workflow, source, installers, and this guide before creating a tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Use your actual next version. A `vMAJOR.MINOR.PATCH` tag triggers backend tests,
+frontend type checks, installer tests on Linux/macOS/Windows, a fresh frontend
+build, and all six Go binaries. GitHub Actions creates a **draft** release with:
+
+- Six platform binaries and `SHA256SUMS`.
+- `get.sh`, `get.ps1`, and `installation.md`.
+
+Review the draft under the repository's Releases page and publish it when ready.
+Alternatively, open **Actions → GitHub release → Run workflow**, enter an existing
+version tag, and select **Publish the release after validation**. Leave it unchecked
+to prepare a draft. Manual dispatch requires the workflow on the default branch.
+GitHub Actions must be enabled; the publishing job uses the built-in `GITHUB_TOKEN`
+with `contents: write`, so no personal access token is required.
+
+Tags such as `v1.0.0-rc.1` produce prereleases. Latest-download installers use the
+latest published stable release; use `--version` or `-Version` for prereleases.
+Drafts do not provide public download assets. A rerun can replace draft assets,
+but the workflow refuses to overwrite a published release: create a new tag.
+
+Local build and installation commands do not publish releases. Tag pushes and
+explicit publishing through the workflow are the release actions.
 
 ## First start
 
