@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"github.com/rajibdpi/trynas/core"
+	"sync"
+	"time"
 )
 
 // Dependencies describes the operations this module needs from other modules.
@@ -12,4 +14,7 @@ type Dependencies interface {
 type Module struct {
 	*core.State
 	Dependencies
+	systemMu     sync.Mutex
+	systemCached map[string]any
+	systemAt     time.Time
 }

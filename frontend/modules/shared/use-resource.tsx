@@ -27,7 +27,10 @@ export function useResource<T>(url: string | null, interval = 0) {
     }
     let active = true;
     const controller = new AbortController();
+    let fetching = false;
     const fetchData = async () => {
+      if (!active || fetching || (interval > 0 && document.hidden)) return;
+      fetching = true;
       try {
         const result = await api(url, { signal: controller.signal });
         if (active) {
@@ -36,8 +39,14 @@ export function useResource<T>(url: string | null, interval = 0) {
         }
       } catch (e) {
         if (active) setError(message(e));
+      } finally {
+        fetching = false;
       }
     };
+    const onVisible = () => {
+      if (!document.hidden) void fetchData();
+    };
+    if (interval > 0) document.addEventListener("visibilitychange", onVisible);
     void fetchData();
     const timer = interval
       ? setInterval(() => void fetchData(), interval)
@@ -45,6 +54,7 @@ export function useResource<T>(url: string | null, interval = 0) {
     return () => {
       active = false;
       controller.abort();
+      document.removeEventListener("visibilitychange", onVisible);
       if (timer) clearInterval(timer);
     };
   }, [url, interval]);
