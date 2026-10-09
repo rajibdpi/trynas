@@ -40,7 +40,7 @@ export function LoginPanel({
     finally { setRequesting(false); }
   };
   return (
-      <main className="login-screen grid min-h-screen place-items-center p-4">
+      <main className="login-screen grid min-h-0 flex-1 place-items-center overflow-y-auto p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="flex items-center gap-2 text-xl font-bold text-primary">
