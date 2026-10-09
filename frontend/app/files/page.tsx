@@ -1,4 +1,4 @@
-import Workspace from "@/components/workspace";
+import Workspace from "@/modules/workspace/workspace";
 
 export default function FilesPage() {
   return <Workspace initialTab="files" />;

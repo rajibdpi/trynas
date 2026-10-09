@@ -2,7 +2,7 @@
 import * as React from "react";
 import * as Primitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/modules/shared/utils";
 export const Dialog = Primitive.Root;
 export const DialogTrigger = Primitive.Trigger;
 export const DialogClose = Primitive.Close;

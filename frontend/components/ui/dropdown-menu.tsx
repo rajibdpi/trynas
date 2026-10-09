@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import * as Primitive from "@radix-ui/react-dropdown-menu";
-import { cn } from "@/lib/utils";
+import { cn } from "@/modules/shared/utils";
 export const DropdownMenu = Primitive.Root;
 export const DropdownMenuTrigger = Primitive.Trigger;
 export function DropdownMenuContent({
