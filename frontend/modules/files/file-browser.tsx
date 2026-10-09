@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload } from "lucide-react";
+import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload } from "lucide-react";
 import { API, api, uploadFiles, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/modules/shared/utils";
 import { FileTypeIcon } from "@/modules/files/file-type-icon";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
@@ -72,7 +73,7 @@ export function FileBrowser({
     }
   };
   const [debounced, setDebounced] = useState(query.trim()),
-    [view, setView] = useState(defaultView),
+    [view, setView] = useState<"list" | "grid" | "large">(defaultView),
     [selected, setSelected] = useState<string[]>([]),
     [upload, setUpload] = useState<{
       loaded: number;
@@ -105,8 +106,18 @@ export function FileBrowser({
     selectionAnchor.current = null;
   }, [debounced]);
   useEffect(() => () => controller.current?.abort(), []);
-  const items =
+  const [sortBy, setSortBy] = useState<"name" | "size" | "type" | "modified">("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const sortLabels = { name: "Name", size: "Size", type: "Type", modified: "Date modified" };
+  const sourceItems =
     debounced.length >= 2 ? search.data || [] : listing.data?.items || [];
+  const items = [...sourceItems].sort((a, b) => {
+    const type = (item: Item) => item.dir ? "Folder" : (item.name.includes(".") ? item.name.split(".").pop()!.toLowerCase() : "File");
+    let result = sortBy === "size" ? a.size - b.size : sortBy === "modified" ? new Date(a.modified).getTime() - new Date(b.modified).getTime() : sortBy === "type" ? type(a).localeCompare(type(b)) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    if (!result) result = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    return sortDirection === "asc" ? result : -result;
+  });
+
   useEffect(() => {
     const visible = new Set(
       (debounced.length >= 2 ? search.data : listing.data?.items)?.map(
@@ -508,26 +519,21 @@ export function FileBrowser({
             >
               <RefreshCw />
             </Button>
-            <div className="flex gap-2" role="group" aria-label="File view">
-              <Button
-                variant={view === "list" ? "secondary" : "outline"}
-                size="icon"
-                aria-label="List view"
-                aria-pressed={view === "list"}
-                onClick={() => setView("list")}
-              >
-                <List />
-              </Button>
-              <Button
-                variant={view === "grid" ? "secondary" : "outline"}
-                size="icon"
-                aria-label="Grid view"
-                aria-pressed={view === "grid"}
-                onClick={() => setView("grid")}
-              >
-                <Grid2X2 />
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Sort files"><ArrowDownWideNarrow />By {sortLabels[sortBy].toLowerCase()}<ChevronDown /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
+                {(["name", "size", "type", "modified"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortBy(value)} className="justify-between py-2.5"><span>{sortLabels[value]}</span>{sortBy === value && <Check className="size-4" />}</DropdownMenuItem>)}
+                <div className="my-1 border-t" role="separator" />
+                {(["asc", "desc"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortDirection(value)} className="justify-between py-2.5"><span>{value === "asc" ? "Ascending" : "Descending"}</span>{sortDirection === value && <Check className="size-4" />}</DropdownMenuItem>)}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Change file view">{view === "large" ? <Grid2X2 /> : view === "grid" ? <Grip /> : <List />}View<ChevronDown /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 rounded-xl p-1.5">
+                <p className="px-3 py-2 text-xs text-muted-foreground">View</p>
+                {([{ value: "large", label: "Large tiles", icon: Grid2X2 }, { value: "grid", label: "Tiles", icon: Grip }, { value: "list", label: "List", icon: List }] as const).map(option => <DropdownMenuItem key={option.value} onSelect={() => setView(option.value)} className="gap-3 py-2.5"><option.icon className="size-4" /><span>{option.label}</span>{view === option.value && <Check className="ml-auto size-3.5" />}</DropdownMenuItem>)}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardHeader>
@@ -628,8 +634,8 @@ export function FileBrowser({
         )}
         <div
           className={
-            view === "grid"
-              ? "grid grid-cols-2 gap-3 lg:grid-cols-4"
+            view !== "list"
+              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-2 gap-3 lg:grid-cols-4"
               : "space-y-1"
           }
         >
@@ -657,7 +663,7 @@ export function FileBrowser({
                   }}
                   className={cn(
                     "file-item cursor-pointer select-none rounded-xl p-3",
-                    view === "grid" ? "file-tile border" : "file-row",
+                    view !== "list" ? "file-tile border" : "file-row",
                     selected.includes(item.path) &&
                     "border-primary bg-primary/5",
                     view === "list" && "flex items-center gap-3",
@@ -671,11 +677,11 @@ export function FileBrowser({
                   >
                     <span className="relative shrink-0">
                       {item.dir ? (
-                        <span className="folder-icon">
-                          <Folder className="size-7" />
+                        <span className={cn("folder-icon", view === "large" ? "!size-16" : "!size-12")}>
+                          <Folder className={view === "large" ? "size-14" : "size-10"} />
                         </span>
                       ) : (
-                        <FileTypeIcon name={item.name} />
+                        <span className={view === "large" ? "inline-flex origin-left scale-125 mr-2" : ""}><FileTypeIcon name={item.name} /></span>
                       )}
                       {selected.includes(item.path) && (
                         <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
