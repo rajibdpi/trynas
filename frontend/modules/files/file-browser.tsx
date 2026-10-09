@@ -738,6 +738,20 @@ export function FileBrowser({
                         <Link2 className="size-4" aria-hidden="true" />
                       </button>
                     )}
+                    {sharedLinks.has(item.path) && (
+                      <button
+                        type="button"
+                        className="ml-auto shrink-0 rounded-md p-2 text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"
+                        aria-label={`Copy shared link for ${item.name}`}
+                        title="Shared · Click to copy link"
+                        onClick={event => {
+                          event.stopPropagation();
+                          void copySharedLink(item.path);
+                        }}
+                      >
+                        <Link2 className="size-4" aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
                   <div className="file-meta flex items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
