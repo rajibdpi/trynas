@@ -1,15 +1,13 @@
 {
   "files.associations": {
-    "**/frontend/web/**/*.html": "plaintext",
-    "**/frontend/out/**/*.html": "plaintext"
+    "**/frontend/dist/**/*.html": "plaintext"
   },
   "tailwindCSS.files.exclude": [
     "**/.git/**",
     "**/node_modules/**",
     "**/.hg/**",
     "**/.svn/**",
-    "**/frontend/web/**",
-    "**/frontend/out/**",
+    "**/frontend/dist/**",
     "**/frontend/.next/**",
     "**/frontend/.next-dev/**"
   ]

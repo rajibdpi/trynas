@@ -262,8 +262,8 @@ notifications, and shared dialogs. Reusable UI primitives remain in
 `components/ui/`.
 
 Development and systemd startup commands are unchanged. The release builder
-copies the Next.js static export to `frontend/web/` and embeds
-it in the standalone executable. Rebuild after source changes:
+generates the Next.js static export in `frontend/dist/` and embeds
+that folder directly in the standalone executable. Rebuild after source changes:
 
 ```bash
 node scripts/build.mjs

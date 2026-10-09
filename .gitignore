@@ -10,10 +10,9 @@ storage/*
 *.db-shm
 *.db-wal
 
-frontend/out/
-frontend/web/*
-!frontend/web/index.html
-dist/
+frontend/dist/*
+!frontend/dist/index.html
+/dist/
 
 .trynas-storage.key
 
