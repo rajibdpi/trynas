@@ -34,6 +34,7 @@ func (a *App) Router() http.Handler {
 		r.Get("/api/settings", a.Settings)
 		r.Post("/api/settings", a.Settings)
 		r.Post("/api/settings/logo", a.UploadLogo)
+		r.Post("/api/settings/server", a.SaveServerConfiguration)
 		r.Get("/api/users/requests", a.RegistrationRequests)
 		r.Post("/api/users/requests/{id}/approve", a.ApproveRegistration)
 		r.Delete("/api/users/requests/{id}", a.RejectRegistration)
