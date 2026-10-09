@@ -10,7 +10,7 @@ import (
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 	_ "github.com/rclone/rclone/backend/drive"
 	_ "github.com/rclone/rclone/backend/local"
 	_ "github.com/rclone/rclone/backend/s3"

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rajib/trynas/config"
-	"github.com/rajib/trynas/core"
-	"github.com/rajib/trynas/database"
+	"github.com/rajibdpi/trynas/config"
+	"github.com/rajibdpi/trynas/core"
+	"github.com/rajibdpi/trynas/database"
 )
 
 // Run loads configuration, initializes storage, and starts the standalone server.

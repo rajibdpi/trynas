@@ -1,4 +1,4 @@
-module github.com/rajib/trynas
+module github.com/rajibdpi/trynas
 
 go 1.27.1
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"

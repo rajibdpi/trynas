@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rajib/trynas/core"
-	"github.com/rajib/trynas/database"
+	"github.com/rajibdpi/trynas/core"
+	"github.com/rajibdpi/trynas/database"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 )

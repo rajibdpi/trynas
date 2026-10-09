@@ -1,5 +1,5 @@
 package main
 
-import "github.com/rajib/trynas/app"
+import "github.com/rajibdpi/trynas/app"
 
 func main() { app.Run() }

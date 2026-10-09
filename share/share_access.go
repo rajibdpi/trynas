@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 	"golang.org/x/crypto/bcrypt"
 )
 

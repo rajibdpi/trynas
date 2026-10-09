@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/rajib/trynas/frontend"
+	"github.com/rajibdpi/trynas/frontend"
 )
 
 func TestEmbeddedStaticServing(t *testing.T) {

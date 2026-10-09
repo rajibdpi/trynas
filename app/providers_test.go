@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func TestStorageConnectionsAccessAndSecrets(t *testing.T) {

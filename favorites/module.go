@@ -1,7 +1,7 @@
 package favorites
 
 import (
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 // Dependencies describes the operations this module needs from other modules.
