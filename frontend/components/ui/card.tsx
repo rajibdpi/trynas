@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/modules/shared/utils";
 export const Card = ({ className, ...p }: React.ComponentProps<"div">) => (
   <div
     className={cn(

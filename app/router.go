@@ -1,0 +1,69 @@
+package app
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rajib/trynas/core"
+	"github.com/rajib/trynas/frontend"
+)
+
+// Router connects feature handlers with authentication and permission middleware.
+func (a *App) Router() http.Handler {
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID, middleware.Recoverer)
+	r.Use(a.Cors)
+	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		core.JSON(w, map[string]any{"ok": true, "name": "TryNAS", "version": "5.0.0"})
+	})
+	r.Post("/api/auth/login", a.Login)
+	r.Post("/api/auth/logout", a.Logout)
+	r.Group(func(r chi.Router) {
+		r.Use(a.Auth)
+		r.Use(a.Guard)
+		r.Get("/api/preferences", a.Settings)
+		r.Get("/api/storage/providers", a.StorageProviders)
+		r.Get("/api/storage/files", a.RemoteStorage)
+		r.Post("/api/storage/files", a.RemoteStorage)
+		r.Post("/api/storage/upload", a.RemoteStorage)
+		r.Post("/api/storage/providers", a.StorageProviders)
+		r.Get("/api/settings", a.Settings)
+		r.Post("/api/settings", a.Settings)
+		r.Get("/api/users", a.Users)
+		r.Post("/api/users", a.SaveUser)
+		r.Delete("/api/users/{id}", a.DeleteUser)
+		r.Get("/api/permissions", a.Permissions)
+		r.Post("/api/permissions", a.SavePermission)
+		r.Get("/api/quota", a.Quota)
+		r.Get("/api/hardware", a.Hardware)
+		r.Get("/api/network", a.Network)
+		r.Post("/api/files/bulk", a.Bulk)
+		r.Get("/api/me", a.Me)
+		r.Get("/api/system", a.System)
+		r.Get("/api/activity", a.Activity)
+		r.Get("/api/files", a.ListFiles)
+		r.Get("/api/files/search", a.SearchFiles)
+		r.Get("/api/files/download", a.Download)
+		r.Get("/api/files/preview", a.Preview)
+		r.Post("/api/files/folder", a.Mkdir)
+		r.Post("/api/files/upload", a.UploadV5)
+		r.Post("/api/files/rename", a.RenameV5)
+		r.Post("/api/files/copy", a.CopyMoveV5(false))
+		r.Post("/api/files/move", a.CopyMoveV5(true))
+		r.Post("/api/files/zip", a.ZipV5)
+		r.Delete("/api/files", a.TrashV5)
+		r.Get("/api/favorites", a.Favorites)
+		r.Post("/api/favorites", a.ToggleFavorite)
+		r.Get("/api/trash", a.ListTrash)
+		r.Post("/api/trash/restore", a.RestoreV5)
+		r.Delete("/api/trash", a.PurgeV5)
+		r.Get("/api/shares", a.Shares)
+		r.Post("/api/shares", a.CreateShare)
+		r.Delete("/api/shares/{id}", a.DeleteShare)
+	})
+	r.Get("/s/{token}", a.PublicShare)
+	r.Post("/s/{token}", a.PublicShare)
+	r.Handle("/*", frontend.EmbeddedFrontend())
+	return r
+}

@@ -202,8 +202,17 @@ For first testing, `STORAGE_ROOT=./storage` is safer. Do not point TryNAS at `/`
 
 ```text
 TryNAS/
-├── backend/
-├── frontend/
+├── main.go             # standalone entry point
+├── go.mod
+├── go.sum
+├── app/                # startup, dependency wiring, HTTP routes
+├── core/               # shared state, models, and helpers
+├── files/              # file operations (other features also have root folders)
+├── providers/          # storage provider code
+├── frontend/           # all UI source, Go static handler, and embedded assets
+│   ├── modules/        # frontend feature folders
+│   ├── frontend.go     # Go handler for the embedded web UI
+│   └── web/            # generated static assets for standalone builds
 ├── data/
 │   └── trynas.db       # created at runtime
 ├── storage/            # default development storage
@@ -212,6 +221,60 @@ TryNAS/
 ```
 
 Actual NAS files are stored under `STORAGE_ROOT`. SQLite stores application metadata such as users, sessions, favorites, trash metadata, shares and audit logs.
+
+## Module architecture
+
+The source follows the feature-oriented folder organization used by
+[File Browser](https://github.com/filebrowser/filebrowser), adapted to TryNAS's
+Go backend and Next.js frontend. Backend feature packages live in project-root folders; frontend features live
+under `frontend/modules/`.
+
+| Module | Backend responsibility | Frontend responsibility |
+| --- | --- | --- |
+| `auth` | Login, logout, sessions, browser-origin middleware, throttling | Login panel |
+| `files` | Browsing, search, downloads, previews, uploads, copy/move, ZIP | File browser, previews, folder picker, file icons |
+| `users` | Accounts, user homes, quotas, profiles | Users and quotas panel |
+| `permissions` | Folder grants, access checks, request guards | Folder permissions panel |
+| `share` | Share links, passwords, expiry, public pages, QR codes, archives | Shared links panel |
+| `providers` (frontend: `storage`) | Provider connections, encryption, transfers, attached storage | Provider settings and attached storage browser |
+| `favorites` | Saved favorites | Favorites panel |
+| `trash` | Trash listing, deletion, restore, purge | Trash panel |
+| `settings` | Application preferences | Application settings panel |
+| `metrics` | System, network, SMART monitoring | System and disk health panels, graphs |
+| `activity` | Audit recording and listing | Activity panel |
+
+`main.go` delegates startup to `app/`. That package creates the
+feature modules, wires their dependencies, and registers HTTP routes.
+`core/` contains shared state, models, path helpers, and security
+helpers. Each feature's `module.go` declares the operations it needs through a
+`Dependencies` interface, implemented by the application. Feature packages do
+not import the application or each other. All modules use the same database,
+storage paths, and locks so quotas and file mutations remain coordinated.
+`config/` loads configuration; `database/` opens SQLite and
+applies migrations; `frontend/frontend.go` serves the embedded static UI.
+The `providers/` package contains storage integration code; the root `storage/`
+folder remains the default NAS data directory.
+
+Inside `frontend/`, `app/` contains the route entry points and layout,
+`modules/workspace` composes the feature panels, `modules/dashboard` contains
+the overview, and `modules/shared` contains the API client, types, helpers,
+notifications, and shared dialogs. Reusable UI primitives remain in
+`components/ui/`.
+
+Development and systemd startup commands are unchanged. The release builder
+copies the Next.js static export to `frontend/web/` and embeds
+it in the standalone executable. Rebuild after source changes:
+
+```bash
+node scripts/build.mjs
+```
+
+Run backend regression tests and frontend type checks from the project root:
+
+```bash
+go test ./...
+(cd frontend && pnpm exec tsc --noEmit)
+```
 
 ## Security
 

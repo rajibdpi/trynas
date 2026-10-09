@@ -1,0 +1,26 @@
+package trash
+
+import (
+	"net/http"
+	"path/filepath"
+
+	"github.com/rajib/trynas/core"
+)
+
+func (a *Module) ListTrash(w http.ResponseWriter, r *http.Request) {
+	u := r.Context().Value(core.UserKey).(core.User)
+	rows, e := a.DB.Query("SELECT id,original_path,deleted_at FROM trash WHERE user_id=? OR ?='admin' ORDER BY id DESC", u.ID, u.Role)
+	if e != nil {
+		core.Bad(w, e.Error(), 500)
+		return
+	}
+	defer rows.Close()
+	out := []map[string]any{}
+	for rows.Next() {
+		var id int
+		var p, t string
+		_ = rows.Scan(&id, &p, &t)
+		out = append(out, map[string]any{"id": id, "path": p, "name": filepath.Base(p), "deletedAt": t})
+	}
+	core.JSON(w, out)
+}

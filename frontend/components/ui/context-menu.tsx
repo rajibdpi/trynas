@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import * as Primitive from "@radix-ui/react-context-menu";
-import { cn } from "@/lib/utils";
+import { cn } from "@/modules/shared/utils";
 export const ContextMenu = Primitive.Root;
 export const ContextMenuTrigger = Primitive.Trigger;
 export const ContextMenuSeparator = Primitive.Separator;
