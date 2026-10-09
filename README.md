@@ -2,6 +2,9 @@
 
 TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.js, Tailwind CSS, shadcn/ui-compatible components, Go, and SQLite.
 
+For platform-specific setup, verified binary installation, and upgrades, see
+[Installation](installation.md), including Go-free `get.sh` (Linux/macOS) and `get.ps1` (Windows) installers.
+
 ## Run development servers
 
 Install the [build requirements](#build-requirements), then run these commands
