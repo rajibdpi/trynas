@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AppFooter } from "@/components/app-footer";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { HardDrive, RefreshCw } from "lucide-react";
+import { HardDrive, RefreshCw, LoaderCircle } from "lucide-react";
 import { api, ApiError } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -288,8 +288,11 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   };
   if (checking)
     return (
-      <main className="grid min-h-screen place-items-center">
-        Connecting to TryNAS…
+      <main className="grid min-h-dvh place-items-center">
+        <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          <span>Loading...</span>
+        </div>
       </main>
     );
   if (!me) return <div className="flex h-dvh flex-col overflow-hidden"><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>;
