@@ -59,6 +59,16 @@ func PeerIP(r *http.Request) string {
 	return host
 }
 
+// ConfiguredBrowserOrigin matches individual origins; credentialed CORS never uses a wildcard.
+func ConfiguredBrowserOrigin(origin string) bool {
+	for _, allowed := range strings.FieldsFunc(Env("CORS_ORIGIN", "http://localhost:3000"), func(r rune) bool { return r == ',' || r == '\n' || r == '\r' }) {
+		if origin == strings.TrimSuffix(strings.TrimSpace(allowed), "/") {
+			return true
+		}
+	}
+	return false
+}
+
 func AllowedBrowserOrigin(r *http.Request, origin string) bool {
 	parsed, err := url.Parse(origin)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil {
@@ -69,7 +79,7 @@ func AllowedBrowserOrigin(r *http.Request, origin string) bool {
 	if r.TLS != nil || Env("COOKIE_SECURE", "false") == "true" {
 		scheme = "https"
 	}
-	return normalized == Env("CORS_ORIGIN", "http://localhost:3000") || normalized == scheme+"://"+r.Host
+	return ConfiguredBrowserOrigin(normalized) || normalized == scheme+"://"+r.Host
 }
 
 func CheckBrowserMutation(w http.ResponseWriter, r *http.Request) bool {

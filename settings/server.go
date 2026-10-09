@@ -46,12 +46,25 @@ func (a *Module) SaveServerConfiguration(w http.ResponseWriter, r *http.Request)
 		core.Bad(w, "invalid listen port", 400)
 		return
 	}
-	origin, err := url.Parse(input.CorsOrigin)
-	if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") {
-		core.Bad(w, "allowed frontend origin must be an HTTP(S) origin", 400)
+	origins := []string{}
+	seen := map[string]bool{}
+	for _, value := range strings.FieldsFunc(input.CorsOrigin, func(r rune) bool { return r == ',' || r == '\n' || r == '\r' }) {
+		origin, err := url.Parse(strings.TrimSpace(value))
+		if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") {
+			core.Bad(w, "each allowed frontend origin must be an HTTP(S) origin", 400)
+			return
+		}
+		normalized := origin.Scheme + "://" + origin.Host
+		if !seen[normalized] {
+			seen[normalized] = true
+			origins = append(origins, normalized)
+		}
+	}
+	if len(origins) == 0 || len(origins) > 20 {
+		core.Bad(w, "provide 1–20 allowed frontend origins", 400)
 		return
 	}
-	input.CorsOrigin = origin.Scheme + "://" + origin.Host
+	input.CorsOrigin = strings.Join(origins, ",")
 	configFile := core.Env("TRYNAS_CONFIG_FILE", ".env")
 	values := map[string]string{}
 	if existing, err := godotenv.Read(configFile); err == nil {
