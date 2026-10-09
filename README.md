@@ -775,3 +775,8 @@ Paths with spaces, Unicode, or special characters are URL-encoded. These links
 identify locations and still require authentication and normal permissions;
 use the Share feature for public access. Path-based URLs work with both the
 Next.js development server and the static frontend embedded in Go releases.
+
+Sidebar sections have direct routes: `/dashboard`, `/files/`, `/favorites`,
+`/shared`, `/trash`, `/system`, `/activity`, `/users`, `/permissions`, `/settings`,
+and `/hardware`. Refresh and browser Back/Forward restore the section.
+Administration routes require an administrator account.
