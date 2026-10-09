@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, MoreHorizontal, Move, Plus, RefreshCw, Search, Star, Trash2, Upload } from "lucide-react";
+import { Archive, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload } from "lucide-react";
 import { API, api, uploadFiles, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/modules/shared/utils";
 import { FileTypeIcon } from "@/modules/files/file-type-icon";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
@@ -658,30 +657,6 @@ export function FileBrowser({
                     <span className="text-xs text-muted-foreground">
                       {new Date(item.modified).toLocaleDateString()}
                     </span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Actions for ${item.name}`}
-                        >
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {fileActions(item).map((action) => (
-                          <DropdownMenuItem
-                            key={action.label}
-                            disabled={action.disabled}
-                            className={action.danger ? "text-destructive" : ""}
-                            onSelect={action.run}
-                          >
-                            <action.icon className="size-4" />
-                            <span>{action.label}</span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </div>
               </ContextMenuTrigger>
