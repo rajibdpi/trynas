@@ -1,14 +1,18 @@
 {
-  "files.associations": {
-    "**/frontend/dist/**/*.html": "plaintext"
-  },
-  "tailwindCSS.files.exclude": [
-    "**/.git/**",
-    "**/node_modules/**",
-    "**/.hg/**",
-    "**/.svn/**",
-    "**/frontend/dist/**",
-    "**/frontend/.next/**",
-    "**/frontend/.next-dev/**"
-  ]
+    "files.associations": {
+        "**/frontend/dist/**/*.html": "plaintext",
+        "**/frontend/web/**/*.html": "plaintext",
+        "**/frontend/out/**/*.html": "plaintext"
+    },
+    "tailwindCSS.files.exclude": [
+        "**/.git/**",
+        "**/node_modules/**",
+        "**/.hg/**",
+        "**/.svn/**",
+        "**/frontend/dist/**",
+        "**/frontend/web/**",
+        "**/frontend/out/**",
+        "**/frontend/.next/**",
+        "**/frontend/.next-dev/**"
+    ]
 }
