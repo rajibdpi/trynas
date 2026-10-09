@@ -7,7 +7,7 @@ TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.
 From the project root:
 
 ```bash
-./run-dev.sh
+go run ./scripts/dev
 ```
 
 This starts the Go backend and Next.js frontend together. Open
@@ -16,7 +16,9 @@ Press **Ctrl+C** to stop both servers. If either server exits, the other stops
 automatically. Stop any existing TryNAS servers before running this command.
 
 Development requires Go, Node.js and pnpm (see [Build requirements](#build-requirements)).
-The scripts load `.env` when present and install frontend dependencies if needed.
+The Go command loads `.env` when present and installs frontend dependencies if needed.
+Next.js supports frontend hot reload. Restart the command after Go backend changes.
+Backend flags such as `--config`, `--addr`, `--root`, and `--db` are supported.
 For the default development ports, set `CORS_ORIGIN=http://localhost:3000` and
 `NEXT_PUBLIC_API_URL=http://localhost:8080` in `.env`.
 
@@ -32,7 +34,7 @@ This starts both the web UI and API using the project's configuration, database
 and storage paths. Open **http://localhost:8080** (or the port configured in
 `.env`). Press **Ctrl+C** in the terminal to stop the app.
 
-If the binary is missing, build it first with `node scripts/build.mjs`.
+If the binary is missing, build it first with `go run ./scripts/build`.
 See [Standalone application for Windows, Linux and macOS](#standalone-application-for-windows-linux-and-macos)
 for other platforms and build requirements. Stop any development backend before
 starting the standalone app against the same database.
@@ -77,7 +79,7 @@ directories. For storage on a separate mount, add its absolute mount path to
    ```
 
    If it is missing, install the [build requirements](#build-requirements) and
-   run `node scripts/build.mjs`. Use `dist/trynas-linux-arm64` on ARM64 and update
+   run `go run ./scripts/build`. Use `dist/trynas-linux-arm64` on ARM64 and update
    the unit's `ExecStart` accordingly.
 
 4. Review `scripts/trynas.service` and adjust its account and paths if needed.
@@ -272,7 +274,7 @@ generates the Next.js static export in `frontend/dist/` and embeds
 that folder directly in the standalone executable. Rebuild after source changes:
 
 ```bash
-node scripts/build.mjs
+go run ./scripts/build
 ```
 
 Run backend regression tests and frontend type checks from the project root:
@@ -484,7 +486,7 @@ Build once to embed the complete frontend in the Go executable. On the machine
 that builds releases, install Go, Node.js and pnpm, then run from the project root:
 
 ```bash
-node scripts/build.mjs
+go run ./scripts/build
 ```
 
 Release binaries contain no default administrator password. Set `ADMIN_PASSWORD`
@@ -492,20 +494,23 @@ Release binaries contain no default administrator password. Set `ADMIN_PASSWORD`
 to `admin`. Building does not print or write credentials, and rebuilding does not
 reset existing accounts.
 
-The command rebuilds both the current frontend and backend. It clears old
+The Go release command rebuilds both the current frontend and backend.
+Node.js and pnpm are still required to compile the Next.js UI. To rebuild only
+the backend using the existing `frontend/dist` assets, run
+`go run ./scripts/build --skip-frontend`. It clears old
 release output, builds the frontend in `.next` separately from dev mode (`.next-dev`),
 and embeds the freshly exported assets in the executable. It creates a binary
 for your current OS/architecture in `dist/`. Build every
 supported 64-bit target with:
 
 ```bash
-node scripts/build.mjs --all
+go run ./scripts/build --all
 ```
 
 Or build selected targets:
 
 ```bash
-node scripts/build.mjs --target windows/amd64,linux/amd64,darwin/arm64
+go run ./scripts/build --target windows/amd64,linux/amd64,darwin/arm64
 ```
 
 Building does not update an already running app. Stop the development backend
@@ -577,7 +582,7 @@ To restart:
 
 1. Press **Ctrl+C** in the terminal running the app and wait for it to exit.
 2. If updating the app, replace the executable or rebuild it with
-   `node scripts/build.mjs`.
+   `go run ./scripts/build`.
 3. Run the same start command from the same working directory, with the same
    configuration and data paths.
 4. Refresh the browser.
@@ -609,7 +614,7 @@ Cross-built Windows/macOS binaries are unsigned; signing/notarization for public
 distribution is a separate release step. macOS Finder launches and Windows GUI
 launches are not managed installers; the app runs as a terminal/server process.
 
-Rebuild with `node scripts/build.mjs` after changing the app to include those
+Rebuild with `go run ./scripts/build` after changing the app to include those
 changes in the standalone executable.
 
 On Windows/macOS, requests must use the exact path spelling returned by the
