@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-//go:embed all:web
+//go:embed all:dist
 var FrontendAssets embed.FS
 
 func EmbeddedFrontend() http.Handler {
-	assets, err := fs.Sub(FrontendAssets, "web")
+	assets, err := fs.Sub(FrontendAssets, "dist")
 	if err != nil {
 		panic(err)
 	}
