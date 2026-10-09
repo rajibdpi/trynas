@@ -292,7 +292,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         Connecting to TryNAS…
       </main>
     );
-  if (!me) return <><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></>;
+  if (!me) return <div className="flex h-dvh flex-col overflow-hidden"><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>;
   let content: ReactNode = null;
   const fileProps = {
     defaultView: appSettings.fileView,
