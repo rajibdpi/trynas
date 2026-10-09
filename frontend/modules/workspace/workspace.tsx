@@ -495,6 +495,9 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         </header>
         {sys.error && <ErrorText text={sys.error} />}
         <section key={activeTab}>{content}</section>
+        <footer className="mt-8 border-t pt-4 text-center text-xs text-muted-foreground">
+          © {new Date().getFullYear()} {appSettings.appName}. All rights reserved.
+        </footer>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
       {preview && <Preview item={preview} close={() => { setPreview(null); writeFileLocation(path); }} />}
