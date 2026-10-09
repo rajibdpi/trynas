@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, cpSync, existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -21,11 +21,10 @@ function run(command, params, cwd, extraEnv = {}) { const windowsPnpm = process.
 if (!existsSync(join(frontend, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"], frontend);
 // Never reuse a prior static export or the running dev server's build directory.
 rmSync(join(frontend, ".next"), { recursive: true, force: true });
-rmSync(join(frontend, "out"), { recursive: true, force: true });
+rmSync(join(frontend, "dist"), { recursive: true, force: true });
 console.log("Building the current frontend from clean release output...");
 run("pnpm", ["build"], frontend, { TRYNAS_EMBEDDED_BUILD: "true", NEXT_PUBLIC_EMBEDDED: "true", NEXT_PUBLIC_API_URL: "" });
-const exported = join(frontend, "out"); if (!existsSync(join(exported, "index.html"))) throw new Error("Static frontend export is missing");
-const assets = join(frontend, "web"); rmSync(assets, { recursive: true, force: true }); cpSync(exported, assets, { recursive: true });
+const exported = join(frontend, "dist"); if (!existsSync(join(exported, "index.html"))) throw new Error("Static frontend export is missing");
 mkdirSync(dist, { recursive: true });
 const sums = [];
 const adminPassword = "Admin@123!";
