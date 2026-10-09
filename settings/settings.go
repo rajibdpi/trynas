@@ -5,22 +5,32 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/rajibdpi/trynas/core"
 )
 
 func (a *Module) ReadSettings() (core.AppSettings, error) {
+	a.cacheMu.Lock()
+	defer a.cacheMu.Unlock()
+	if !a.cachedAt.IsZero() && time.Since(a.cachedAt) < 30*time.Second {
+		return a.cached, nil
+	}
 	settings := core.AppSettings{AppName: "TryNAS", FileView: "grid", ShareExpiry: "7"}
 	var data string
 	err := a.DB.QueryRow("SELECT value FROM app_settings WHERE key='basic'").Scan(&data)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			a.cached, a.cachedAt = settings, time.Now()
 			return settings, nil
 		}
 		return settings, err
 	}
 	err = json.Unmarshal([]byte(data), &settings)
+	if err == nil {
+		a.cached, a.cachedAt = settings, time.Now()
+	}
 	return settings, err
 }
 
@@ -56,10 +66,14 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data, _ := json.Marshal(settings)
+		a.cacheMu.Lock()
 		if _, err := a.DB.Exec("INSERT INTO app_settings(key,value) VALUES('basic',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", string(data)); err != nil {
+			a.cacheMu.Unlock()
 			core.Bad(w, "could not save settings", 500)
 			return
 		}
+		a.cached, a.cachedAt = settings, time.Now()
+		a.cacheMu.Unlock()
 		a.Log(user.ID, "settings", "basic")
 		core.JSON(w, settings)
 		return

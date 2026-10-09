@@ -17,16 +17,47 @@ import (
 	gnet "github.com/shirou/gopsutil/v4/net"
 )
 
-func (a *Module) System(w http.ResponseWriter, r *http.Request) {
-	v, _ := mem.VirtualMemory()
-	c, _ := cpu.Percent(200*time.Millisecond, false)
-	h, _ := host.Info()
-	du, _ := disk.Usage(a.Root)
+// systemSnapshot shares one sample across dashboard clients for one second.
+// Holding this dedicated lock also prevents concurrent cache misses from
+// starting duplicate CPU measurements; network and SMART locks stay independent.
+func (a *Module) systemSnapshot() (map[string]any, error) {
+	a.systemMu.Lock()
+	defer a.systemMu.Unlock()
+	if a.systemCached != nil && time.Since(a.systemAt) < time.Second {
+		return a.systemCached, nil
+	}
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, err
+	}
+	c, err := cpu.Percent(200*time.Millisecond, false)
+	if err != nil {
+		return nil, err
+	}
+	h, err := host.Info()
+	if err != nil {
+		return nil, err
+	}
+	du, err := disk.Usage(a.Root)
+	if err != nil {
+		return nil, err
+	}
 	pct := 0.0
 	if len(c) > 0 {
 		pct = c[0]
 	}
-	core.JSON(w, map[string]any{"cpu": pct, "memoryPercent": v.UsedPercent, "memoryUsed": v.Used, "memoryTotal": v.Total, "uptime": h.Uptime, "hostname": h.Hostname, "os": h.Platform, "kernel": h.KernelVersion, "storage": map[string]any{"total": du.Total, "used": du.Used, "free": du.Free, "percent": du.UsedPercent, "path": a.Root}})
+	result := map[string]any{"cpu": pct, "memoryPercent": v.UsedPercent, "memoryUsed": v.Used, "memoryTotal": v.Total, "uptime": h.Uptime, "hostname": h.Hostname, "os": h.Platform, "kernel": h.KernelVersion, "storage": map[string]any{"total": du.Total, "used": du.Used, "free": du.Free, "percent": du.UsedPercent, "path": a.Root}}
+	a.systemCached, a.systemAt = result, time.Now()
+	return result, nil
+}
+
+func (a *Module) System(w http.ResponseWriter, r *http.Request) {
+	result, err := a.systemSnapshot()
+	if err != nil {
+		core.Bad(w, "system metrics unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	core.JSON(w, result)
 }
 
 func (a *Module) SampleNetwork() {
