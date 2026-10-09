@@ -393,11 +393,21 @@ func (a *Module) ZipOne(u core.User, p string) error {
 }
 
 func (a *Module) ZipV5(w http.ResponseWriter, r *http.Request) {
-	var x struct{ Path string }
+	var x struct {
+		Path        string
+		Paths       []string
+		Destination string
+	}
 	if !core.Decode(w, r, &x) {
 		return
 	}
-	if err := a.ZipOne(r.Context().Value(core.UserKey).(core.User), x.Path); err != nil {
+	var err error
+	if len(x.Paths) > 0 {
+		err = a.ZipSelection(r.Context().Value(core.UserKey).(core.User), x.Paths, x.Destination)
+	} else {
+		err = a.ZipOne(r.Context().Value(core.UserKey).(core.User), x.Path)
+	}
+	if err != nil {
 		core.Report(w, err)
 		return
 	}

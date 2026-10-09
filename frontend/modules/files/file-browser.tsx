@@ -153,6 +153,19 @@ export function FileBrowser({
         submit: action === "copy" ? "Copy here" : "Move here",
         run: (v) => perform(action, paths, v.destination),
       });
+    else if (action === "zip")
+      ask({
+        title: "Create one ZIP",
+        description: `Combine ${paths.length} selected files and folders into one archive in this folder.`,
+        fields: [{ key: "name", label: "ZIP filename", value: "archive.zip", required: true }],
+        submit: "Create ZIP",
+        run: async values => {
+          const name = values.name.trim();
+          if (!name || /[\\/]/.test(name)) throw new Error("Enter a filename without folders");
+          await api("/api/files/zip", { method: "POST", body: JSON.stringify({ paths, destination: join(path, name.toLowerCase().endsWith(".zip") ? name : `${name}.zip`) }) });
+          setSelected([]); await listing.reload(); onChanged(); notify("ZIP created");
+        },
+      })
     else if (action === "trash")
       ask({
         title: `Move ${paths.length} item(s) to trash?`,
@@ -270,6 +283,21 @@ export function FileBrowser({
       disabled: !item.writable,
       run: () => bulk("move", [item.path]),
     },
+    ...(item.name.toLowerCase().endsWith(".zip") && !item.dir ? [{
+      label: "Unzip", icon: Archive,
+      run: () => ask({
+        title: "Unzip archive",
+        description: "Extract into a new folder beside this archive. Existing folders will not be overwritten.",
+        fields: [{ key: "name", label: "New folder name", value: item.name.slice(0, -4) || "extracted", required: true }],
+        submit: "Extract",
+        run: async values => {
+          const name = values.name.trim();
+          if (!name || /[\\/]/.test(name) || name === "." || name === "..") throw new Error("Enter a single folder name");
+          await api("/api/files/unzip", { method: "POST", body: JSON.stringify({ path: item.path, destination: join(parent(item.path), name) }) });
+          await reload(); notify("Archive extracted");
+        },
+      }),
+    }] : []),
     { label: "Create ZIP", icon: Archive, run: () => bulk("zip", [item.path]) },
     {
       label: "Share link",
