@@ -30,11 +30,13 @@ import { ActivityPanel } from "@/modules/activity/activity-panel";
 import { FavoritesPanel } from "@/modules/favorites/favorites-panel";
 import { SharesPanel } from "@/modules/share/shares-panel";
 import { TrashPanel } from "@/modules/trash/trash-panel";
+import { readFileLocation, fileLocationURL, useFileLocation, writeFileLocation } from "@/modules/files/file-location";
 import { Preview } from "@/modules/files/preview";
 import { LoginPanel } from "@/modules/auth/login-panel";
 
 export default function Workspace({ initialTab = "dashboard" }: { initialTab?: string }) {
   const pathname = usePathname();
+  const fileLocation = useFileLocation();
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
@@ -56,7 +58,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     [command, setCommand] = useState<Command | null>(null),
     [preview, setPreview] = useState<Item | null>(null);
   useEffect(() => {
-    if (pathname === "/files") setTab("files");
+    if ((pathname === "/files" || pathname.startsWith("/files/"))) setTab("files");
     else if (pathname === "/settings") setTab("settings");
     else setTab(previous => ["files", "settings"].includes(previous) ? "dashboard" : previous);
   }, [pathname]);
@@ -64,15 +66,16 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   useEffect(() => {
     if (me && me.role !== "admin" && nav.find(item => item.id === tab)?.admin) {
       setTab("files");
-      if (window.location.pathname !== "/files") window.history.replaceState(null, "", "/files");
+      if (!(window.location.pathname === "/files" || window.location.pathname.startsWith("/files/"))) writeFileLocation(me.home || "", undefined, undefined, true);
     }
   }, [me?.role, tab]);
   const selectTab = (next: string) => {
     if (me?.role !== "admin" && nav.find(item => item.id === next)?.admin) next = "files";
     setTab(next);
     setMobile(false);
-    const route = ["files", "settings"].includes(next) ? `/${next}` : "/";
-    if (window.location.pathname !== route) window.history.pushState(null, "", route);
+    const route = next === "files" ? fileLocationURL(path) : next === "settings" ? "/settings" : "/";
+    if (next === "files") writeFileLocation(path);
+    else if (window.location.pathname !== route) window.history.pushState(null, "", route);
   };
   useEffect(() => {
     if (!me) return;
@@ -182,7 +185,32 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     catch (error) { notify(message(error)); throw error; }
     if (notificationVersion.current === before) notify(`${c.title} completed`);
   } });
+  useEffect(() => {
+    const currentLocation = readFileLocation();
+    if (!me || !currentLocation || currentLocation.storage) return;
+    const nextPath = currentLocation.path ?? me.home ?? "";
+    setPath(nextPath);
+    setFileQuery("");
+    setPreview(null);
+    if (currentLocation.path === null) {
+      writeFileLocation(nextPath, currentLocation.file ?? undefined, undefined, true);
+      return;
+    }
+    if (!currentLocation.file) return;
+    const controller = new AbortController();
+    const file = currentLocation.file;
+    void api(`/api/files?path=${encodeURIComponent(parent(file))}`, { signal: controller.signal }).then(data => {
+      if (controller.signal.aborted) return;
+      const item = (data.items as Item[]).find(item => item.path === file && !item.dir);
+      if (!item) { showNotification("File not found or access denied."); return; }
+      setPreview(item);
+    }).catch(error => { if (!controller.signal.aborted) showNotification(message(error)); });
+    return () => controller.abort();
+  }, [me?.id, pathname, fileLocation?.path, fileLocation?.file, fileLocation?.storage]);
   const navigateFolder = (next: string) => {
+    setTab("files");
+    setPreview(null);
+    writeFileLocation(next);
     if (next === path) return;
     setFileQuery("");
     setPathHistory(previous => [...previous, path]);
@@ -193,6 +221,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     if (!pathHistory.length) return;
     setFileQuery("");
     setForwardHistory(previous => [...previous, path]);
+    setPreview(null);
+    writeFileLocation(pathHistory[pathHistory.length - 1]);
     setPath(pathHistory[pathHistory.length - 1]);
     setPathHistory(previous => previous.slice(0, -1));
   };
@@ -200,14 +230,20 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     if (!forwardHistory.length) return;
     setFileQuery("");
     setPathHistory(previous => [...previous, path]);
+    setPreview(null);
+    writeFileLocation(forwardHistory[forwardHistory.length - 1]);
     setPath(forwardHistory[forwardHistory.length - 1]);
     setForwardHistory(previous => previous.slice(0, -1));
   };
   const openItem = (item: Item) => {
     if (item.dir) {
       navigateFolder(item.path);
-      selectTab("files");
-    } else setPreview(item);
+    } else {
+      setTab("files");
+      setPath(parent(item.path));
+      setPreview(item);
+      writeFileLocation(parent(item.path), item.path);
+    }
   };
   const refresh = () => {
     void sys.reload();
@@ -333,7 +369,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
               setFileQuery("");
               setPathHistory([]);
               setForwardHistory([]);
-              setTab(pathname === "/files" ? "files" : "dashboard");
+              setTab((pathname === "/files" || pathname.startsWith("/files/")) ? "files" : "dashboard");
               setMobile(false);
               setCommand(null);
               setPreview(null);
@@ -472,7 +508,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         <section key={activeTab}>{content}</section>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
-      {preview && <Preview item={preview} close={() => setPreview(null)} />}
+      {preview && <Preview item={preview} close={() => { setPreview(null); writeFileLocation(path); }} />}
     </div>
   );
 }
