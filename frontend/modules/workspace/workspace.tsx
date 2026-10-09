@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AppFooter } from "@/components/app-footer";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { HardDrive, RefreshCw } from "lucide-react";
@@ -263,7 +264,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         Connecting to TryNAS…
       </main>
     );
-  if (!me) return <LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} />;
+  if (!me) return <><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} /></>;
   let content: ReactNode = null;
   const fileProps = {
     defaultView: appSettings.fileView,
@@ -459,7 +460,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           </div>
         )}
       </aside>
-      <main className="workspace min-w-0 p-4 md:px-9 md:py-7 xl:px-12">
+      <main className="workspace flex min-h-[calc(100dvh-4.5rem)] min-w-0 flex-col p-4 md:px-9 md:py-7 xl:px-12">
         <header className="workspace-header mb-8 flex items-center gap-3">
           <div>
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">
@@ -495,9 +496,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         </header>
         {sys.error && <ErrorText text={sys.error} />}
         <section key={activeTab}>{content}</section>
-        <footer className="mt-8 border-t pt-4 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} {appSettings.appName}. All rights reserved.
-        </footer>
+        <div className="mt-auto pt-8"><AppFooter appName={appSettings.appName} /></div>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
       {preview && <Preview item={preview} close={() => { setPreview(null); writeFileLocation(path); }} />}
