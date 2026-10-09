@@ -36,11 +36,11 @@ export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingO
             <span className="brand-mark">{logoUrl ? <img src={logoUrl.startsWith("/api/branding/logo") ? API + logoUrl : logoUrl} alt="" className="size-8 object-contain" referrerPolicy="no-referrer" /> : <HardDrive className="size-5" />}</span>
             <span className={cn("hidden max-w-36 truncate sm:inline", sidebarCollapsed && "md:hidden")}>{appName}</span>
           </button>
-          <Button variant="ghost" size="icon" className="md:hidden" aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} aria-controls="workspace-sidebar" onClick={onOpenNavigation}>
+          <Button variant="ghost" size="icon-xl" className="md:hidden" aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} aria-controls="workspace-sidebar" onClick={onOpenNavigation}>
             {mobileOpen ? <PanelLeft /> : <PanelRight />}
           </Button>
         </div>
-        <Button variant="ghost" size="icon" className="hidden shrink-0 md:inline-flex" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={onToggleSidebar}>
+        <Button variant="ghost" size="icon-xl" className="hidden shrink-0 md:inline-flex" aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!sidebarCollapsed} aria-controls="workspace-sidebar" onClick={onToggleSidebar}>
           {sidebarCollapsed ? <PanelRight /> : <PanelLeft />}
         </Button>
         <form role="search" className="relative min-w-0 flex-1 md:max-w-lg" onSubmit={event => { event.preventDefault(); onSearch(); }}>
