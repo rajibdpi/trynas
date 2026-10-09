@@ -45,7 +45,7 @@ go run ./scripts/dev --help
 
 When changing the backend port, also update `NEXT_PUBLIC_API_URL` to match.
 The frontend uses port 3000. `--root` and `--db` override storage and database
-paths. The existing `./run-dev.sh` command also forwards to this Go runner.
+paths.
 
 ## Run the standalone app
 
