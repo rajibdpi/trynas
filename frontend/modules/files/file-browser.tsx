@@ -111,7 +111,7 @@ export function FileBrowser({
     notify(
       failed.length
         ? failed.map((x: any) => `${x.path}: ${x.error}`).join("\n")
-        : `${result.results.length} item(s) ${ ({ copy: "copied", move: "moved", trash: "moved to trash", zip: "archived", favorite: "added to favorites" } as Record<string, string>)[action] || "updated" }`,
+        : `${result.results.length} item(s) ${({ copy: "copied", move: "moved", trash: "moved to trash", zip: "archived", favorite: "added to favorites" } as Record<string, string>)[action] || "updated"}`,
     );
     setSelected(failed.map((x: any) => x.path));
     await reload();
@@ -146,51 +146,51 @@ export function FileBrowser({
     else void perform(action, paths).catch((e) => notify(message(e)));
   };
   const shareSelection = (paths: string[]) =>
-        ask({
-          title: "Create share link",
-          description:
-            "Create one link for all selected files and folders (ZIP). Add an optional password and choose an expiry in your local time. Access follows your folder permissions.",
-          fields: [
-            {
-              key: "expiry",
-              label: "Expires at",
-              value: defaultShareExpiry,
-              options: [
-                { value: "never", label: "Never" },
-                { value: "1", label: "1 day" },
-                { value: "7", label: "7 days" },
-                { value: "15", label: "15 days" },
-                { value: "30", label: "30 days" },
-                { value: "custom", label: "Custom" },
-              ],
-            },
-            {
-              key: "expiresAt",
-              label: "Expires at (local date and time)",
-              type: "datetime-local",
-              value: (() => { const expiry = new Date(Date.now() + 7 * 86400000); return new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })(),
-              required: true,
-              visibleWhen: { key: "expiry", value: "custom" },
-            },
-            { key: "password", label: "Password (optional, 8–72 bytes)", type: "password", value: "" },
+    ask({
+      title: "Create share link",
+      description:
+        "Create one link for all selected files and folders (ZIP). Add an optional password and choose an expiry in your local time. Access follows your folder permissions.",
+      fields: [
+        {
+          key: "expiry",
+          label: "Expires at",
+          value: defaultShareExpiry,
+          options: [
+            { value: "never", label: "Never" },
+            { value: "1", label: "1 day" },
+            { value: "7", label: "7 days" },
+            { value: "15", label: "15 days" },
+            { value: "30", label: "30 days" },
+            { value: "custom", label: "Custom" },
           ],
-          submit: "Create link",
-          run: async (v) => {
-            let settings: { never?: boolean; days?: number; expiresAt?: string };
-            if (v.expiry === "never") settings = { never: true };
-            else if (v.expiry === "custom") {
-              const expiry = new Date(v.expiresAt);
-              if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= Date.now())
-                throw new Error("Choose a future expiry date and time");
-              settings = { expiresAt: expiry.toISOString() };
-            } else settings = { days: Number(v.expiry) };
-            const result = await api("/api/shares", {
-              method: "POST",
-              body: JSON.stringify({ paths, ...settings, password: v.password }),
-            });
-            notify(`Share link: ${shareURL(result.token)}`);
-          },
+        },
+        {
+          key: "expiresAt",
+          label: "Expires at (local date and time)",
+          type: "datetime-local",
+          value: (() => { const expiry = new Date(Date.now() + 7 * 86400000); return new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })(),
+          required: true,
+          visibleWhen: { key: "expiry", value: "custom" },
+        },
+        { key: "password", label: "Password (optional, 8–72 bytes)", type: "password", value: "" },
+      ],
+      submit: "Create link",
+      run: async (v) => {
+        let settings: { never?: boolean; days?: number; expiresAt?: string };
+        if (v.expiry === "never") settings = { never: true };
+        else if (v.expiry === "custom") {
+          const expiry = new Date(v.expiresAt);
+          if (!Number.isFinite(expiry.getTime()) || expiry.getTime() <= Date.now())
+            throw new Error("Choose a future expiry date and time");
+          settings = { expiresAt: expiry.toISOString() };
+        } else settings = { days: Number(v.expiry) };
+        const result = await api("/api/shares", {
+          method: "POST",
+          body: JSON.stringify({ paths, ...settings, password: v.password }),
         });
+        notify(`Share link: ${shareURL(result.token)}`);
+      },
+    });
   const fileActions = (item: Item): Action[] => [
     {
       label: item.dir ? "Open folder" : "Preview",
@@ -342,16 +342,16 @@ export function FileBrowser({
     >
       {draggingFiles && <div role="status" className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-2xl bg-card/95 p-6 backdrop-blur-sm">
         <div className="flex flex-col items-center text-center">
-          <span className="mb-4 grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary"><Upload className="size-8"/></span>
+          <span className="mb-4 grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary"><Upload className="size-8" /></span>
           <p className="text-xl font-semibold">{!writable ? "This folder is read-only" : upload ? "An upload is already in progress" : "Drop files to upload"}</p>
           <p className="mt-2 break-all text-sm text-muted-foreground">{!writable ? "Choose a folder with write access." : upload ? "Wait for the current upload to finish." : `Upload to /${path || " (storage root)"}`}</p>
-        <div className="upload-hint mt-5 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-          <Upload className="size-4" />
-          <span>Drag and drop files to upload</span>
-          <span className="hidden sm:inline">
-            · Right-click for more actions
-          </span>
-        </div>
+          <div className="upload-hint mt-5 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+            <Upload className="size-4" />
+            <span>Drag and drop files to upload</span>
+            <span className="hidden sm:inline">
+              · Right-click for more actions
+            </span>
+          </div>
         </div>
       </div>}
       <CardHeader>
@@ -364,15 +364,15 @@ export function FileBrowser({
               <span className="file-count">{items.length} items</span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft/></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight/></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path===basePath} onClick={()=>setPath(parent(path))}><ArrowUp/></Button>
-              <button onClick={() => setPath(basePath)}>{basePath?"Home":"Storage"}</button>
+              <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
+              <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
+              <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
+              <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button>
               {path
                 .split("/")
                 .filter(Boolean)
                 .map((part, i) => (
-                  path.split("/").slice(0,i+1).join("/").length <= basePath.length ? null : <span key={i}>
+                  path.split("/").slice(0, i + 1).join("/").length <= basePath.length ? null : <span key={i}>
                     {" "}
                     /{" "}
                     <button
@@ -392,16 +392,16 @@ export function FileBrowser({
             </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
-            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-            <input
-              className="!pl-9"
-              placeholder="Search files and folders…"
-              aria-label="Search files"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
+            <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
+              <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+              <input
+                className="pl-9!"
+                placeholder="Search files and folders…"
+                aria-label="Search files"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
             <Button
               variant="outline"
               disabled={!writable || !!upload}
@@ -460,25 +460,25 @@ export function FileBrowser({
               <RefreshCw />
             </Button>
             <div className="flex gap-2" role="group" aria-label="File view">
-          <Button
-            variant={view === "list" ? "secondary" : "outline"}
-            size="icon"
-            aria-label="List view"
-            aria-pressed={view === "list"}
-            onClick={() => setView("list")}
-          >
-            <List />
-          </Button>
-          <Button
-            variant={view === "grid" ? "secondary" : "outline"}
-            size="icon"
-            aria-label="Grid view"
-            aria-pressed={view === "grid"}
-            onClick={() => setView("grid")}
-          >
-            <Grid2X2 />
-          </Button>
-        </div>
+              <Button
+                variant={view === "list" ? "secondary" : "outline"}
+                size="icon"
+                aria-label="List view"
+                aria-pressed={view === "list"}
+                onClick={() => setView("list")}
+              >
+                <List />
+              </Button>
+              <Button
+                variant={view === "grid" ? "secondary" : "outline"}
+                size="icon"
+                aria-label="Grid view"
+                aria-pressed={view === "grid"}
+                onClick={() => setView("grid")}
+              >
+                <Grid2X2 />
+              </Button>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -610,7 +610,7 @@ export function FileBrowser({
                     "file-item cursor-pointer select-none rounded-xl p-3",
                     view === "grid" ? "file-tile border" : "file-row",
                     selected.includes(item.path) &&
-                      "border-primary bg-primary/5",
+                    "border-primary bg-primary/5",
                     view === "list" && "flex items-center gap-3",
                   )}
                 >
@@ -621,19 +621,19 @@ export function FileBrowser({
                     )}
                   >
                     <span className="relative shrink-0">
-                    {item.dir ? (
-                      <span className="folder-icon">
-                        <Folder className="size-7" />
-                      </span>
-                    ) : (
-                      <FileTypeIcon name={item.name} />
-                    )}
-                    {selected.includes(item.path) && (
-                      <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
-                        <Check className="size-3" strokeWidth={3} aria-hidden="true" />
-                        <span className="sr-only">Selected</span>
-                      </span>
-                    )}
+                      {item.dir ? (
+                        <span className="folder-icon">
+                          <Folder className="size-7" />
+                        </span>
+                      ) : (
+                        <FileTypeIcon name={item.name} />
+                      )}
+                      {selected.includes(item.path) && (
+                        <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
+                          <Check className="size-3" strokeWidth={3} aria-hidden="true" />
+                          <span className="sr-only">Selected</span>
+                        </span>
+                      )}
                     </span>
                     <button
                       className="min-w-0 text-left"

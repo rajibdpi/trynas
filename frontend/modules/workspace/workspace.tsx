@@ -80,7 +80,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   useEffect(() => {
     if (!me) return;
     const controller = new AbortController();
-    void api("/api/preferences", { signal: controller.signal }).then(data => setAppSettings(data.settings)).catch(() => {});
+    void api("/api/preferences", { signal: controller.signal }).then(data => setAppSettings(data.settings)).catch(() => { });
     return () => controller.abort();
   }, [me?.id]);
   useEffect(() => { document.title = appSettings.appName; }, [appSettings.appName]);
@@ -120,9 +120,9 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     let active = true;
     void api("/api/me")
       .then((u) => {
-        if (active) {setMe(u);setPath(u.home||"")}
+        if (active) { setMe(u); setPath(u.home || "") }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         if (active) setChecking(false);
       });
@@ -162,8 +162,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         body: JSON.stringify({ username, password }),
       });
       setMe(user);
-      setPath(user.home||"");
-      setPathHistory([]);setForwardHistory([]);
+      setPath(user.home || "");
+      setPathHistory([]); setForwardHistory([]);
       setPassword("");
       setLoginError("");
     } catch (e) {
@@ -179,12 +179,14 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     }
   };
   const notify = (text: string) => { notificationVersion.current++; showNotification(text); };
-  const ask = (c: Command) => setCommand({ ...c, run: async values => {
-    const before = notificationVersion.current;
-    try { await c.run(values); }
-    catch (error) { notify(message(error)); throw error; }
-    if (notificationVersion.current === before) notify(`${c.title} completed`);
-  } });
+  const ask = (c: Command) => setCommand({
+    ...c, run: async values => {
+      const before = notificationVersion.current;
+      try { await c.run(values); }
+      catch (error) { notify(message(error)); throw error; }
+      if (notificationVersion.current === before) notify(`${c.title} completed`);
+    }
+  });
   useEffect(() => {
     const currentLocation = readFileLocation();
     if (!me || !currentLocation || currentLocation.storage) return;
@@ -306,7 +308,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                 setMe(user);
                 if (user.role !== "admin") setTab("dashboard");
               })
-              .catch(() => {});
+              .catch(() => { });
           }}
         />
       );
@@ -388,9 +390,9 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       <aside
         id="workspace-sidebar"
         className={cn(
-          "app-sidebar fixed bottom-0 top-18 left-0 z-40 flex w-[260px] flex-col overflow-y-auto p-5 md:sticky md:top-18 md:h-[calc(100vh-4.5rem)]",
+          "app-sidebar fixed bottom-0 top-18 left-0 z-40 flex w-65 flex-col overflow-y-auto p-5 md:sticky md:top-18 md:h-[calc(100vh-4.5rem)]",
           mobile ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-          sidebarCollapsed && "sidebar-collapsed md:w-[76px] md:px-3",
+          sidebarCollapsed && "sidebar-collapsed md:w-19 md:px-3",
         )}
       >
         <nav
@@ -411,41 +413,41 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                   </p>
                 )}
                 {["files", "settings"].includes(x.id) ? (
-                <Link href={`/${x.id}`}
-                  aria-label={x.label}
-                  title={sidebarCollapsed ? x.label : undefined}
-                  aria-current={activeTab === x.id ? "page" : undefined}
-                  className={cn(
-                    "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
-                    activeTab === x.id && "is-active",
-                    sidebarCollapsed && "md:justify-center md:px-0",
-                  )}
-                  onClick={event => {
-                    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-                    event.preventDefault();
-                    selectTab(x.id);
-                  }}
-                >
-                  <x.icon className="size-5 shrink-0" />
-                  <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
-                </Link>
+                  <Link href={`/${x.id}`}
+                    aria-label={x.label}
+                    title={sidebarCollapsed ? x.label : undefined}
+                    aria-current={activeTab === x.id ? "page" : undefined}
+                    className={cn(
+                      "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
+                      activeTab === x.id && "is-active",
+                      sidebarCollapsed && "md:justify-center md:px-0",
+                    )}
+                    onClick={event => {
+                      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                      event.preventDefault();
+                      selectTab(x.id);
+                    }}
+                  >
+                    <x.icon className="size-5 shrink-0" />
+                    <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
+                  </Link>
                 ) : (
-                <button
-                  aria-label={x.label}
-                  title={sidebarCollapsed ? x.label : undefined}
-                  aria-current={activeTab === x.id ? "page" : undefined}
-                  className={cn(
-                    "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
-                    activeTab === x.id && "is-active",
-                    sidebarCollapsed && "md:justify-center md:px-0",
-                  )}
-                  onClick={() => {
-                    selectTab(x.id);
-                  }}
-                >
-                  <x.icon className="size-5 shrink-0" />
-                  <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
-                </button>
+                  <button
+                    aria-label={x.label}
+                    title={sidebarCollapsed ? x.label : undefined}
+                    aria-current={activeTab === x.id ? "page" : undefined}
+                    className={cn(
+                      "nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm",
+                      activeTab === x.id && "is-active",
+                      sidebarCollapsed && "md:justify-center md:px-0",
+                    )}
+                    onClick={() => {
+                      selectTab(x.id);
+                    }}
+                  >
+                    <x.icon className="size-5 shrink-0" />
+                    <span className={sidebarCollapsed ? "md:hidden" : undefined}>{x.label}</span>
+                  </button>
                 )}
               </div>
             ))}
@@ -486,7 +488,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           </div>
           <div className="server-status ml-auto hidden sm:flex">
             <span
-              className={cn("status-dot", sys.error && "!bg-destructive")}
+              className={cn("status-dot", sys.error && "bg-destructive!")}
             />
             {sys.error
               ? "Server unavailable"
