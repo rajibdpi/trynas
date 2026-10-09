@@ -37,6 +37,100 @@ See [Standalone application for Windows, Linux and macOS](#standalone-applicatio
 for other platforms and build requirements. Stop any development backend before
 starting the standalone app against the same database.
 
+## Install on Ubuntu with systemd
+
+The supplied `scripts/trynas.service` runs the standalone Linux AMD64 app as
+`rajib` from `/home/rajib/trynas`, loads that directory's `.env`, restarts after
+failure, and starts at boot. It serves both the UI and API; a separate frontend
+service is not needed.
+
+If your installation differs, edit `User`, `Group`, `WorkingDirectory`,
+`ExecStart`, and `RequiresMountsFor` in the unit before installing it. On ARM64,
+use `trynas-linux-arm64` in `ExecStart`. The service account must have access to
+the binary and configuration, and write access to the database and storage
+directories. For storage on a separate mount, add its absolute mount path to
+`RequiresMountsFor` so systemd mounts it before starting TryNAS.
+
+1. Open the project directory:
+
+   ```bash
+   cd /home/rajib/trynas
+   ```
+
+2. Create the configuration only if `.env` does not already exist, then edit it:
+
+   ```bash
+   if [ ! -f .env ]; then cp .env.example .env; fi
+   nano .env
+   chmod 600 .env
+   ```
+
+   Set `ADMIN_USER` and a strong `ADMIN_PASSWORD` before the first launch.
+   Check `ADDR`, `DB_PATH`, and `STORAGE_ROOT`; relative data and storage paths
+   resolve from the service's `WorkingDirectory`. See [Configure](#configure)
+   for configuration examples. Existing database accounts keep their passwords.
+
+3. Check that the standalone binary is available:
+
+   ```bash
+   test -x dist/trynas-linux-amd64
+   ```
+
+   If it is missing, install the [build requirements](#build-requirements) and
+   run `node scripts/build.mjs`. Use `dist/trynas-linux-arm64` on ARM64 and update
+   the unit's `ExecStart` accordingly.
+
+4. Review `scripts/trynas.service` and adjust its account and paths if needed.
+   Stop any manually started TryNAS or development backend before starting the
+   service against the same database.
+
+Install the unit and enable startup at boot:
+
+```bash
+sudo install -o root -g root -m 0644 scripts/trynas.service /etc/systemd/system/trynas.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now trynas.service
+sudo systemctl status trynas.service
+```
+
+The status should show `active (running)`. If startup fails, inspect the logs:
+
+```bash
+sudo journalctl -u trynas.service -n 100 --no-pager
+```
+
+Check that the configured service account can read and execute the binary,
+read and secure `.env`, and write to the configured database and storage
+directories. If the port is already in use, stop the existing server or change
+`ADDR` in `.env`. After correcting repeated startup failures, run:
+
+```bash
+sudo systemctl reset-failed trynas.service
+sudo systemctl start trynas.service
+```
+
+Open **http://localhost:8080**, or the address configured by `ADDR` in `.env`.
+Use these commands to view logs and manage the app:
+
+```bash
+sudo journalctl -u trynas.service -f
+sudo systemctl restart trynas.service
+sudo systemctl stop trynas.service
+```
+
+Restart after changing `.env`. Before rebuilding or replacing the executable,
+stop the service, then start it again with `sudo systemctl start trynas.service`.
+After editing `scripts/trynas.service`, reinstall it and reload systemd:
+
+```bash
+sudo install -o root -g root -m 0644 scripts/trynas.service /etc/systemd/system/trynas.service
+sudo systemctl daemon-reload
+sudo systemctl restart trynas.service
+```
+
+To prevent startup at boot and stop the app, run
+`sudo systemctl disable --now trynas.service`.
+
 ## Included features
 
 - Responsive NAS dashboard with live CPU, memory, storage and network traffic graphs

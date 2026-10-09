@@ -1,0 +1,24 @@
+[Unit]
+Description=TryNAS web UI and API
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/home/rajib/trynas
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=rajib
+Group=rajib
+WorkingDirectory=/home/rajib/trynas
+ExecStart=/home/rajib/trynas/dist/trynas-linux-amd64 -config /home/rajib/trynas/.env
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trynas
+
+[Install]
+WantedBy=multi-user.target
