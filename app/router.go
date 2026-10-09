@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rajib/trynas/core"
-	"github.com/rajib/trynas/frontend"
+	"github.com/rajibdpi/trynas/core"
+	"github.com/rajibdpi/trynas/frontend"
 )
 
 // Router connects feature handlers with authentication and permission middleware.

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func (a *Module) TrashOne(u core.User, p string) error {

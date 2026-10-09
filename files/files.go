@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func (a *Module) ListFiles(w http.ResponseWriter, r *http.Request) {

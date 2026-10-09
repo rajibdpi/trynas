@@ -29,7 +29,7 @@ const assets = join(frontend, "web"); rmSync(assets, { recursive: true, force: t
 mkdirSync(dist, { recursive: true });
 const sums = [];
 const adminPassword = "Admin@123!";
-for (const target of targets) { const [os, arch] = target.split("/"); const name = `trynas-${os}-${arch}${os === "windows" ? ".exe" : ""}`; console.log(`Building ${target}...`); run("go", ["build", "-trimpath", `-ldflags=-s -w -X github.com/rajib/trynas/core.BuildAdminPassword=${adminPassword}`, "-o", join(dist, name), "."], project, { CGO_ENABLED: "0", GOOS: os, GOARCH: arch }); sums.push(`${createHash("sha256").update(readFileSync(join(dist, name))).digest("hex")}  ${name}`) }
+for (const target of targets) { const [os, arch] = target.split("/"); const name = `trynas-${os}-${arch}${os === "windows" ? ".exe" : ""}`; console.log(`Building ${target}...`); run("go", ["build", "-trimpath", `-ldflags=-s -w -X github.com/rajibdpi/trynas/core.BuildAdminPassword=${adminPassword}`, "-o", join(dist, name), "."], project, { CGO_ENABLED: "0", GOOS: os, GOARCH: arch }); sums.push(`${createHash("sha256").update(readFileSync(join(dist, name))).digest("hex")}  ${name}`) }
 const credentials = join(dist, "admin-credentials.txt");
 rmSync(credentials, { force: true });
 writeFileSync(credentials, `Username: admin\nPassword: ${adminPassword}\n\nApplies to fresh databases using binaries built in this run:\n${targets.join("\n")}\nRuntime ADMIN_USER / ADMIN_PASSWORD override these defaults. Existing accounts are unchanged.\nTreat this file and the binaries as containing credentials.\n`, { mode: 0o600 });

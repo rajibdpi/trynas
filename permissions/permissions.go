@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func (a *Module) Can(u core.User, p string, write bool) bool {

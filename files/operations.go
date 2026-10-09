@@ -10,7 +10,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func (a *Module) Destination(u core.User, p string) (string, error) {

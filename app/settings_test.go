@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func TestBasicAppSettings(t *testing.T) {

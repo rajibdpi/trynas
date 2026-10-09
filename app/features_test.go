@@ -15,8 +15,8 @@ import (
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
-	"github.com/rajib/trynas/core"
-	"github.com/rajib/trynas/database"
+	"github.com/rajibdpi/trynas/core"
+	"github.com/rajibdpi/trynas/database"
 )
 
 func setup(t *testing.T) (*App, core.User, core.User) {

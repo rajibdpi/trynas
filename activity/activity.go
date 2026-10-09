@@ -3,7 +3,7 @@ package activity
 import (
 	"net/http"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func (a *Module) Activity(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 )
 
 func (a *Module) AllowAttempt(w http.ResponseWriter, r *http.Request, key string) bool {

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/operations"

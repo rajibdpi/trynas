@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rajib/trynas/core"
-	"github.com/rajib/trynas/database"
+	"github.com/rajibdpi/trynas/core"
+	"github.com/rajibdpi/trynas/database"
 )
 
 func TestAllowedLoginAndThrottle(t *testing.T) {

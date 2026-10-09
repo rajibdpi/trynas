@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/rajib/trynas/core"
+	"github.com/rajibdpi/trynas/core"
 	qrcode "github.com/skip2/go-qrcode"
 )
 
