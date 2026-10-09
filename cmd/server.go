@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -47,6 +48,10 @@ func serve() error {
 	if err = a.MigrateV5(); err != nil {
 		return err
 	}
+	cleanupContext, stopCleanup := context.WithCancel(context.Background())
+	cleanupDone := make(chan struct{})
+	go func() { defer close(cleanupDone); a.RunTrashCleanup(cleanupContext) }()
+	defer func() { stopCleanup(); <-cleanupDone }()
 	a.MonitorNetwork()
 	r := a.Router()
 	addr := core.Env("ADDR", "127.0.0.1:8080")

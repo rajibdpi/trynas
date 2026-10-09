@@ -14,6 +14,9 @@ func Load() error {
 	root := flag.String("root", "", "Storage folder (overrides STORAGE_ROOT)")
 	db := flag.String("db", "", "SQLite database path (overrides DB_PATH)")
 	flag.Parse()
+	if err := os.Setenv("TRYNAS_CONFIG_FILE", *config); err != nil {
+		return err
+	}
 	explicit := false
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "config" {

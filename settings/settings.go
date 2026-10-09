@@ -18,7 +18,7 @@ func (a *Module) ReadSettings() (core.AppSettings, error) {
 	if !a.cachedAt.IsZero() && time.Since(a.cachedAt) < 30*time.Second {
 		return a.cached, nil
 	}
-	settings := core.AppSettings{AppName: "TryNAS", FileView: "grid", ShareExpiry: "7"}
+	settings := core.AppSettings{TrashRetentionDays: 30, AppName: "TryNAS", FileView: "grid", ShareExpiry: "7"}
 	var data string
 	err := a.DB.QueryRow("SELECT value FROM app_settings WHERE key='basic'").Scan(&data)
 	if err != nil {
@@ -49,6 +49,10 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 		var settings core.AppSettings
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&settings); err != nil {
 			core.Bad(w, "invalid settings", 400)
+			return
+		}
+		if settings.TrashRetentionDays < 0 || settings.TrashRetentionDays > 3650 {
+			core.Bad(w, "trash retention must be 0–3650 days", 400)
 			return
 		}
 		settings.AppName = strings.TrimSpace(settings.AppName)

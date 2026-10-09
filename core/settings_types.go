@@ -1,6 +1,7 @@
 package core
 
 type AppSettings struct {
+	TrashRetentionDays  int    `json:"trashRetentionDays"`
 	RegistrationEnabled bool   `json:"registrationEnabled"`
 	AppName             string `json:"appName"`
 	LogoURL             string `json:"logoUrl"`

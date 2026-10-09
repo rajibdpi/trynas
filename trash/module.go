@@ -6,6 +6,7 @@ import (
 
 // Dependencies describes the operations this module needs from other modules.
 type Dependencies interface {
+	ReadSettings() (core.AppSettings, error)
 	AllowTree(u core.User, p string, write bool) error
 	Can(u core.User, p string, write bool) bool
 	Destination(u core.User, p string) (string, error)
