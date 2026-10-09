@@ -11,7 +11,7 @@ import (
 )
 
 func (a *Module) ReadSettings() (core.AppSettings, error) {
-	settings := core.AppSettings{"TryNAS", "grid", "7"}
+	settings := core.AppSettings{AppName: "TryNAS", FileView: "grid", ShareExpiry: "7"}
 	var data string
 	err := a.DB.QueryRow("SELECT value FROM app_settings WHERE key='basic'").Scan(&data)
 	if err != nil {
