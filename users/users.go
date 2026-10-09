@@ -14,11 +14,7 @@ import (
 
 func (a *Module) Usage(uid int) (int64, int64, error) {
 	var used, quota int64
-	err := a.DB.QueryRow("SELECT COALESCE(SUM(bytes),0) FROM file_owners WHERE user_id=?", uid).Scan(&used)
-	if err != nil {
-		return 0, 0, err
-	}
-	err = a.DB.QueryRow("SELECT COALESCE((SELECT quota_bytes FROM user_limits WHERE user_id=?),0)", uid).Scan(&quota)
+	err := a.DB.QueryRow(`SELECT COALESCE((SELECT SUM(bytes) FROM file_owners WHERE user_id=?),0), COALESCE((SELECT quota_bytes FROM user_limits WHERE user_id=?),0)`, uid, uid).Scan(&used, &quota)
 	return used, quota, err
 }
 

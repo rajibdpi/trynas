@@ -12,7 +12,7 @@ import (
 // Router connects feature handlers with authentication and permission middleware.
 func (a *App) Router() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.Recoverer)
+	r.Use(middleware.RequestID, middleware.Recoverer, core.SecurityHeaders)
 	r.Use(a.Cors)
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		core.JSON(w, map[string]any{"ok": true, "name": "TryNAS", "version": "5.0.0"})

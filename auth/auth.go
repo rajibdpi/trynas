@@ -16,8 +16,11 @@ func (a *Module) Cors(next http.Handler) http.Handler {
 		if !core.CheckBrowserMutation(w, r) {
 			return
 		}
+		w.Header().Add("Vary", "Origin")
 		o := core.Env("CORS_ORIGIN", "http://localhost:3000")
-		w.Header().Set("Access-Control-Allow-Origin", o)
+		if r.Header.Get("Origin") == o {
+			w.Header().Set("Access-Control-Allow-Origin", o)
+		}
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
@@ -51,7 +54,7 @@ func (a *Module) Login(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "could not create session", 500)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Value: t, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: exp, Secure: core.Env("COOKIE_SECURE", "") == "true"})
+	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Value: t, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: exp, Secure: core.SecureCookie(r)})
 	a.Log(u.ID, "login", "")
 	core.JSON(w, a.Profile(u))
 }
@@ -60,7 +63,7 @@ func (a *Module) Logout(w http.ResponseWriter, r *http.Request) {
 	if c, e := r.Cookie("trynas_session"); e == nil {
 		_, _ = a.DB.Exec("DELETE FROM sessions WHERE token=?", c.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Path: "/", MaxAge: -1, HttpOnly: true})
+	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: core.SecureCookie(r)})
 	core.JSON(w, map[string]bool{"ok": true})
 }
 

@@ -40,8 +40,6 @@ type CtxKey string
 
 const UserKey CtxKey = "user"
 
-var BuildAdminPassword string
-
 func Env(k, d string) string {
 	if v := os.Getenv(k); v != "" {
 		return v

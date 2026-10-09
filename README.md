@@ -487,12 +487,10 @@ that builds releases, install Go, Node.js and pnpm, then run from the project ro
 node scripts/build.mjs
 ```
 
-Each build uses default username `admin` and password `Admin@123!` and saves them
-in `dist/admin-credentials.txt` (owner-only access on Unix) and prints the username
-and password in the build terminal. It applies only to
-fresh databases created with the binaries built in that run. Runtime `ADMIN_USER`
-and `ADMIN_PASSWORD` override the defaults; rebuilding does not reset existing
-accounts. Protect the credentials file and binaries, which contain this password.
+Release binaries contain no default administrator password. Set `ADMIN_PASSWORD`
+(8–72 bytes) at runtime before initializing a fresh database. `ADMIN_USER` defaults
+to `admin`. Building does not print or write credentials, and rebuilding does not
+reset existing accounts.
 
 The command rebuilds both the current frontend and backend. It clears old
 release output, builds the frontend in `.next` separately from dev mode (`.next-dev`),
@@ -545,15 +543,13 @@ database, storage and accounts.
 Existing process environment variables override `.env`; CLI flags override both.
 Use `-help` to view supported flags. Set `ADMIN_USER` and `ADMIN_PASSWORD` in
 `.env` before the first launch. Building does **not** bundle your `.env`,
-database, or stored files. It embeds a default first-start admin password.
+database, stored files, or administrator credentials.
 
 ### Troubleshoot login
 
 If login reports **Invalid username or password**, check which database the
 running instance uses. A fresh database uses runtime `ADMIN_PASSWORD` (8–72 bytes) when supplied,
-or the standalone build’s default.
-Standalone builds provide a fallback password in `dist/admin-credentials.txt`.
-Development startup rejects missing passwords; all startups reject the example placeholder. Set administrator
+and rejects missing passwords or the example placeholder. Set administrator
 credentials before initializing a new installation.
 
 `ADMIN_USER` and `ADMIN_PASSWORD` only initialize an empty database. Adding or
@@ -680,3 +676,16 @@ Operations use the provider's configured remote directory as their root. One
 direct remote operation runs at a time, and sync jobs cannot overlap direct
 remote operations. Provider operations have a 15-minute request deadline;
 failures may leave completed uploads or deletions in place.
+
+### Backend production behavior
+
+SQLite uses WAL with at most eight reusable connections. Covering indexes speed
+up per-user quota totals, and quota reads use one database query. System readings
+are cached for one second; app settings are cached for 30 seconds and updated
+immediately after saves. API and share responses use `Cache-Control: no-store`;
+fingerprinted frontend assets retain their long-lived browser cache.
+
+Use HTTPS for production access. Session cookies are automatically secure with
+direct TLS. When terminating TLS at a reverse proxy, set `COOKIE_SECURE=true`
+and the exact frontend origin in `CORS_ORIGIN`. The app does not trust arbitrary
+forwarded headers to decide cookie security.

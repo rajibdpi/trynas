@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/rajibdpi/trynas/core"
 	"golang.org/x/crypto/bcrypt"
@@ -47,6 +48,10 @@ func Open(filename string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Keep WAL readers reusable while bounding connections under load.
+	db.SetMaxOpenConns(8)
+	db.SetMaxIdleConns(8)
+	db.SetConnMaxIdleTime(5 * time.Minute)
 	if err = db.Ping(); err != nil {
 		db.Close()
 		return nil, err
@@ -70,7 +75,7 @@ func (a *Module) Migrate() error {
 		return err
 	}
 	if n == 0 {
-		password := core.Env("ADMIN_PASSWORD", core.BuildAdminPassword)
+		password := core.Env("ADMIN_PASSWORD", "")
 		if len(password) < 8 || len(password) > 72 || (password == "change-this-now" || password == "replace-with-a-strong-random-password") {
 			return fmt.Errorf("set ADMIN_PASSWORD to a strong 8–72 byte password before first startup")
 		}
