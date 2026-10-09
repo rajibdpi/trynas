@@ -14,6 +14,7 @@ import { fmt, message, parent, join } from "@/modules/shared/format";
 import { useResource } from "@/modules/shared/use-resource";
 import { ErrorText, Empty } from "@/modules/shared/feedback";
 
+type SharedItem = { path: string; paths?: string[]; token: string; expiresAt: string };
 
 export function FileBrowser({
   defaultView,
@@ -51,6 +52,25 @@ export function FileBrowser({
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
   );
+  const shares = useResource<SharedItem[]>("/api/shares", 30000);
+  const sharedLinks = new Map<string, string>();
+  for (const share of shares.data || []) {
+    if (share.expiresAt && new Date(share.expiresAt).getTime() <= Date.now()) continue;
+    for (const sharedPath of share.paths?.length ? share.paths : [share.path]) {
+      if (!sharedLinks.has(sharedPath)) sharedLinks.set(sharedPath, share.token);
+    }
+  }
+  const copySharedLink = async (itemPath: string) => {
+    const token = sharedLinks.get(itemPath);
+    if (!token) return;
+    const url = shareURL(token);
+    try {
+      await navigator.clipboard.writeText(url);
+      notify("Share link copied");
+    } catch {
+      notify(`Share link: ${url}`);
+    }
+  };
   const [debounced, setDebounced] = useState(query.trim()),
     [view, setView] = useState(defaultView),
     [selected, setSelected] = useState<string[]>([]),
@@ -189,6 +209,7 @@ export function FileBrowser({
           body: JSON.stringify({ paths, ...settings, password: v.password }),
         });
         notify(`Share link: ${shareURL(result.token)}`);
+        void shares.reload();
       },
     });
   const fileActions = (item: Item): Action[] => [
@@ -658,6 +679,20 @@ export function FileBrowser({
                     </button>
                     {item.favorite && (
                       <Star className="size-3 text-amber-500" />
+                    )}
+                    {sharedLinks.has(item.path) && (
+                      <button
+                        type="button"
+                        className="ml-auto shrink-0 rounded-md p-2 text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"
+                        aria-label={`Copy shared link for ${item.name}`}
+                        title="Shared · Click to copy link"
+                        onClick={event => {
+                          event.stopPropagation();
+                          void copySharedLink(item.path);
+                        }}
+                      >
+                        <Link2 className="size-4" aria-hidden="true" />
+                      </button>
                     )}
                   </div>
                   <div className="file-meta flex items-center justify-between gap-2">
