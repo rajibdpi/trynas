@@ -27,6 +27,12 @@ func StaticFrontend(assets fs.FS) http.Handler {
 			return
 		}
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+		// Every storage location uses the same exported file-browser page.
+		if strings.HasPrefix(r.URL.Path, "/files/") {
+			name = "files.html"
+			r = r.Clone(r.Context())
+			r.URL.Path = "/files.html"
+		}
 		if name == "" || name == "." {
 			name = "index.html"
 		}

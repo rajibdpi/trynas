@@ -1,5 +1,7 @@
 "use client";
 
+import { readFileLocation, useFileLocation, writeFileLocation } from "@/modules/files/file-location";
+
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api, API, ApiError } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,9 @@ type Item = { name: string; path: string; dir: boolean; size: number; modified: 
 
 export function AttachedStorageBrowser({ admin, children, query, setQuery }: { admin: boolean; children: ReactNode; query: string; setQuery: (q: string) => void }) {
   const [connections, setConnections] = useState<Connection[]>([]);
+  const location = useFileLocation();
   const [storage, setStorage] = useState("");
+  useEffect(() => { if (admin) setStorage(location?.storage || ""); }, [admin, location?.storage]);
   const [error, setError] = useState("");
   useEffect(() => {
     if (!admin) return;
@@ -23,17 +27,25 @@ export function AttachedStorageBrowser({ admin, children, query, setQuery }: { a
     return () => controller.abort();
   }, [admin]);
   if (!admin) return children;
-  return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4"><HardDrive className="h-5 w-5" /><label htmlFor="file-storage" className="text-sm font-medium">Storage</label><select id="file-storage" className="!w-auto max-w-full min-w-40" value={storage} onChange={e => { setStorage(e.target.value); setQuery(""); }}><option value="">Local storage</option>{connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.provider})</option>)}</select><a href="/settings" className="ml-auto text-sm text-primary underline">Manage storage</a>{error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}</div>{storage ? <RemoteFiles key={storage} connection={connections.find(c => c.id === storage)!} query={query} setQuery={setQuery} /> : children}</div>;
+  return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4"><HardDrive className="h-5 w-5" /><label htmlFor="file-storage" className="text-sm font-medium">Storage</label><select id="file-storage" className="!w-auto max-w-full min-w-40" value={storage} onChange={e => { setStorage(e.target.value); setQuery(""); writeFileLocation("", undefined, e.target.value || undefined); }}><option value="">Local storage</option>{connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.provider})</option>)}</select><a href="/settings" className="ml-auto text-sm text-primary underline">Manage storage</a>{error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}</div>{storage && connections.some(c => c.id === storage) ? <RemoteFiles key={storage} connection={connections.find(c => c.id === storage)!} query={query} setQuery={setQuery} /> : children}</div>;
 }
 function RemoteFiles({ connection, query, setQuery }: { connection: Connection; query: string; setQuery: (q: string) => void }) {
   const notify = useNotification();
-  const [path, setPath] = useState("");
+  const location = useFileLocation();
+  const [path, setPathState] = useState("");
+  useEffect(() => { if (location?.storage === connection.id) setPathState(location.path || ""); }, [location?.storage, location?.path, connection.id]);
+  const setPath = (next: string) => { setPathState(next); writeFileLocation(next, undefined, connection.id); };
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const listingRequest = useRef<AbortController | null>(null);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  useEffect(() => {
+    if (location?.storage === connection.id && location.file && items.some(item => item.path === location.file)) {
+      setSelected([location.file]);
+    }
+  }, [location?.storage, location?.file, connection.id, items]);
   const anchor = useRef("");
   const fileInput = useRef<HTMLInputElement>(null);
   const [deleting, setDeleting] = useState<Item | null>(null);
@@ -52,7 +64,9 @@ function RemoteFiles({ connection, query, setQuery }: { connection: Connection; 
           const data = await api(endpoint(path), { signal });
           if (!signal.aborted) {
             setItems(data.items);
-            setSelected(previous => previous.filter(p => data.items.some((i: Item) => i.path === p)));
+            const linkedFile = readFileLocation()?.file;
+            setSelected(previous => linkedFile && data.items.some((i: Item) => i.path === linkedFile)
+              ? [linkedFile] : previous.filter(p => data.items.some((i: Item) => i.path === p)));
           }
           break;
         } catch (e) {
@@ -83,7 +97,7 @@ function RemoteFiles({ connection, query, setQuery }: { connection: Connection; 
     catch (e) { const message = e instanceof Error ? e.message : "Storage operation failed"; setError(message); notify(message); }
     finally { setBusy(false); }
   }
-  function download(item: Item) { window.open(API + endpoint(item.path) + "&download=1", "_blank", "noopener,noreferrer"); }
+  function download(item: Item) { writeFileLocation(path, item.path, connection.id); window.open(API + endpoint(item.path) + "&download=1", "_blank", "noopener,noreferrer"); }
   function select(item: Item, event: React.MouseEvent) {
     if (event.shiftKey) { const start = visible.findIndex(i => i.path === anchor.current); const end = visible.findIndex(i => i.path === item.path); const range = visible.slice(Math.min(start < 0 ? end : start, end), Math.max(start < 0 ? end : start, end) + 1).map(i => i.path); setSelected(previous => event.ctrlKey || event.metaKey ? [...new Set([...previous, ...range])] : range); }
     else if (event.ctrlKey || event.metaKey) { setSelected(previous => previous.includes(item.path) ? previous.filter(p => p !== item.path) : [...previous, item.path]); anchor.current = item.path; }

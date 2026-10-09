@@ -760,3 +760,18 @@ unaffected. Requests are rate-limited, capped at 1,000 pending entries, and stor
 password hashes rather than plaintext passwords. Restart the backend after
 updating source so it creates the registration-request table; rebuild releases
 to include the updated frontend.
+
+## File and folder locations
+
+Folder navigation updates the browser address, for example
+`/files/rajib/Test/`. File previews add the full file path:
+`/files/rajib/Test/photo.jpg`. Opening these URLs restores
+the folder and local preview after sign-in; browser Back/Forward restores the
+location too. Attached-storage URLs include a `storage` connection ID to keep
+paths on different drives distinct. Remote file links open the containing folder
+and select the file; downloading remains an explicit action.
+
+Paths with spaces, Unicode, or special characters are URL-encoded. These links
+identify locations and still require authentication and normal permissions;
+use the Share feature for public access. Path-based URLs work with both the
+Next.js development server and the static frontend embedded in Go releases.
