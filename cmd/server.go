@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -34,7 +35,7 @@ func serve() error {
 		return err
 	}
 	if err := os.MkdirAll(trash, 0700); err != nil {
-		return err
+		return fmt.Errorf("create trash directory for STORAGE_ROOT=%q: %w; choose a writable storage folder using .env or --root (environment variables override .env)", root, err)
 	}
 	db, err := database.Open(dbPath)
 	if err != nil {
