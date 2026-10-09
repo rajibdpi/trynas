@@ -69,6 +69,49 @@ func ConfiguredBrowserOrigin(origin string) bool {
 	return false
 }
 
+// ClientIP only accepts forwarding headers from explicitly trusted proxy peers.
+func ClientIP(r *http.Request) string {
+	peer := PeerIP(r)
+	trusted := net.ParseIP(peer)
+	if trusted == nil {
+		return peer
+	}
+	allowed := false
+	for _, value := range strings.Split(Env("TRUSTED_PROXIES", ""), ",") {
+		value = strings.TrimSpace(value)
+		if ip := net.ParseIP(value); ip != nil && ip.Equal(trusted) {
+			allowed = true
+		}
+		if _, network, err := net.ParseCIDR(value); err == nil && network.Contains(trusted) {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return peer
+	}
+	chain := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	for i := len(chain) - 1; i >= 0; i-- {
+		candidate := net.ParseIP(strings.TrimSpace(chain[i]))
+		if candidate == nil {
+			return peer
+		}
+		isProxy := false
+		for _, value := range strings.Split(Env("TRUSTED_PROXIES", ""), ",") {
+			value = strings.TrimSpace(value)
+			if ip := net.ParseIP(value); ip != nil && ip.Equal(candidate) {
+				isProxy = true
+			}
+			if _, network, err := net.ParseCIDR(value); err == nil && network.Contains(candidate) {
+				isProxy = true
+			}
+		}
+		if !isProxy {
+			return candidate.String()
+		}
+	}
+	return peer
+}
+
 func AllowedBrowserOrigin(r *http.Request, origin string) bool {
 	parsed, err := url.Parse(origin)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil {

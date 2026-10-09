@@ -110,6 +110,6 @@ func (a *Module) SaveServerConfiguration(w http.ResponseWriter, r *http.Request)
 		core.Bad(w, "could not replace configuration file", 500)
 		return
 	}
-	a.Log(user.ID, "settings", "server")
+	a.Log(user.ID, "settings", "server", user.IP)
 	core.JSON(w, map[string]bool{"restartRequired": true})
 }

@@ -92,7 +92,7 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 		}
 		a.cached, a.cachedAt = settings, time.Now()
 		a.cacheMu.Unlock()
-		a.Log(user.ID, "settings", "basic")
+		a.Log(user.ID, "settings", "basic", user.IP)
 		core.JSON(w, settings)
 		return
 	}

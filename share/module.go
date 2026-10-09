@@ -11,7 +11,7 @@ type Dependencies interface {
 	AllowAttempt(w http.ResponseWriter, r *http.Request, key string) bool
 	Can(u core.User, p string, write bool) bool
 	CanBrowse(u core.User, p string) bool
-	Log(uid int, act, p string)
+	Log(uid int, act, p string, ip ...string)
 }
 
 // Module owns this feature and uses the application's shared state.

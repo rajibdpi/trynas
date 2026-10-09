@@ -131,6 +131,6 @@ func (a *Module) ZipSelection(u core.User, paths []string, destination string) e
 		_ = os.Remove(dst)
 		return err
 	}
-	a.Log(u.ID, "zip", p)
+	a.Log(u.ID, "zip", p, u.IP)
 	return nil
 }

@@ -11,7 +11,7 @@ type Dependencies interface {
 	CanBrowse(u core.User, p string) bool
 	CheckQuota(uid int, extra int64) error
 	FavoriteSet(uid int) map[string]bool
-	Log(uid int, act, p string)
+	Log(uid int, act, p string, ip ...string)
 	TrashOne(u core.User, p string) error
 }
 

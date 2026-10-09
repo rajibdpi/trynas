@@ -210,7 +210,7 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "choose at least one file", 400)
 			return
 		}
-		a.Log(u.ID, "remote-upload", id+"/"+p)
+		a.Log(u.ID, "remote-upload", id+"/"+p, u.IP)
 		core.JSON(w, map[string]any{"files": count})
 		return
 	}
@@ -254,7 +254,7 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 		RemoteFailure(w, err)
 		return
 	}
-	a.Log(u.ID, "remote-"+input.Action, id+"/"+p)
+	a.Log(u.ID, "remote-"+input.Action, id+"/"+p, u.IP)
 	core.JSON(w, map[string]bool{"ok": true})
 }
 

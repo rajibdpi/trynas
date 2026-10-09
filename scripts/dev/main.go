@@ -56,6 +56,9 @@ func dev() error {
 		return err
 	}
 	backend := tooling.Command(root, binary, os.Args[1:]...)
+	if os.Getenv("TRUSTED_PROXIES") == "" {
+		backend.Env = append(backend.Env, "TRUSTED_PROXIES=127.0.0.1,::1")
+	}
 	ui := tooling.Command(frontend, "pnpm", "dev", "--port", "3000")
 	// Always use the development API, even if a production export was built in
 	// the same shell. Leave frontend/.env.local untouched.

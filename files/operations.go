@@ -170,7 +170,7 @@ func (a *Module) CopyOrMove(u core.User, from, to string, move bool) error {
 		if move {
 			act = "move"
 		}
-		a.Log(u.ID, act, from+" -> "+to)
+		a.Log(u.ID, act, from+" -> "+to, u.IP)
 	}
 	return err
 }
@@ -302,7 +302,7 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, x := range pending {
-		a.Log(u.ID, "upload", x.rel)
+		a.Log(u.ID, "upload", x.rel, u.IP)
 	}
 	core.JSON(w, map[string]any{"ok": true, "files": len(pending), "bytes": total})
 }
@@ -388,7 +388,7 @@ func (a *Module) ZipOne(u core.User, p string) error {
 		_ = os.Remove(dst)
 		return err
 	}
-	a.Log(u.ID, "zip", p)
+	a.Log(u.ID, "zip", p, u.IP)
 	return nil
 }
 

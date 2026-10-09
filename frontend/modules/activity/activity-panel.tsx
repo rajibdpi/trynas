@@ -19,7 +19,7 @@ export function ActivityPanel() {
             key={i}
             className="grid gap-1 border-b py-3 text-sm sm:grid-cols-[110px_1fr_180px]"
           >
-            <b>{item.user}</b>
+            <div><b>{item.user}</b><p className="break-all text-xs text-muted-foreground">{item.ip || "—"}</p></div>
             <div>
               {item.action}
               <p className="break-all text-xs text-muted-foreground">

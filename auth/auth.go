@@ -55,7 +55,8 @@ func (a *Module) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: "trynas_session", Value: t, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Expires: exp, Secure: core.SecureCookie(r)})
-	a.Log(u.ID, "login", "")
+	u.IP = core.ClientIP(r)
+	a.Log(u.ID, "login", "", u.IP)
 	core.JSON(w, a.Profile(u))
 }
 
@@ -80,6 +81,7 @@ func (a *Module) Auth(next http.Handler) http.Handler {
 			core.Bad(w, "unauthorized", 401)
 			return
 		}
+		u.IP = core.ClientIP(r)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), core.UserKey, u)))
 	})
 }

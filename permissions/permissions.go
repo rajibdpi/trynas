@@ -242,6 +242,6 @@ func (a *Module) SavePermission(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "permission update failed", 500)
 		return
 	}
-	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "permission", fmt.Sprintf("user=%d folder=%s access=%s", x.UserID, p, x.Access))
+	a.Log(r.Context().Value(core.UserKey).(core.User).ID, "permission", fmt.Sprintf("user=%d folder=%s access=%s", x.UserID, p, x.Access), core.ClientIP(r))
 	core.JSON(w, map[string]bool{"ok": true})
 }

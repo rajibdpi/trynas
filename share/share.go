@@ -172,7 +172,7 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "could not create share", 500)
 		return
 	}
-	a.Log(u.ID, "share", p)
+	a.Log(u.ID, "share", p, u.IP)
 	core.JSON(w, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": expiryText, "passwordProtected": len(hash) > 0})
 }
 

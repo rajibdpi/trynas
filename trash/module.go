@@ -10,7 +10,7 @@ type Dependencies interface {
 	AllowTree(u core.User, p string, write bool) error
 	Can(u core.User, p string, write bool) bool
 	Destination(u core.User, p string) (string, error)
-	Log(uid int, act, p string)
+	Log(uid int, act, p string, ip ...string)
 }
 
 // Module owns this feature and uses the application's shared state.

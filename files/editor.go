@@ -118,6 +118,6 @@ func (a *Module) EditFile(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "could not save file metadata", 500)
 		return
 	}
-	a.Log(u.ID, "edit", p)
+	a.Log(u.ID, "edit", p, u.IP)
 	core.JSON(w, map[string]string{"version": fmt.Sprintf("%x", sha256.Sum256(next))})
 }

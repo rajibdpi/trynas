@@ -130,6 +130,6 @@ func (a *Module) Unzip(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "could not save extraction metadata", 500)
 		return
 	}
-	a.Log(u.ID, "unzip", input.Path)
+	a.Log(u.ID, "unzip", input.Path, u.IP)
 	core.JSON(w, map[string]string{"path": destination})
 }
