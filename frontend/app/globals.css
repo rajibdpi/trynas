@@ -410,9 +410,6 @@ input[type="radio"] {
     font-size: 8px;
   }
   .file-row .file-meta {
-    min-width: 0;
-  }
-  .file-row .file-meta > span {
     display: none;
   }
   .file-column-head {
