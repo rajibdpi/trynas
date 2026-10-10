@@ -516,7 +516,7 @@ set `SMART_USE_SUDO=false`, and restart the backend.
 
 Every push to `main` runs `.github/workflows/release.yml`. After frontend checks,
 backend tests, installer tests, and all six builds pass, it publishes a GitHub
-release tagged `v1.0.0`, then `v1.0.1`, `v1.0.2`, and so on and marks it as latest.
+release tagged `main-<run-number>-<commit-sha>` and marks it as latest.
 
 Before pushing, add repository **Settings → Secrets and variables → Actions →
 New repository secret**, named `ADMIN_PASSWORD`, with a valid 8–72 byte initial
