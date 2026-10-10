@@ -2,12 +2,17 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
-	"github.com/rajibdpi/trynas/scripts/internal/tooling"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/joho/godotenv"
+	"github.com/rajibdpi/trynas/core"
+	"github.com/rajibdpi/trynas/scripts/internal/tooling"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -48,6 +53,10 @@ func build() error {
 		return err
 	}
 	root, err := projectRoot()
+	if err != nil {
+		return err
+	}
+	adminHash, adminEncoded, err := buildAdminCredentials(root)
 	if err != nil {
 		return err
 	}
@@ -94,7 +103,7 @@ func build() error {
 			os.Remove(tempPath)
 			return err
 		}
-		err = buildBinary(root, tempPath, parts[0], parts[1])
+		err = buildBinary(root, tempPath, parts[0], parts[1], adminHash, adminEncoded)
 		if err == nil {
 			err = os.Rename(tempPath, filepath.Join(dist, artifactName(target)))
 		}
@@ -107,7 +116,7 @@ func build() error {
 		return err
 	}
 	fmt.Printf("Release binaries and SHA256SUMS ready in %s\n", dist)
-	fmt.Println("Fresh installations require ADMIN_PASSWORD at runtime. Restart the executable to use this release.")
+	fmt.Println("Build-time .env ADMIN_PASSWORD hash included for first startup; runtime ADMIN_PASSWORD overrides it. Existing accounts are unchanged.")
 	return nil
 }
 
@@ -117,8 +126,23 @@ func buildFrontend(dir string) error {
 	return cmd.Run()
 }
 
-func buildBinary(root, output, goos, arch string) error {
-	cmd := tooling.Command(root, "go", "build", "-trimpath", "-ldflags=-s -w", "-o", output, ".")
+func buildAdminCredentials(root string) (string, string, error) {
+	values, err := godotenv.Read(filepath.Join(root, ".env"))
+	if err != nil {
+		return "", "", fmt.Errorf("read build .env: %w", err)
+	}
+	password := values["ADMIN_PASSWORD"]
+	if !core.ValidAdminPassword(password) {
+		return "", "", fmt.Errorf("set ADMIN_PASSWORD in .env to a strong 8–72 byte password before building")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	return string(hash), base64.StdEncoding.EncodeToString([]byte(password)), err
+}
+
+func buildBinary(root, output, goos, arch, adminHash, adminEncoded string) error {
+	flags := "-s -w -X github.com/rajibdpi/trynas/core.BuildAdminPasswordHash=" + adminHash
+	flags += " -X github.com/rajibdpi/trynas/core.BuildAdminPasswordEncoded=" + adminEncoded
+	cmd := tooling.Command(root, "go", "build", "-trimpath", "-ldflags="+flags, "-o", output, ".")
 	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOOS="+goos, "GOARCH="+arch)
 	return cmd.Run()
 }
