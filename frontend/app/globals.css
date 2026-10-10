@@ -130,6 +130,38 @@ input[type="radio"] {
   padding: 0;
   accent-color: var(--primary);
 }
+select:not([multiple]):not([size]) {
+  appearance: none;
+  padding-right: 2.75rem;
+  background-color: var(--card, var(--background));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23758097' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+}
+.dark select:not([multiple]):not([size]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2399a5bc' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+}
+select:enabled:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+select option {
+  background: var(--card, var(--background));
+  color: var(--foreground);
+}
+@media (forced-colors: active) {
+  select:not([multiple]):not([size]) {
+    appearance: auto;
+    background-image: none;
+  }
+}
 .surface-card {
   box-shadow: 0 3px 14px #17233804;
   overflow: hidden;

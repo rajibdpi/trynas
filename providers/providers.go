@@ -227,6 +227,7 @@ func (a *Module) StorageProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Action == "attach" || input.Action == "detach" {
+		a.invalidateListings(input.ID)
 		connections[index].Attached = input.Action == "attach"
 		if a.SaveConnections(connections) != nil {
 			core.Bad(w, "could not update attachment", 500)
@@ -237,6 +238,7 @@ func (a *Module) StorageProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Action == "delete" {
+		a.invalidateListings(input.ID)
 		connections = append(connections[:index], connections[index+1:]...)
 		if a.SaveConnections(connections) != nil {
 			core.Bad(w, "could not remove connection", 500)

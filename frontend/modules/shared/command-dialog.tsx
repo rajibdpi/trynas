@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -92,11 +93,11 @@ export function CommandDialog({
               <label key={f.key} className="block text-sm font-medium">
                 <span className="mb-1 block">{f.label}</span>
                 {f.options ? (
-                  <select
+                  <Select
                     disabled={f.disabled}
                     value={values[f.key] ?? f.value}
-                    onChange={(e) =>
-                      setValues({ ...values, [f.key]: e.target.value })
+                    onValueChange={(value) =>
+                      setValues({ ...values, [f.key]: value })
                     }
                   >
                     {f.options.map((o) => (
@@ -104,7 +105,7 @@ export function CommandDialog({
                         {o.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 ) : (
                   <input
                     disabled={f.disabled}

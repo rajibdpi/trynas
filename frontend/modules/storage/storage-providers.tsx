@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,7 @@ export function StorageProvidersPanel() {
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <form className="space-y-4" onSubmit={async e => { e.preventDefault(); if (await action({ action: "save", connection: { name, provider, root, options } }, "Storage connection saved")) { setName(""); setRoot(""); setOptions({}); } }}>
       <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2 text-sm font-medium">Provider<select value={provider} onChange={e => { setProvider(e.target.value); setOptions({}); }}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</select></label>
+        <label className="space-y-2 text-sm font-medium">Provider<Select value={provider} onValueChange={value => { setProvider(value); setOptions({}); }}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</Select></label>
         <label className="space-y-2 text-sm font-medium">Connection name<input required maxLength={80} value={name} onChange={e => setName(e.target.value)} /></label>
         <label className="space-y-2 text-sm font-medium sm:col-span-2">Remote directory {provider === "s3" ? "(bucket/path)" : provider === "smb" ? "(share/path)" : "(empty for root)"}<input value={root} onChange={e => setRoot(e.target.value)} required={provider === "s3"} /></label>
         {providers[provider].fields.map(field => <label key={field.key} className={`space-y-2 text-sm font-medium ${field.multiline ? "sm:col-span-2" : ""}`}>{field.label}{field.optional && " (optional)"}{field.multiline ? <textarea className="min-h-24 w-full rounded-md border bg-background p-2 font-mono text-xs" autoComplete="off" required={!field.optional} value={options[field.key] ?? ""} onChange={e => setOptions({ ...options, [field.key]: e.target.value })} /> : <input autoComplete={field.secret ? "new-password" : "off"} type={field.secret ? "password" : "text"} required={!field.optional} value={options[field.key] ?? ""} onChange={e => setOptions({ ...options, [field.key]: e.target.value })} />}</label>)}

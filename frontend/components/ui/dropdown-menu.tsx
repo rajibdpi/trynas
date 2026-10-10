@@ -11,9 +11,9 @@ export function DropdownMenuContent({
   return (
     <Primitive.Portal>
       <Primitive.Content
-        sideOffset={4}
+        sideOffset={8}
         className={cn(
-          "z-50 min-w-44 rounded-lg border bg-card p-1 text-card-foreground shadow-xl",
+          "z-50 min-w-48 max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto rounded-xl border border-border bg-card p-1.5 text-card-foreground shadow-lg shadow-black/10 dark:shadow-black/30",
           className,
         )}
         {...props}
@@ -28,7 +28,7 @@ export function DropdownMenuItem({
   return (
     <Primitive.Item
       className={cn(
-        "flex cursor-default items-center gap-2 rounded px-3 py-2 text-sm outline-none focus:bg-accent data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium outline-none transition-colors focus:bg-accent data-[highlighted]:bg-accent data-[disabled]:pointer-events-none data-[disabled]:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
         className,
       )}
       {...props}

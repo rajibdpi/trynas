@@ -726,3 +726,5 @@ Sidebar sections have direct routes: `/dashboard`, `/files/`, `/favorites`,
 Administration routes require an administrator account.
 
 Settings → Basic configurations includes **Show hidden files and folders**. It is off by default. Enable it and save to show dot-prefixed files and folders in local and attached storage listings and search results. This display preference is shared by all users; it does not change file permissions.
+
+Attached-storage folder listings are cached in server memory for 30 seconds to speed up repeat browsing. Uploads, folder creation, deletions, and attachment changes invalidate the cache. **Refresh storage** bypasses cached listings to show external changes immediately.

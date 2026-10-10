@@ -2,6 +2,7 @@ package providers
 
 import (
 	"github.com/rajibdpi/trynas/core"
+	"sync"
 )
 
 // Dependencies describes the operations this module needs from other modules.
@@ -13,4 +14,6 @@ type Dependencies interface {
 type Module struct {
 	*core.State
 	Dependencies
+	listingMu sync.Mutex
+	listings  map[listingKey]cachedListing
 }
