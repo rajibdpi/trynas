@@ -44,6 +44,7 @@ func build() error {
 	all := flag.Bool("all", false, "Build all six supported OS/architecture targets")
 	target := flag.String("target", "", "Comma-separated targets (default: current OS/architecture)")
 	skipFrontend := flag.Bool("skip-frontend", false, "Reuse frontend/dist; only rebuild Go binaries")
+	adminFromEnv := flag.Bool("admin-password-env", false, "Read build administrator password from process ADMIN_PASSWORD instead of .env")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(flag.Args(), " "))
@@ -56,7 +57,12 @@ func build() error {
 	if err != nil {
 		return err
 	}
-	adminHash, adminEncoded, err := buildAdminCredentials(root)
+	var adminHash, adminEncoded string
+	if *adminFromEnv {
+		adminHash, adminEncoded, err = encodeAdminCredentials(os.Getenv("ADMIN_PASSWORD"))
+	} else {
+		adminHash, adminEncoded, err = buildAdminCredentials(root)
+	}
 	if err != nil {
 		return err
 	}
@@ -131,9 +137,12 @@ func buildAdminCredentials(root string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("read build .env: %w", err)
 	}
-	password := values["ADMIN_PASSWORD"]
+	return encodeAdminCredentials(values["ADMIN_PASSWORD"])
+}
+
+func encodeAdminCredentials(password string) (string, string, error) {
 	if !core.ValidAdminPassword(password) {
-		return "", "", fmt.Errorf("set ADMIN_PASSWORD in .env to a strong 8–72 byte password before building")
+		return "", "", fmt.Errorf("set build ADMIN_PASSWORD to a strong 8–72 byte password before building")
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(hash), base64.StdEncoding.EncodeToString([]byte(password)), err

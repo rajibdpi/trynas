@@ -206,7 +206,13 @@ new frontend edits. See [Build requirements](README.md#build-requirements).
 
 ## GitHub releases
 
-The workflow in `.github/workflows/release.yml` builds and packages releases.
+Every push to `main` builds and publishes a release with all six binaries,
+checksums, and installers. Configure the repository Actions secret `ADMIN_PASSWORD`
+before pushing. This shared password is recoverable from downloaded executables;
+set a runtime `ADMIN_PASSWORD` for a unique first-install password.
+Automatic releases use `main-<run-number>-<commit-sha>` and become the latest release.
+
+The workflow also supports version-tag draft releases.
 Commit the workflow, source, installers, and this guide before creating a tag:
 
 ```bash

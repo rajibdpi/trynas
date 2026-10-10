@@ -514,12 +514,20 @@ set `SMART_USE_SUDO=false`, and restart the backend.
 
 ## GitHub releases
 
-Push a version tag such as `v1.0.0` to run `.github/workflows/release.yml`.
-After tests pass, it creates a draft release with all six platform binaries,
-checksums, installers, and the installation guide. Review and publish the draft
-in GitHub Releases, or run the workflow manually for an existing tag and select
-its publishing option. See [GitHub releases](installation.md#github-releases)
-for the full process. No release is published by a local build command.
+Every push to `main` runs `.github/workflows/release.yml`. After frontend checks,
+backend tests, installer tests, and all six builds pass, it publishes a GitHub
+release tagged `main-<run-number>-<commit-sha>` and marks it as latest.
+
+Before pushing, add repository **Settings → Secrets and variables → Actions →
+New repository secret**, named `ADMIN_PASSWORD`, with a valid 8–72 byte initial
+password. CI embeds a recoverable copy for the first-start credential message;
+anyone downloading a binary can recover this shared password. Runtime
+`ADMIN_PASSWORD` overrides it, and existing database accounts keep their passwords.
+The workflow reads the secret directly; `.env` stays local.
+
+Version tags such as `v1.0.0` still create draft releases. Manual runs for existing
+tags can optionally publish them. Each release includes six binaries, checksums,
+installers, and the installation guide. Local builds do not publish releases.
 
 ## Standalone application for Windows, Linux and macOS
 
