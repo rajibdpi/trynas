@@ -519,7 +519,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           </div>
         )}
       </aside>
-      <main className="workspace flex min-h-[calc(100dvh-4.5rem)] min-w-0 flex-col p-4 md:px-9 md:py-7 xl:px-12">
+      <main className={cn("workspace flex min-h-[calc(100dvh-4.5rem)] min-w-0 flex-col p-4 md:px-9 md:py-7 xl:px-12", sidebarCollapsed && "md:max-w-none!")}>
         <header className="mb-6 flex items-center gap-3">
           <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
             <ol className="flex flex-wrap items-center gap-2 text-sm font-medium">
