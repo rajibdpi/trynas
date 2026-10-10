@@ -121,6 +121,7 @@ export function FileBrowser({
   const sourceItems =
     debounced.length >= 2 ? search.data || [] : listing.data?.items || [];
   const items = [...sourceItems].sort((a, b) => {
+    if (sortBy === "type" && a.dir !== b.dir) return a.dir ? -1 : 1;
     const type = (item: Item) => item.dir ? "Folder" : (item.name.includes(".") ? item.name.split(".").pop()!.toLowerCase() : "File");
     let result = sortBy === "size" ? a.size - b.size : sortBy === "modified" ? new Date(a.modified).getTime() - new Date(b.modified).getTime() : sortBy === "type" ? type(a).localeCompare(type(b)) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
     if (!result) result = a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
@@ -644,7 +645,7 @@ export function FileBrowser({
         <div
           className={
             view !== "list"
-              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
               : "space-y-1"
           }
         >
