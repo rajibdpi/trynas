@@ -20,6 +20,7 @@ import { isHiddenFile } from "@/modules/shared/file-visibility";
 type SharedItem = { path: string; paths?: string[]; token: string; expiresAt: string };
 
 export function FileBrowser({
+  allowAttachedActions,
   defaultView,
   showHiddenFiles,
   defaultShareExpiry,
@@ -37,6 +38,7 @@ export function FileBrowser({
   notify,
   onChanged,
 }: {
+  allowAttachedActions: boolean;
   defaultView: "list" | "grid" | "large";
   defaultShareExpiry: string;
   showHiddenFiles: boolean;
@@ -57,6 +59,7 @@ export function FileBrowser({
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
   );
+  const attached = useResource<{connections:{id:string;name:string;attached:boolean}[]}>(allowAttachedActions ? "/api/storage/providers" : null);
   const shares = useResource<SharedItem[]>("/api/shares", 30000);
   const sharedLinks = new Map<string, string>();
   for (const share of shares.data || []) {
@@ -252,7 +255,12 @@ export function FileBrowser({
         void shares.reload();
       },
     });
+  const transferToStorage=(move:boolean,paths:string[])=>ask({title:move ? "Move to attached storage" : "Copy to attached storage",description:"Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.",fields:[{key:"destinationStorage",label:"Destination storage",value:attached.data?.connections.find(c=>c.attached)?.id || "",options:attached.data?.connections.filter(c=>c.attached).map(c=>({value:c.id,label:c.name})) || []},{key:"destination",label:"Destination folder",value:"",required:false}],submit:move ? "Move" : "Copy",run:async values=>{try {await api("/api/storage/actions",{method:"POST",body:JSON.stringify({action:move ? "move" : "copy",storage:"",paths,...values})});notify("File operation completed");}finally {await reload();}}});
   const fileActions = (item: Item): Action[] => [
+    ...(attached.data?.connections.some(c=>c.attached) ? [
+      {label:"Copy to attached storage",icon:Copy,run:()=>transferToStorage(false,selected.includes(item.path) ? [...selected] : [item.path])},
+      {label:"Move to attached storage",icon:Move,disabled:!writable,run:()=>transferToStorage(true,selected.includes(item.path) ? [...selected] : [item.path])},
+    ] : []),
     {
       label: item.dir ? "Open folder" : "Preview",
       icon: Eye,
@@ -611,6 +619,7 @@ export function FileBrowser({
                 <Copy />
                 Copy
               </Button>
+              {attached.data?.connections.some(c=>c.attached) && <><Button variant="outline" size="sm" onClick={()=>transferToStorage(false,[...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={()=>transferToStorage(true,[...selected])}><Move />Move to storage</Button></>}
               <Button variant="outline" size="sm" onClick={() => bulk("move")}>
                 <Move />
                 Move

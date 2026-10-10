@@ -32,6 +32,7 @@ export function SharesPanel({
             <div className="min-w-0 flex-1">
               <p className="break-all text-sm font-semibold">{item.paths?.length > 1 ? `${item.paths.length} shared items` : item.path || "Storage root"}</p>
               {item.paths?.length > 1 && <p className="break-all text-xs text-muted-foreground">{item.paths.join(", ")}</p>}
+              {item.storage && <p className="text-xs text-muted-foreground">Attached storage</p>}
               {item.passwordProtected && <p className="text-xs text-primary">Password protected</p>}
               <p className="text-xs text-muted-foreground">
                 {item.expiresAt

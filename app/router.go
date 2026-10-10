@@ -29,6 +29,8 @@ func (a *App) Router() http.Handler {
 		r.Get("/api/storage/providers", a.StorageProviders)
 		r.Get("/api/storage/files", a.RemoteStorage)
 		r.Post("/api/storage/files", a.RemoteStorage)
+		r.Post("/api/storage/actions", a.FileActions)
+		r.Get("/api/storage/trash", a.RemoteTrash)
 		r.Post("/api/storage/upload", a.RemoteStorage)
 		r.Post("/api/storage/providers", a.StorageProviders)
 		r.Get("/api/settings", a.Settings)

@@ -1,6 +1,7 @@
 package share
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/rajibdpi/trynas/core"
@@ -8,6 +9,8 @@ import (
 
 // Dependencies describes the operations this module needs from other modules.
 type Dependencies interface {
+	ValidateRemoteShare(ctx context.Context, storage string, paths []string) error
+	ServeRemoteShare(w http.ResponseWriter, r *http.Request, storage string, paths []string)
 	AllowAttempt(w http.ResponseWriter, r *http.Request, key string) bool
 	Can(u core.User, p string, write bool) bool
 	CanBrowse(u core.User, p string) bool

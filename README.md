@@ -660,17 +660,32 @@ selector to switch between local storage and attached providers. Attachments
 persist across restarts. **Detach storage** removes the provider from the file
 browser without deleting its files or its saved connection.
 
-Attached storage supports direct folder browsing, downloads, uploads, new
-folders, and permanent file/folder deletion. Double-click opens a folder or
-downloads a file; Ctrl/Cmd-click selects, and Shift-click selects a range.
-Search filters the current remote folder. Browser uploads refuse to overwrite
-an existing file. Remote deletion requires confirmation and does not use the
-local trash. Local permissions, quotas, favorites, and public share links apply
-to local storage; attached providers currently remain administrator-only.
+Attached storage uses the same tiles, list view, sorting, selection, and context
+menus as local files. It supports browsing, downloads, uploads, new folders,
+rename, copy, move, ZIP, password-protected public sharing, and recoverable trash.
+Right-click an item or use the selection toolbar for these actions. **Storage
+trash** restores items to their original folders or deletes them permanently.
+Remote trash is kept on its provider until manually emptied; local automatic
+trash retention does not apply. Empty or restore it before removing a connection.
 
-Operations use the provider's configured remote directory as their root. One
-direct remote operation runs at a time. Provider operations have a 15-minute request deadline;
-failures may leave completed uploads or deletions in place.
+Copy and move dialogs select local or attached destination storage and a folder
+relative to its root. Local files also have **Copy to attached storage** and
+**Move to attached storage** actions. Existing destinations are never overwritten.
+Moves verify SHA-256 checksums and recheck the source tree before removing it.
+Failed source deletion leaves the verified destination available and reports the
+failure. Multi-item operations report how many items finished if a later item fails.
+
+Remote shares use existing expiry, password, QR, and revocation controls and show
+up in **Shared links**. Detaching storage or removing the share owner's administrator
+access disables downloads. Folders and selections download as ZIP archives.
+Local permissions and quota accounting apply to local transfer destinations;
+attached storage remains administrator-only. Favorites remain local-only.
+
+Operations use the provider's configured directory as their root. One remote
+operation runs at a time, with a 15-minute request deadline. Transfers use temporary
+local disk space, limit each source tree and ZIP selection to 10 GiB, and reject
+reserved paths and local symlinks. Provider failures may leave completed uploads
+or deletions in place. Browser uploads refuse to overwrite existing files.
 
 ### Backend production behavior
 

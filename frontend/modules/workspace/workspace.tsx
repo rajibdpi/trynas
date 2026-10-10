@@ -313,6 +313,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   if (!me) return <div className="flex h-dvh flex-col overflow-hidden"><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>;
   let content: ReactNode = null;
   const fileProps = {
+    allowAttachedActions: me.role === "admin",
     defaultView: appSettings.fileView,
     showHiddenFiles: appSettings.showHiddenFiles,
     defaultShareExpiry: appSettings.shareExpiry,
@@ -343,7 +344,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       );
       break;
     case "files":
-      content = <AttachedStorageBrowser defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
+      content = <AttachedStorageBrowser onChanged={fileProps.onChanged} ask={ask} defaultShareExpiry={appSettings.shareExpiry} defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
       break;
     case "system":
       content = <SystemPanel sys={sys.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} />;

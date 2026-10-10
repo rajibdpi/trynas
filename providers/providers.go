@@ -238,6 +238,15 @@ func (a *Module) StorageProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Action == "delete" {
+		var count int
+		if err := a.DB.QueryRow("SELECT COUNT(*) FROM remote_trash WHERE storage=?", input.ID).Scan(&count); err != nil {
+			core.Bad(w, "could not check storage trash", 500)
+			return
+		}
+		if count > 0 {
+			core.Bad(w, "restore or empty storage trash before removing this connection", 409)
+			return
+		}
 		a.invalidateListings(input.ID)
 		connections = append(connections[:index], connections[index+1:]...)
 		if a.SaveConnections(connections) != nil {
