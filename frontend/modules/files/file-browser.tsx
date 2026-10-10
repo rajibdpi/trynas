@@ -644,7 +644,7 @@ export function FileBrowser({
         <div
           className={
             view !== "list"
-              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-2 gap-3 lg:grid-cols-4"
+              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-2 gap-3 lg:grid-cols-5"
               : "space-y-1"
           }
         >
