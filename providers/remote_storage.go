@@ -39,10 +39,6 @@ func (a *Module) OpenAttachedStorage(ctx context.Context, id string) (fs.Fs, fun
 		a.Providers.Mu.Unlock()
 		return nil, nil, 404
 	}
-	if a.Providers.Job != nil && a.Providers.Job.Status == "running" {
-		a.Providers.Mu.Unlock()
-		return nil, nil, 409
-	}
 	// Serialize remote operations, including streams, to avoid overlapping writes
 	// and token refreshes against the same connection.
 	if a.Providers.RemoteOps > 0 {

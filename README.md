@@ -272,7 +272,7 @@ under `frontend/modules/`.
 | `users` | Accounts, user homes, quotas, profiles | Users and quotas panel |
 | `permissions` | Folder grants, access checks, request guards | Folder permissions panel |
 | `share` | Share links, passwords, expiry, public pages, QR codes, archives | Shared links panel |
-| `providers` (frontend: `storage`) | Provider connections, encryption, transfers, attached storage | Provider settings and attached storage browser |
+| `providers` (frontend: `storage`) | Provider connections, encryption, attached storage | Provider settings and attached storage browser |
 | `favorites` | Saved favorites | Favorites panel |
 | `trash` | Trash listing, deletion, restore, purge | Trash panel |
 | `settings` | Application preferences | Application settings panel |
@@ -627,7 +627,7 @@ file browser so case aliases cannot bypass folder permission rules. Windows
 reserved device names, alternate data streams, and invalid filename characters
 are rejected.
 
-## Storage providers and sync
+## Storage providers
 
 Administrators can open **Settings → Storage providers** to add Google Drive,
 SMB/CIFS, SFTP, and Amazon S3 or S3-compatible connections. The app embeds
@@ -636,14 +636,7 @@ rclone executable is needed on the TryNAS server.
 
 1. Choose a provider, name the connection, and enter the remote directory and credentials.
 2. Click **Test** to verify access to that directory.
-3. Choose the local folder relative to the TryNAS storage root (empty means the root).
-4. Choose **Local → Remote** or **Remote → Local**, then run a preview before transferring.
-
-**Copy** updates files while keeping extra destination files. **Mirror** makes
-the destination match the source and can delete destination files; running it
-requires the deletion confirmation checkbox. These are one-way operations in
-either direction, not automatic two-way conflict resolution. Files and subfolders
-are transferred recursively, including empty directories where supported.
+3. Click **Attach as storage** to access the connection from **All files**.
 
 For Google Drive, run `rclone authorize drive` on your computer and paste the
 returned OAuth token JSON. If you use your own OAuth client, supply the same
@@ -658,13 +651,6 @@ Connections are encrypted with AES-GCM in the database. The generated
 `.trynas-storage.key` beside the database has mode `0600`; back up this key
 securely along with the database, because losing it makes saved connections
 unreadable. Credentials are never returned by the connections API.
-
-One transfer runs at a time, with a 24-hour deadline. Status, transferred bytes,
-file counts, and cancellation are available in Settings. The most recent job is
-saved; jobs interrupted by a server restart must be started again. Transfers hold
-the file-mutation lock to prevent overlapping app writes, and exclude internal
-`.trynas-*` folders. Local symlinks are rejected. Copying files can overwrite
-existing destination content; cancellation does not roll back completed changes.
 
 ### Attach providers as storage
 
@@ -683,8 +669,7 @@ local trash. Local permissions, quotas, favorites, and public share links apply
 to local storage; attached providers currently remain administrator-only.
 
 Operations use the provider's configured remote directory as their root. One
-direct remote operation runs at a time, and sync jobs cannot overlap direct
-remote operations. Provider operations have a 15-minute request deadline;
+direct remote operation runs at a time. Provider operations have a 15-minute request deadline;
 failures may leave completed uploads or deletions in place.
 
 ### Backend production behavior
