@@ -314,6 +314,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   let content: ReactNode = null;
   const fileProps = {
     defaultView: appSettings.fileView,
+    showHiddenFiles: appSettings.showHiddenFiles,
     defaultShareExpiry: appSettings.shareExpiry,
     query: fileQuery,
     setQuery: setFileQuery,
@@ -342,7 +343,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       );
       break;
     case "files":
-      content = <AttachedStorageBrowser admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
+      content = <AttachedStorageBrowser showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
       break;
     case "system":
       content = <SystemPanel sys={sys.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} />;

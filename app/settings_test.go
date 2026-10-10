@@ -16,10 +16,10 @@ func TestBasicAppSettings(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
-	if response.Settings.AppName != "TryNAS" || response.Settings.FileView != "grid" || response.Settings.ShareExpiry != "7" {
+	if response.Settings.ShowHiddenFiles || response.Settings.AppName != "TryNAS" || response.Settings.FileView != "grid" || response.Settings.ShareExpiry != "7" {
 		t.Fatal("incorrect defaults")
 	}
-	configured := core.AppSettings{AppName: "Home NAS", LogoURL: "https://example.com/logo.png", FooterText: "© My home", FileView: "list", ShareExpiry: "15"}
+	configured := core.AppSettings{ShowHiddenFiles: true, AppName: "Home NAS", LogoURL: "https://example.com/logo.png", FooterText: "© My home", FileView: "list", ShareExpiry: "15"}
 	expect(t, jsonRequest(a, user, "POST", "/api/settings", configured, a.Settings), 403)
 	expect(t, jsonRequest(a, admin, "POST", "/api/settings", configured, a.Settings), 200)
 	saved, err := a.ReadSettings()
@@ -29,7 +29,7 @@ func TestBasicAppSettings(t *testing.T) {
 	expect(t, request(a, user, "GET", "/api/settings", nil, a.Settings), 403)
 	limited := request(a, user, "GET", "/api/preferences", nil, a.Settings)
 	expect(t, limited, 200)
-	if strings.Contains(limited.Body.String(), "storageRoot") || !strings.Contains(limited.Body.String(), "Home NAS") {
+	if !strings.Contains(limited.Body.String(), `"showHiddenFiles":true`) || strings.Contains(limited.Body.String(), "storageRoot") || !strings.Contains(limited.Body.String(), "Home NAS") {
 		t.Fatal("incorrect user settings response")
 	}
 	for _, badSettings := range []core.AppSettings{{AppName: "", FileView: "grid", ShareExpiry: "7"}, {AppName: "Test", FileView: "bad", ShareExpiry: "7"}, {AppName: "Test", FileView: "grid", ShareExpiry: "365"}, {AppName: strings.Repeat("a", 41), FileView: "list", ShareExpiry: "never"}} {

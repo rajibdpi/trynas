@@ -739,3 +739,5 @@ Next.js development server and the static frontend embedded in Go releases.
 Sidebar sections have direct routes: `/dashboard`, `/files/`, `/favorites`,
 `/shared`, `/trash`, `/system`, `/activity`, `/users`, `/permissions`, and `/settings`. Refresh and browser Back/Forward restore the section.
 Administration routes require an administrator account.
+
+Settings → Basic configurations includes **Show hidden files and folders**. It is off by default. Enable it and save to show dot-prefixed files and folders in local and attached storage listings and search results. This display preference is shared by all users; it does not change file permissions.

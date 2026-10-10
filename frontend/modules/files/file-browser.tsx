@@ -15,10 +15,13 @@ import { fmt, message, parent, join } from "@/modules/shared/format";
 import { useResource } from "@/modules/shared/use-resource";
 import { ErrorText, Empty } from "@/modules/shared/feedback";
 
+import { isHiddenFile } from "@/modules/shared/file-visibility";
+
 type SharedItem = { path: string; paths?: string[]; token: string; expiresAt: string };
 
 export function FileBrowser({
   defaultView,
+  showHiddenFiles,
   defaultShareExpiry,
   query,
   setQuery,
@@ -36,6 +39,7 @@ export function FileBrowser({
 }: {
   defaultView: "list" | "grid" | "large";
   defaultShareExpiry: string;
+  showHiddenFiles: boolean;
   query: string;
   setQuery: (value: string) => void;
   path: string;
@@ -120,7 +124,7 @@ export function FileBrowser({
   const sortLabels = { name: "Name", size: "Size", type: "Type", modified: "Date modified" };
   const sourceItems =
     debounced.length >= 2 ? search.data || [] : listing.data?.items || [];
-  const items = [...sourceItems].sort((a, b) => {
+  const items = sourceItems.filter(item => showHiddenFiles || !isHiddenFile(item)).sort((a, b) => {
     if (sortBy === "type" && a.dir !== b.dir) return a.dir ? -1 : 1;
     const type = (item: Item) => item.dir ? "Folder" : (item.name.includes(".") ? item.name.split(".").pop()!.toLowerCase() : "File");
     let result = sortBy === "size" ? a.size - b.size : sortBy === "modified" ? new Date(a.modified).getTime() - new Date(b.modified).getTime() : sortBy === "type" ? type(a).localeCompare(type(b)) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
@@ -130,13 +134,13 @@ export function FileBrowser({
 
   useEffect(() => {
     const visible = new Set(
-      (debounced.length >= 2 ? search.data : listing.data?.items)?.map(
+      (debounced.length >= 2 ? search.data : listing.data?.items)?.filter(item => showHiddenFiles || !isHiddenFile(item)).map(
         (item) => item.path,
       ) || [],
     );
     setSelected((old) => old.filter((p) => visible.has(p)));
     if (selectionAnchor.current && !visible.has(selectionAnchor.current)) selectionAnchor.current = null;
-  }, [listing.data, search.data, debounced]);
+  }, [listing.data, search.data, debounced, showHiddenFiles]);
   const writable = listing.data?.writable || false;
   const reload = async () => {
     await listing.reload();

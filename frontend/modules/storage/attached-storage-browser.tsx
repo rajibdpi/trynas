@@ -14,7 +14,9 @@ import { HardDrive, Cloud, Folder, Download, Trash2, Upload, RefreshCw, Check } 
 type Connection = { id: string; name: string; provider: string; attached: boolean };
 type Item = { name: string; path: string; dir: boolean; size: number; modified: string };
 
-export function AttachedStorageBrowser({ admin, children, query, setQuery }: { admin: boolean; children: ReactNode; query: string; setQuery: (q: string) => void }) {
+import { isHiddenFile } from "@/modules/shared/file-visibility";
+
+export function AttachedStorageBrowser({ showHiddenFiles, admin, children, query, setQuery }: { showHiddenFiles: boolean; admin: boolean; children: ReactNode; query: string; setQuery: (q: string) => void }) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const location = useFileLocation();
   const [storage, setStorage] = useState("");
@@ -27,9 +29,9 @@ export function AttachedStorageBrowser({ admin, children, query, setQuery }: { a
     return () => controller.abort();
   }, [admin]);
   if (!admin) return children;
-  return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4"><HardDrive className="h-5 w-5" /><label htmlFor="file-storage" className="text-sm font-medium">Storage</label><select id="file-storage" className="w-auto! max-w-full min-w-40" value={storage} onChange={e => { setStorage(e.target.value); setQuery(""); writeFileLocation("", undefined, e.target.value || undefined); }}><option value="">Local storage</option>{connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.provider})</option>)}</select><a href="/settings" className="ml-auto text-sm text-primary underline">Manage storage</a>{error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}</div>{storage && connections.some(c => c.id === storage) ? <RemoteFiles key={storage} connection={connections.find(c => c.id === storage)!} query={query} setQuery={setQuery} /> : children}</div>;
+  return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4"><HardDrive className="h-5 w-5" /><label htmlFor="file-storage" className="text-sm font-medium">Storage</label><select id="file-storage" className="w-auto! max-w-full min-w-40" value={storage} onChange={e => { setStorage(e.target.value); setQuery(""); writeFileLocation("", undefined, e.target.value || undefined); }}><option value="">Local storage</option>{connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.provider})</option>)}</select><a href="/settings" className="ml-auto text-sm text-primary underline">Manage storage</a>{error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}</div>{storage && connections.some(c => c.id === storage) ? <RemoteFiles showHiddenFiles={showHiddenFiles} key={storage} connection={connections.find(c => c.id === storage)!} query={query} setQuery={setQuery} /> : children}</div>;
 }
-function RemoteFiles({ connection, query, setQuery }: { connection: Connection; query: string; setQuery: (q: string) => void }) {
+function RemoteFiles({ showHiddenFiles, connection, query, setQuery }: { showHiddenFiles: boolean; connection: Connection; query: string; setQuery: (q: string) => void }) {
   const notify = useNotification();
   const location = useFileLocation();
   const [path, setPathState] = useState("");
@@ -90,7 +92,10 @@ function RemoteFiles({ connection, query, setQuery }: { connection: Connection; 
     void reload();
     return () => listingRequest.current?.abort();
   }, [reload]);
-  const visible = items.filter(i => i.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const visible = items.filter(i => (showHiddenFiles || !isHiddenFile(i)) && i.name.toLowerCase().includes(query.trim().toLowerCase()));
+  useEffect(() => {
+    setSelected(previous => previous.filter(p => items.some(item => item.path === p && (showHiddenFiles || !isHiddenFile(item)))));
+  }, [items, showHiddenFiles]);
   async function mutate(p: string, body: Record<string, unknown>, message: string) {
     setBusy(true); setError("");
     try { await api(endpoint(p), { method: "POST", body: JSON.stringify(body) }); notify(message); setDeleting(null); setCreating(false); setName(""); await reload(); }
