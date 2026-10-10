@@ -32,6 +32,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Validate administrator password secret
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os
+          password = os.environ.get("ADMIN_PASSWORD", "")
+          if not password:
+              print("::error::Missing repository Actions secret ADMIN_PASSWORD. Add it under Settings > Secrets and variables > Actions > New repository secret, then rerun all jobs.")
+              raise SystemExit(1)
+          if not 8 <= len(password.encode("utf-8")) <= 72 or password in ("change-this-now", "replace-with-a-strong-random-password"):
+              print("::error::ADMIN_PASSWORD must contain 8–72 UTF-8 bytes and must not use a placeholder password. Update the repository Actions secret, then rerun all jobs.")
+              raise SystemExit(1)
+          PY
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}

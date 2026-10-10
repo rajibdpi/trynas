@@ -29,12 +29,16 @@ try {
         $installed = Join-Path $destination 'trynas.exe'
         if ([IO.File]::ReadAllText($installed) -ne 'test release') { throw 'Incorrect installed payload.' }
         # A second valid install exercises replacement of an existing executable.
+        [IO.File]::WriteAllText($binary, 'updated test release')
+        $hash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash
+        [IO.File]::WriteAllText($manifest, "$hash  $asset`n")
         & $installer -Source $source -InstallDir $destination
+        if ([IO.File]::ReadAllText($installed) -ne 'updated test release') { throw 'Existing binary was not upgraded.' }
         [IO.File]::WriteAllText($binary, 'tampered')
         $rejected = $false
         try { & $installer -Source $source -InstallDir $destination } catch { $rejected = $true }
         if (-not $rejected) { throw 'Tampered binary accepted.' }
-        if ([IO.File]::ReadAllText($installed) -ne 'test release') { throw 'Existing binary changed after failed verification.' }
+        if ([IO.File]::ReadAllText($installed) -ne 'updated test release') { throw 'Existing binary changed after failed verification.' }
         [IO.File]::WriteAllText($manifest, "$hash  $asset`n$hash  $asset`n")
         $rejected = $false
         try { & $installer -Source $source -InstallDir $destination } catch { $rejected = $true }
