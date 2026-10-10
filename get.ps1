@@ -80,7 +80,9 @@ try {
     Copy-Item -LiteralPath $download -Destination $staged
     # Stage on the destination volume; do not delete the old binary first.
     if ([IO.File]::Exists($destination)) {
-        [IO.File]::Replace($staged, $destination, $null)
+        # PowerShell converts $null to an empty string for this .NET parameter.
+        # NullString passes a true null backup path, preserving atomic replacement.
+        [IO.File]::Replace($staged, $destination, [System.Management.Automation.Language.NullString]::Value)
     } else {
         [IO.File]::Move($staged, $destination)
     }
