@@ -18,7 +18,7 @@ on:
         type: boolean
 
 env:
-  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && format('main-{0}-{1}', github.run_number, github.sha) || inputs.tag || github.ref_name }}
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: read
@@ -51,8 +51,9 @@ jobs:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
       - name: Validate release tag
+        if: github.ref != 'refs/heads/main' || github.event_name != 'push'
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?|main-[0-9]+-[0-9a-f]{40})$ ]]; then
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
             echo 'Use a version tag such as v1.0.0 or v1.0.0-rc.1.' >&2
             exit 1
           fi
@@ -72,6 +73,8 @@ jobs:
       - name: Check frontend types
         working-directory: frontend
         run: pnpm exec tsc --noEmit
+      - name: Test release tag selection
+        run: python3 -m unittest discover -s scripts -p release_tag_test.py
       - name: Test and vet backend
         run: |
           go test ./...
@@ -127,6 +130,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
+          persist-credentials: false
+      - name: Select and reserve incremental release tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 scripts/release_tag.py
       - uses: actions/download-artifact@v4
         with:
           name: release-assets
@@ -138,7 +151,7 @@ jobs:
           PUBLISH: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish) || false }}
         run: |
           set -euo pipefail
-          if [[ ! "$RELEASE_TAG" =~ ^(v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?|main-[0-9]+-[0-9a-f]{40})$ ]]; then
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
             echo 'Invalid version tag.' >&2
             exit 1
           fi
