@@ -644,7 +644,7 @@ export function FileBrowser({
         <div
           className={
             view !== "list"
-              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-2 gap-3 lg:grid-cols-5"
+              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
               : "space-y-1"
           }
         >
@@ -671,7 +671,7 @@ export function FileBrowser({
                     openItem(item);
                   }}
                   className={cn(
-                    "file-item cursor-pointer select-none rounded-xl p-3",
+                    "file-item min-w-0 cursor-pointer select-none rounded-xl p-3",
                     view !== "list" ? "file-tile border" : "file-row",
                     selected.includes(item.path) &&
                     "border-primary bg-primary/5",
@@ -681,7 +681,7 @@ export function FileBrowser({
                   <div
                     className={cn(
                       "flex items-center gap-3",
-                      view === "list" ? "min-w-0 flex-1" : "mb-3",
+                      view === "list" ? "min-w-0 flex-1" : "mb-3 min-w-0 flex-col items-start sm:flex-row sm:items-center",
                     )}
                   >
                     <span className="relative shrink-0">
@@ -700,7 +700,7 @@ export function FileBrowser({
                       )}
                     </span>
                     <button
-                      className="min-w-0 text-left"
+                      className={cn("min-w-0 text-left", view === "list" ? "flex-1" : "w-full sm:w-auto sm:flex-1")}
                       aria-pressed={selected.includes(item.path)}
                       title={`Double-click to open ${item.name}`}
                       onDoubleClick={() => openItem(item)}
@@ -721,7 +721,7 @@ export function FileBrowser({
                       </span>
                     </button>
                     {item.favorite && (
-                      <Star className="size-3 text-amber-500" />
+                      <Star className="size-3 shrink-0 text-amber-500" />
                     )}
                     {sharedLinks.has(item.path) && (
                       <button
