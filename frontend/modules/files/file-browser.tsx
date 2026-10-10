@@ -529,7 +529,7 @@ export function FileBrowser({
               <RefreshCw />
             </Button>
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Sort files"><ArrowDownWideNarrow />By {sortLabels[sortBy].toLowerCase()}<ChevronDown /></Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Sort files"><ArrowDownWideNarrow /><span className="hidden sm:inline">By {sortLabels[sortBy].toLowerCase()}</span><ChevronDown className="hidden sm:block" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
                 {(["name", "size", "type", "modified"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortBy(value)} className="justify-between py-2.5"><span>{sortLabels[value]}</span>{sortBy === value && <Check className="size-4" />}</DropdownMenuItem>)}
                 <div className="my-1 border-t" role="separator" />
@@ -537,7 +537,7 @@ export function FileBrowser({
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Change file view">{view === "large" ? <Grid2X2 /> : view === "grid" ? <Grip /> : <List />}View<ChevronDown /></Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Change file view">{view === "large" ? <Grid2X2 /> : view === "grid" ? <Grip /> : <List />}<span className="hidden sm:inline">View</span><ChevronDown className="hidden sm:block" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44 rounded-xl p-1.5">
                 <p className="px-3 py-2 text-xs text-muted-foreground">View</p>
                 {([{ value: "large", label: "Large tiles", icon: Grid2X2 }, { value: "grid", label: "Tiles", icon: Grip }, { value: "list", label: "List", icon: List }] as const).map(option => <DropdownMenuItem key={option.value} onSelect={() => changeView(option.value)} className="gap-3 py-2.5"><option.icon className="size-4" /><span>{option.label}</span>{view === option.value && <Check className="ml-auto size-3.5" />}</DropdownMenuItem>)}
