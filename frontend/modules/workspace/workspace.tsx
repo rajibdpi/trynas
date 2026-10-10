@@ -474,10 +474,15 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
             ))}
         </nav>
         {quota.data && (
-          <div className={cn("sidebar-quota", sidebarCollapsed && "md:hidden")}>
-            <div className="mb-3 flex items-center gap-2 text-xs font-medium">
-              <HardDrive className="size-4" />
-              Your storage
+          <div
+            className={cn("sidebar-quota", sidebarCollapsed && "md:p-2!")}
+            role="group"
+            aria-label={`Your storage: ${fmt(quota.data.used)} of ${quota.data.unlimited ? "unlimited space" : fmt(quota.data.limit)}`}
+            title={`Your storage: ${fmt(quota.data.used)} of ${quota.data.unlimited ? "unlimited space" : fmt(quota.data.limit)}`}
+          >
+            <div className={cn("mb-3 flex items-center gap-2 text-xs font-medium", sidebarCollapsed && "md:justify-center")}>
+              <HardDrive className="size-4 shrink-0" />
+              <span className={sidebarCollapsed ? "md:hidden" : undefined}>Your storage</span>
             </div>
             <Progress
               value={
@@ -486,10 +491,15 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
                   : (quota.data.used / quota.data.limit) * 100
               }
             />
-            <p className="mt-2 text-xs text-slate-400">
+            <p className={cn("mt-2 text-xs text-slate-400", sidebarCollapsed && "md:hidden")}>
               {fmt(quota.data.used)} of{" "}
               {quota.data.unlimited ? "unlimited space" : fmt(quota.data.limit)}
             </p>
+            {sidebarCollapsed && (
+              <p className="mt-2 hidden text-center text-[10px] text-slate-400 md:block">
+                {quota.data.unlimited ? "∞" : `${Math.min(100, Math.max(0, Math.round((quota.data.used / Math.max(1, quota.data.limit)) * 100)))}%`}
+              </p>
+            )}
           </div>
         )}
       </aside>
