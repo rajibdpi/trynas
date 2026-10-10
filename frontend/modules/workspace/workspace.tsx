@@ -60,6 +60,22 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     [command, setCommand] = useState<Command | null>(null),
     [preview, setPreview] = useState<Item | null>(null);
   useEffect(() => {
+    try {
+      setSidebarCollapsed(localStorage.getItem("trynas-sidebar-collapsed") === "true");
+    } catch {
+      // Keep the default when browser storage is unavailable.
+    }
+  }, []);
+  const toggleSidebar = () => {
+    const collapsed = !sidebarCollapsed;
+    setSidebarCollapsed(collapsed);
+    try {
+      localStorage.setItem("trynas-sidebar-collapsed", String(collapsed));
+    } catch {
+      // The sidebar still works when browser storage is unavailable.
+    }
+  };
+  useEffect(() => {
     const section = pathname.split("/").filter(Boolean)[0] || "dashboard";
     setTab(nav.some(item => item.id === section) ? section : "dashboard");
   }, [pathname]);
@@ -396,7 +412,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         searchQuery={fileQuery}
         onSearchQueryChange={setFileQuery}
         onSearch={() => { selectTab("files"); setMobile(false); }}
-        onToggleSidebar={() => setSidebarCollapsed(value => !value)}
+        onToggleSidebar={toggleSidebar}
         onToggleTheme={toggleTheme}
         onOpenNavigation={() => setMobile(value => !value)}
         onHome={() => selectTab("dashboard")}
