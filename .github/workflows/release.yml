@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -26,7 +24,6 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ inputs.tag || github.sha }}
   group: release-${{ inputs.tag || github.sha }}
   cancel-in-progress: false
 
@@ -51,7 +48,6 @@ jobs:
           PY
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
       - name: Validate release tag
@@ -87,9 +83,6 @@ jobs:
         env:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: go run ./scripts/build --all --admin-password-env
-        env:
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: go run ./scripts/build --all --admin-password-env
       - name: Verify release checksums and include installation files
         run: |
           (cd dist && sha256sum --check SHA256SUMS)
@@ -121,7 +114,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
       - uses: actions/setup-go@v6
@@ -157,7 +149,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PUBLISH: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish) || false }}
-          PUBLISH: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish) || false }}
         run: |
           set -euo pipefail
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
@@ -173,15 +164,11 @@ jobs:
 
           Fresh installations use a shared build-time administrator password. Set ADMIN_PASSWORD at runtime to override it.
           Initial credentials print in the terminal when a fresh database is initialized.
-          Fresh installations use a shared build-time administrator password. Set ADMIN_PASSWORD at runtime to override it.
-          Initial credentials print in the terminal when a fresh database is initialized.
           Stop the previous instance before upgrading and keep your configuration and database.
           NOTES
           state="$RUNNER_TEMP/release-state"
           if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > "$state"; then
             if [[ "$(cat "$state")" != true ]]; then
-              echo 'This release is already public; leaving its assets unchanged.'
-              exit 0
               echo 'This release is already public; leaving its assets unchanged.'
               exit 0
             fi
@@ -194,19 +181,9 @@ jobs:
               flags+=(--verify-tag)
             fi
             gh release create "$RELEASE_TAG" --draft --title "TryNAS $RELEASE_TAG" --notes-file "$notes" "${flags[@]}"
-            if [[ "$RELEASE_TAG" == v*-* ]]; then flags+=(--prerelease); fi
-            if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
-              flags+=(--target "$GITHUB_SHA")
-            else
-              flags+=(--verify-tag)
-            fi
-            gh release create "$RELEASE_TAG" --draft --title "TryNAS $RELEASE_TAG" --notes-file "$notes" "${flags[@]}"
           fi
           gh release upload "$RELEASE_TAG" dist/* --clobber
           if [[ "$PUBLISH" == true ]]; then
-            flags=()
-            if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then flags+=(--latest); fi
-            gh release edit "$RELEASE_TAG" --draft=false "${flags[@]}"
             flags=()
             if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then flags+=(--latest); fi
             gh release edit "$RELEASE_TAG" --draft=false "${flags[@]}"
