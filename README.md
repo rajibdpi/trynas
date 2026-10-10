@@ -276,7 +276,7 @@ under `frontend/modules/`.
 | `favorites` | Saved favorites | Favorites panel |
 | `trash` | Trash listing, deletion, restore, purge | Trash panel |
 | `settings` | Application preferences | Application settings panel |
-| `metrics` | System, network, SMART monitoring | System and disk health panels, graphs |
+| `metrics` | System and network monitoring | System and network panels, graphs |
 | `activity` | Audit recording and listing | Activity panel |
 
 `main.go` calls `cmd.Execute()`, which loads configuration and starts the
@@ -340,12 +340,12 @@ Use a strong administrator password, expose only the intended storage directory,
 ## V5 user management and file controls
 
 **Dashboard**, **System & network**, **Activity**, **Users & quotas**,
-**Folder permissions**, **Settings** and **Disk health** are available only to
+**Folder permissions**, **Settings** are available only to
 administrators. Normal users land on **Files** and see Files, Favorites,
 Shared links and Trash. Restricted pages redirect them to Files, and the
 corresponding backend APIs reject non-admin access.
 
-Administrators have **Users & quotas**, **Folder permissions**, and **Disk health**
+Administrators have **Users & quotas** and **Folder permissions**
 sections. Creating an account with an 8–72 byte password also creates a home folder named
 after its username and grants that user write access. Usernames must be single
 folder names, and existing storage items cannot be adopted as new home folders.
@@ -436,7 +436,7 @@ all users; existing share links retain their own expiry. Other users pick up
 changed defaults when they reload the app.
 
 The page also displays the active storage root, listen address, frontend origin,
-secure-cookie mode and SMART sudo setting. Change those values in `.env` and
+and secure-cookie mode. Change those values in `.env` and
 restart the backend. Passwords and other secrets are not displayed on this page.
 
 ## Share files and folders
@@ -465,52 +465,11 @@ up to 500 selected items. **Shared links** lists the items included in each link
 password protected. Revoking a link, reaching its expiry or removing the owner's
 access blocks further downloads. Existing links retain their original settings.
 
-## Hardware monitoring
+## System and network monitoring
 
 **System & network** displays actual interface traffic in bytes per second,
 sampled every second and refreshed in the UI every three seconds. This measures
 traffic, not theoretical link capacity; loopback interfaces are excluded.
-
-**Disk health** uses smartmontools JSON output, with a one-minute cache, bounded
-command timeouts, and up to sixteen scanned devices. Install it on the NAS host:
-
-```bash
-sudo apt install smartmontools
-smartctl --scan-open -j
-smartctl -a -j /dev/sda
-```
-
-Use your actual device from the scan. Configure the API service account's device
-access according to your operating system; TryNAS runs SMART commands directly by default. Optional scoped sudo access
-is described below. SMART health, temperature, power-on hours and NVMe wear are
-shown when available. Missing smartctl, unsupported controllers, virtual disks,
-or insufficient device access show unavailable data rather than a healthy
-reading. SMART indicates drive-reported condition and does not replace backups.
-
-### SMART permission denied
-
-If the disk cards report `Permission denied`, the API's Linux account cannot
-open the devices. The supplied installer grants only specific read-only SMART
-commands for `/dev/sda`, `/dev/sdb`, `/dev/sdc` and `/dev/nvme0`, plus disk scanning.
-It does not grant a root shell, arbitrary smartctl flags, or disk write access.
-From the project root, install the policy with your API's Linux username:
-
-```bash
-sudo ./scripts/install-smart-access.sh rajib
-```
-
-The script validates the sudoers policy with `visudo` before installing it at
-`/etc/sudoers.d/trynas-smartctl`. Set `SMART_USE_SUDO=true` in `.env` and restart
-the backend. It then invokes `sudo -n` (never prompts for or stores a password).
-Use Disk health's refresh button to bypass the one-minute cache. Verify access:
-
-```bash
-sudo -n /usr/sbin/smartctl -a -j /dev/nvme0 -d nvme
-```
-
-Adapt the installer allowlist if your devices have different names or controller
-types. To undo, remove `/etc/sudoers.d/trynas-smartctl` with administrator access,
-set `SMART_USE_SUDO=false`, and restart the backend.
 
 ## GitHub releases
 
@@ -656,10 +615,6 @@ choose another port:
 Then open **http://localhost:8090**. Rebuilding an executable does not stop or
 restart an already running server; stop it and launch the new binary.
 
-SMART monitoring is optional and still needs smartmontools plus disk/controller
-access on the target host. `scripts/install-smart-access.sh` and
-`SMART_USE_SUDO=true` are Linux setup options; Windows and macOS require their own
-appropriate device access. Unsupported SMART fields remain unavailable.
 Cross-built Windows/macOS binaries are unsigned; signing/notarization for public
 distribution is a separate release step. macOS Finder launches and Windows GUI
 launches are not managed installers; the app runs as a terminal/server process.
@@ -782,6 +737,5 @@ use the Share feature for public access. Path-based URLs work with both the
 Next.js development server and the static frontend embedded in Go releases.
 
 Sidebar sections have direct routes: `/dashboard`, `/files/`, `/favorites`,
-`/shared`, `/trash`, `/system`, `/activity`, `/users`, `/permissions`, `/settings`,
-and `/hardware`. Refresh and browser Back/Forward restore the section.
+`/shared`, `/trash`, `/system`, `/activity`, `/users`, `/permissions`, and `/settings`. Refresh and browser Back/Forward restore the section.
 Administration routes require an administrator account.

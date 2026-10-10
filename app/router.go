@@ -44,7 +44,6 @@ func (a *App) Router() http.Handler {
 		r.Get("/api/permissions", a.Permissions)
 		r.Post("/api/permissions", a.SavePermission)
 		r.Get("/api/quota", a.Quota)
-		r.Get("/api/hardware", a.Hardware)
 		r.Get("/api/network", a.Network)
 		r.Post("/api/files/bulk", a.Bulk)
 		r.Get("/api/me", a.Me)

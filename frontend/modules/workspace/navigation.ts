@@ -1,4 +1,4 @@
-import { Activity, Folder, HardDrive, Home, Link2, Settings, Server, Shield, Star, Trash2, Users } from "lucide-react";
+import { Activity, Folder, Home, Link2, Settings, Server, Shield, Star, Trash2, Users } from "lucide-react";
 
 export const nav = [
   { id: "dashboard", label: "Dashboard", icon: Home, admin: true },
@@ -11,5 +11,4 @@ export const nav = [
   { id: "users", label: "Users & quotas", icon: Users, admin: true },
   { id: "permissions", label: "Folder permissions", icon: Shield, admin: true },
   { id: "settings", label: "Settings", icon: Settings, admin: true },
-  { id: "hardware", label: "Disk health", icon: HardDrive, admin: true },
 ];

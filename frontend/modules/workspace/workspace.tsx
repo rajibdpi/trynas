@@ -26,7 +26,6 @@ import { FileBrowser } from "@/modules/files/file-browser";
 import { UserPanel } from "@/modules/users/user-panel";
 import { PermissionPanel } from "@/modules/permissions/permission-panel";
 import { SystemPanel } from "@/modules/metrics/system-panel";
-import { HardwarePanel } from "@/modules/metrics/hardware-panel";
 import { ActivityPanel } from "@/modules/activity/activity-panel";
 import { FavoritesPanel } from "@/modules/favorites/favorites-panel";
 import { SharesPanel } from "@/modules/share/shares-panel";
@@ -368,9 +367,6 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       break;
     case "permissions":
       content = <PermissionPanel ask={ask} notify={notify} />;
-      break;
-    case "hardware":
-      content = <HardwarePanel />;
       break;
     case "activity":
       content = <ActivityPanel />;

@@ -91,7 +91,7 @@ func (a *Module) Guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := r.Context().Value(core.UserKey).(core.User)
 		p := r.URL.Path
-		if strings.HasPrefix(p, "/api/users") || p == "/api/permissions" || p == "/api/hardware" || p == "/api/system" || p == "/api/network" || p == "/api/activity" || p == "/api/settings" || strings.HasPrefix(p, "/api/storage/") {
+		if strings.HasPrefix(p, "/api/users") || p == "/api/permissions" || p == "/api/system" || p == "/api/network" || p == "/api/activity" || p == "/api/settings" || strings.HasPrefix(p, "/api/storage/") {
 			if u.Role != "admin" {
 				core.Bad(w, "administrator access required", 403)
 				return

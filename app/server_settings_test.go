@@ -14,11 +14,11 @@ func TestServerConfiguration(t *testing.T) {
 	if err := os.WriteFile(file, []byte("ADMIN_PASSWORD=keep-this-secret\nDB_PATH=./data/test.db\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	input := map[string]any{"storageRoot": "./new-storage", "address": "127.0.0.1:8081", "corsOrigin": "http://localhost:3000", "cookieSecure": false, "smartUseSudo": true}
+	input := map[string]any{"storageRoot": "./new-storage", "address": "127.0.0.1:8081", "corsOrigin": "http://localhost:3000", "cookieSecure": false}
 	expect(t, jsonRequest(a, user, "POST", "/api/settings/server", input, a.SaveServerConfiguration), 403)
 	expect(t, jsonRequest(a, admin, "POST", "/api/settings/server", input, a.SaveServerConfiguration), 200)
 	saved, err := godotenv.Read(file)
-	if err != nil || saved["ADDR"] != "127.0.0.1:8081" || saved["ADMIN_PASSWORD"] != "keep-this-secret" || saved["SMART_USE_SUDO"] != "true" {
+	if err != nil || saved["ADDR"] != "127.0.0.1:8081" || saved["ADMIN_PASSWORD"] != "keep-this-secret" {
 		t.Fatal("incorrect saved configuration", err)
 	}
 	input["address"] = "invalid"
