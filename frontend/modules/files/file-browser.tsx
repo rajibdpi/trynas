@@ -65,16 +65,18 @@ export function FileBrowser({
       if (!sharedLinks.has(sharedPath)) sharedLinks.set(sharedPath, share.token);
     }
   }
-  const copySharedLink = async (itemPath: string) => {
-    const token = sharedLinks.get(itemPath);
-    if (!token) return;
+  const copyShareToken = async (token: string) => {
     const url = shareURL(token);
     try {
       await navigator.clipboard.writeText(url);
-      notify("Share link copied");
+      notify("Share link copied to clipboard. Ready to paste.");
     } catch {
-      notify(`Share link: ${url}`);
+      notify(`Could not copy automatically. Copy this share link: ${url}`);
     }
+  };
+  const copySharedLink = async (itemPath: string) => {
+    const token = sharedLinks.get(itemPath);
+    if (token) await copyShareToken(token);
   };
   const [debounced, setDebounced] = useState(query.trim()),
     [view, setView] = useState<"list" | "grid" | "large">(defaultView),
@@ -119,7 +121,7 @@ export function FileBrowser({
     selectionAnchor.current = null;
   }, [debounced]);
   useEffect(() => () => controller.current?.abort(), []);
-  const [sortBy, setSortBy] = useState<"name" | "size" | "type" | "modified">("name");
+  const [sortBy, setSortBy] = useState<"name" | "size" | "type" | "modified">("type");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const sortLabels = { name: "Name", size: "Size", type: "Type", modified: "Date modified" };
   const sourceItems =
@@ -246,7 +248,7 @@ export function FileBrowser({
           method: "POST",
           body: JSON.stringify({ paths, ...settings, password: v.password }),
         });
-        notify(`Share link: ${shareURL(result.token)}`);
+        await copyShareToken(result.token);
         void shares.reload();
       },
     });
@@ -727,20 +729,6 @@ export function FileBrowser({
                     </button>
                     {item.favorite && (
                       <Star className="size-3 shrink-0 text-amber-500" />
-                    )}
-                    {sharedLinks.has(item.path) && (
-                      <button
-                        type="button"
-                        className="ml-auto shrink-0 rounded-md p-2 text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"
-                        aria-label={`Copy shared link for ${item.name}`}
-                        title="Shared · Click to copy link"
-                        onClick={event => {
-                          event.stopPropagation();
-                          void copySharedLink(item.path);
-                        }}
-                      >
-                        <Link2 className="size-4" aria-hidden="true" />
-                      </button>
                     )}
                     {sharedLinks.has(item.path) && (
                       <button
