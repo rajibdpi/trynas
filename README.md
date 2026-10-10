@@ -530,10 +530,13 @@ that builds releases, install Go, Node.js and pnpm, then run from the project ro
 go run ./scripts/build
 ```
 
-Release binaries contain no default administrator password. Set `ADMIN_PASSWORD`
-(8–72 bytes) at runtime before initializing a fresh database. `ADMIN_USER` defaults
-to `admin`. Building does not print or write credentials, and rebuilding does not
-reset existing accounts.
+Set a unique `ADMIN_PASSWORD` (8–72 bytes) in the project `.env` before building.
+Release builds embed its bcrypt hash to initialize a fresh database without a
+runtime password. A runtime `ADMIN_PASSWORD` overrides this fallback. `ADMIN_USER`
+defaults to `admin`. The executable also contains a recoverable encoded copy of
+the password so first startup can print the initial credentials in the terminal.
+The password is displayed only when creating a new admin account. Rebuilding does
+not reset existing accounts.
 
 The Go release command rebuilds the frontend and backend. It clears `.next`
 and `frontend/dist`, generates a fresh static export, and embeds that export
@@ -592,15 +595,16 @@ database, storage and accounts.
 
 Existing process environment variables override `.env`; CLI flags override both.
 Use `-help` to view supported flags. Set `ADMIN_USER` and `ADMIN_PASSWORD` in
-`.env` before the first launch. Building does **not** bundle your `.env`,
-database, stored files, or administrator credentials.
+`.env` before the first launch to override the build-time password. Building embeds
+the administrator password hash and a recoverable encoded password from `.env`, not the configuration file,
+database, or stored files.
 
 ### Troubleshoot login
 
 If login reports **Invalid username or password**, check which database the
-running instance uses. A fresh database uses runtime `ADMIN_PASSWORD` (8–72 bytes) when supplied,
-and rejects missing passwords or the example placeholder. Set administrator
-credentials before initializing a new installation.
+running instance uses. A fresh database uses runtime `ADMIN_PASSWORD` (8–72 bytes)
+when supplied, otherwise the release's build-time password hash. Builds require a
+valid password in `.env`; direct Go builds require a runtime password.
 
 `ADMIN_USER` and `ADMIN_PASSWORD` only initialize an empty database. Adding or
 editing `.env` after the first launch does not reset an existing account. Use

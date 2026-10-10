@@ -49,6 +49,10 @@ func serve() error {
 	if err = a.MigrateV5(); err != nil {
 		return err
 	}
+	if a.InitialAdminPassword != "" {
+		log.Printf("Initial administrator credentials: username=%q password=%q", core.Env("ADMIN_USER", "admin"), a.InitialAdminPassword)
+		a.InitialAdminPassword = ""
+	}
 	cleanupContext, stopCleanup := context.WithCancel(context.Background())
 	cleanupDone := make(chan struct{})
 	go func() { defer close(cleanupDone); a.RunTrashCleanup(cleanupContext) }()

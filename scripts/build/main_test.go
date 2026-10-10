@@ -2,13 +2,45 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
+
+func TestBuildAdminHash(t *testing.T) {
+	dir := t.TempDir()
+	if _, _, err := buildAdminCredentials(dir); err == nil {
+		t.Fatal("accepted missing .env")
+	}
+	for _, password := range []string{"", "short", "change-this-now", "build-password-long"} {
+		if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("ADMIN_PASSWORD="+password+"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		hash, encoded, err := buildAdminCredentials(dir)
+		if password != "build-password-long" {
+			if err == nil {
+				t.Fatal("accepted invalid password")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil || string(decoded) != password {
+			t.Fatal("startup password differs from build password")
+		}
+	}
+}
 
 func TestTargets(t *testing.T) {
 	got, err := targets(false, "linux/amd64, windows/arm64,linux/amd64")

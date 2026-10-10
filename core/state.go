@@ -17,17 +17,18 @@ import (
 )
 
 type State struct {
-	DB             *sql.DB
-	Root, Trash    string
-	Mutation       sync.Mutex
-	Metrics        sync.Mutex
-	Attempts       AttemptLimiter
-	Providers      ProviderState
-	Archives       sync.Mutex
-	ActiveArchives int
-	NetworkLast    map[string]NetworkSample
-	SmartCached    map[string]any
-	SmartAt        time.Time
+	InitialAdminPassword string
+	DB                   *sql.DB
+	Root, Trash          string
+	Mutation             sync.Mutex
+	Metrics              sync.Mutex
+	Attempts             AttemptLimiter
+	Providers            ProviderState
+	Archives             sync.Mutex
+	ActiveArchives       int
+	NetworkLast          map[string]NetworkSample
+	SmartCached          map[string]any
+	SmartAt              time.Time
 }
 
 type User struct {
