@@ -272,11 +272,11 @@ under `frontend/modules/`.
 | `users` | Accounts, user homes, quotas, profiles | Users and quotas panel |
 | `permissions` | Folder grants, access checks, request guards | Folder permissions panel |
 | `share` | Share links, passwords, expiry, public pages, QR codes, archives | Shared links panel |
-| `providers` (frontend: `storage`) | Provider connections, encryption, transfers, attached storage | Provider settings and attached storage browser |
+| `providers` (frontend: `storage`) | Provider connections, encryption, attached storage | Provider settings and attached storage browser |
 | `favorites` | Saved favorites | Favorites panel |
 | `trash` | Trash listing, deletion, restore, purge | Trash panel |
 | `settings` | Application preferences | Application settings panel |
-| `metrics` | System, network, SMART monitoring | System and disk health panels, graphs |
+| `metrics` | System and network monitoring | System and network panels, graphs |
 | `activity` | Audit recording and listing | Activity panel |
 
 `main.go` calls `cmd.Execute()`, which loads configuration and starts the
@@ -340,12 +340,12 @@ Use a strong administrator password, expose only the intended storage directory,
 ## V5 user management and file controls
 
 **Dashboard**, **System & network**, **Activity**, **Users & quotas**,
-**Folder permissions**, **Settings** and **Disk health** are available only to
+**Folder permissions**, **Settings** are available only to
 administrators. Normal users land on **Files** and see Files, Favorites,
 Shared links and Trash. Restricted pages redirect them to Files, and the
 corresponding backend APIs reject non-admin access.
 
-Administrators have **Users & quotas**, **Folder permissions**, and **Disk health**
+Administrators have **Users & quotas** and **Folder permissions**
 sections. Creating an account with an 8–72 byte password also creates a home folder named
 after its username and grants that user write access. Usernames must be single
 folder names, and existing storage items cannot be adopted as new home folders.
@@ -436,7 +436,7 @@ all users; existing share links retain their own expiry. Other users pick up
 changed defaults when they reload the app.
 
 The page also displays the active storage root, listen address, frontend origin,
-secure-cookie mode and SMART sudo setting. Change those values in `.env` and
+and secure-cookie mode. Change those values in `.env` and
 restart the backend. Passwords and other secrets are not displayed on this page.
 
 ## Share files and folders
@@ -465,52 +465,11 @@ up to 500 selected items. **Shared links** lists the items included in each link
 password protected. Revoking a link, reaching its expiry or removing the owner's
 access blocks further downloads. Existing links retain their original settings.
 
-## Hardware monitoring
+## System and network monitoring
 
 **System & network** displays actual interface traffic in bytes per second,
 sampled every second and refreshed in the UI every three seconds. This measures
 traffic, not theoretical link capacity; loopback interfaces are excluded.
-
-**Disk health** uses smartmontools JSON output, with a one-minute cache, bounded
-command timeouts, and up to sixteen scanned devices. Install it on the NAS host:
-
-```bash
-sudo apt install smartmontools
-smartctl --scan-open -j
-smartctl -a -j /dev/sda
-```
-
-Use your actual device from the scan. Configure the API service account's device
-access according to your operating system; TryNAS runs SMART commands directly by default. Optional scoped sudo access
-is described below. SMART health, temperature, power-on hours and NVMe wear are
-shown when available. Missing smartctl, unsupported controllers, virtual disks,
-or insufficient device access show unavailable data rather than a healthy
-reading. SMART indicates drive-reported condition and does not replace backups.
-
-### SMART permission denied
-
-If the disk cards report `Permission denied`, the API's Linux account cannot
-open the devices. The supplied installer grants only specific read-only SMART
-commands for `/dev/sda`, `/dev/sdb`, `/dev/sdc` and `/dev/nvme0`, plus disk scanning.
-It does not grant a root shell, arbitrary smartctl flags, or disk write access.
-From the project root, install the policy with your API's Linux username:
-
-```bash
-sudo ./scripts/install-smart-access.sh rajib
-```
-
-The script validates the sudoers policy with `visudo` before installing it at
-`/etc/sudoers.d/trynas-smartctl`. Set `SMART_USE_SUDO=true` in `.env` and restart
-the backend. It then invokes `sudo -n` (never prompts for or stores a password).
-Use Disk health's refresh button to bypass the one-minute cache. Verify access:
-
-```bash
-sudo -n /usr/sbin/smartctl -a -j /dev/nvme0 -d nvme
-```
-
-Adapt the installer allowlist if your devices have different names or controller
-types. To undo, remove `/etc/sudoers.d/trynas-smartctl` with administrator access,
-set `SMART_USE_SUDO=false`, and restart the backend.
 
 ## GitHub releases
 
@@ -656,10 +615,6 @@ choose another port:
 Then open **http://localhost:8090**. Rebuilding an executable does not stop or
 restart an already running server; stop it and launch the new binary.
 
-SMART monitoring is optional and still needs smartmontools plus disk/controller
-access on the target host. `scripts/install-smart-access.sh` and
-`SMART_USE_SUDO=true` are Linux setup options; Windows and macOS require their own
-appropriate device access. Unsupported SMART fields remain unavailable.
 Cross-built Windows/macOS binaries are unsigned; signing/notarization for public
 distribution is a separate release step. macOS Finder launches and Windows GUI
 launches are not managed installers; the app runs as a terminal/server process.
@@ -672,7 +627,7 @@ file browser so case aliases cannot bypass folder permission rules. Windows
 reserved device names, alternate data streams, and invalid filename characters
 are rejected.
 
-## Storage providers and sync
+## Storage providers
 
 Administrators can open **Settings → Storage providers** to add Google Drive,
 SMB/CIFS, SFTP, and Amazon S3 or S3-compatible connections. The app embeds
@@ -681,14 +636,7 @@ rclone executable is needed on the TryNAS server.
 
 1. Choose a provider, name the connection, and enter the remote directory and credentials.
 2. Click **Test** to verify access to that directory.
-3. Choose the local folder relative to the TryNAS storage root (empty means the root).
-4. Choose **Local → Remote** or **Remote → Local**, then run a preview before transferring.
-
-**Copy** updates files while keeping extra destination files. **Mirror** makes
-the destination match the source and can delete destination files; running it
-requires the deletion confirmation checkbox. These are one-way operations in
-either direction, not automatic two-way conflict resolution. Files and subfolders
-are transferred recursively, including empty directories where supported.
+3. Click **Attach as storage** to access the connection from **All files**.
 
 For Google Drive, run `rclone authorize drive` on your computer and paste the
 returned OAuth token JSON. If you use your own OAuth client, supply the same
@@ -704,13 +652,6 @@ Connections are encrypted with AES-GCM in the database. The generated
 securely along with the database, because losing it makes saved connections
 unreadable. Credentials are never returned by the connections API.
 
-One transfer runs at a time, with a 24-hour deadline. Status, transferred bytes,
-file counts, and cancellation are available in Settings. The most recent job is
-saved; jobs interrupted by a server restart must be started again. Transfers hold
-the file-mutation lock to prevent overlapping app writes, and exclude internal
-`.trynas-*` folders. Local symlinks are rejected. Copying files can overwrite
-existing destination content; cancellation does not roll back completed changes.
-
 ### Attach providers as storage
 
 In **Settings → Storage providers**, click **Attach as storage** on a saved
@@ -719,18 +660,32 @@ selector to switch between local storage and attached providers. Attachments
 persist across restarts. **Detach storage** removes the provider from the file
 browser without deleting its files or its saved connection.
 
-Attached storage supports direct folder browsing, downloads, uploads, new
-folders, and permanent file/folder deletion. Double-click opens a folder or
-downloads a file; Ctrl/Cmd-click selects, and Shift-click selects a range.
-Search filters the current remote folder. Browser uploads refuse to overwrite
-an existing file. Remote deletion requires confirmation and does not use the
-local trash. Local permissions, quotas, favorites, and public share links apply
-to local storage; attached providers currently remain administrator-only.
+Attached storage uses the same tiles, list view, sorting, selection, and context
+menus as local files. It supports browsing, downloads, uploads, new folders,
+rename, copy, move, ZIP, password-protected public sharing, and recoverable trash.
+Right-click an item or use the selection toolbar for these actions. **Storage
+trash** restores items to their original folders or deletes them permanently.
+Remote trash is kept on its provider until manually emptied; local automatic
+trash retention does not apply. Empty or restore it before removing a connection.
 
-Operations use the provider's configured remote directory as their root. One
-direct remote operation runs at a time, and sync jobs cannot overlap direct
-remote operations. Provider operations have a 15-minute request deadline;
-failures may leave completed uploads or deletions in place.
+Copy and move dialogs select local or attached destination storage and a folder
+relative to its root. Local files also have **Copy to attached storage** and
+**Move to attached storage** actions. Existing destinations are never overwritten.
+Moves verify SHA-256 checksums and recheck the source tree before removing it.
+Failed source deletion leaves the verified destination available and reports the
+failure. Multi-item operations report how many items finished if a later item fails.
+
+Remote shares use existing expiry, password, QR, and revocation controls and show
+up in **Shared links**. Detaching storage or removing the share owner's administrator
+access disables downloads. Folders and selections download as ZIP archives.
+Local permissions and quota accounting apply to local transfer destinations;
+attached storage remains administrator-only. Favorites remain local-only.
+
+Operations use the provider's configured directory as their root. One remote
+operation runs at a time, with a 15-minute request deadline. Transfers use temporary
+local disk space, limit each source tree and ZIP selection to 10 GiB, and reject
+reserved paths and local symlinks. Provider failures may leave completed uploads
+or deletions in place. Browser uploads refuse to overwrite existing files.
 
 ### Backend production behavior
 
@@ -782,6 +737,9 @@ use the Share feature for public access. Path-based URLs work with both the
 Next.js development server and the static frontend embedded in Go releases.
 
 Sidebar sections have direct routes: `/dashboard`, `/files/`, `/favorites`,
-`/shared`, `/trash`, `/system`, `/activity`, `/users`, `/permissions`, `/settings`,
-and `/hardware`. Refresh and browser Back/Forward restore the section.
+`/shared`, `/trash`, `/system`, `/activity`, `/users`, `/permissions`, and `/settings`. Refresh and browser Back/Forward restore the section.
 Administration routes require an administrator account.
+
+Settings → Basic configurations includes **Show hidden files and folders**. It is off by default. Enable it and save to show dot-prefixed files and folders in local and attached storage listings and search results. This display preference is shared by all users; it does not change file permissions.
+
+Attached-storage folder listings are cached in server memory for 30 seconds to speed up repeat browsing. Uploads, folder creation, deletions, and attachment changes invalidate the cache. **Refresh storage** bypasses cached listings to show external changes immediately.

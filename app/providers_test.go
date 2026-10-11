@@ -1,13 +1,8 @@
 package app
 
 import (
-	"context"
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/rajibdpi/trynas/core"
 )
@@ -47,120 +42,18 @@ func TestStorageConnectionsAccessAndSecrets(t *testing.T) {
 	expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "delete", "id": c[0].ID}, a.StorageProviders), 200)
 }
 
-func waitStorageJob(t *testing.T, a *App) core.TransferJob {
-	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		a.Providers.Mu.Lock()
-		if a.Providers.Job != nil && a.Providers.Job.Status != "running" {
-			job := *a.Providers.Job
-			a.Providers.Mu.Unlock()
-			return job
-		}
-		a.Providers.Mu.Unlock()
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatal("transfer did not finish")
-	return core.TransferJob{}
-}
-
-func TestStorageCopyMirrorAndPreview(t *testing.T) {
+func TestStorageSyncActionsRemoved(t *testing.T) {
 	a, admin, _ := setup(t)
-	remote := t.TempDir()
-	c := core.StorageConnection{ID: "test-local", Name: "Test remote", Provider: "local", Root: remote, Options: map[string]string{}}
-	if err := a.SaveConnections([]core.StorageConnection{c}); err != nil {
+	for _, action := range []string{"transfer", "cancel"} {
+		expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": action}, a.StorageProviders), 400)
+	}
+	// Legacy sync history must not appear in the connections response.
+	if _, err := a.DB.Exec(`INSERT INTO app_settings(key,value) VALUES('storage_job','{"status":"failed"}')`); err != nil {
 		t.Fatal(err)
 	}
-	for path, data := range map[string]string{"folder/a.txt": "hello", ".trynas-trash/private.txt": "secret"} {
-		full := filepath.Join(a.Root, path)
-		if err := os.MkdirAll(filepath.Dir(full), 0700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(full, []byte(data), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	run := func(direction, mode, path string, dry, confirm bool) core.TransferJob {
-		t.Helper()
-		w := jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "transfer", "id": c.ID, "direction": direction, "mode": mode, "localPath": path, "dryRun": dry, "confirmDelete": confirm}, a.StorageProviders)
-		expect(t, w, 200)
-		job := waitStorageJob(t, a)
-		if job.Status != "completed" {
-			t.Fatalf("transfer status: %+v", job)
-		}
-		return job
-	}
-	run("upload", "copy", "", true, false)
-	if _, err := os.Stat(filepath.Join(remote, "folder/a.txt")); !os.IsNotExist(err) {
-		t.Fatal("preview wrote a file")
-	}
-	run("upload", "copy", "", false, false)
-	if data, err := os.ReadFile(filepath.Join(remote, "folder/a.txt")); err != nil || string(data) != "hello" {
-		t.Fatal("copy failed", err)
-	}
-	if _, err := os.Stat(filepath.Join(remote, ".trynas-trash")); !os.IsNotExist(err) {
-		t.Fatal("copied internal trash")
-	}
-	if err := os.WriteFile(filepath.Join(remote, "extra.txt"), []byte("keep"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	run("upload", "copy", "", false, false)
-	if _, err := os.Stat(filepath.Join(remote, "extra.txt")); err != nil {
-		t.Fatal("copy deleted extra file")
-	}
-	expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "transfer", "id": c.ID, "direction": "upload", "mode": "mirror", "localPath": "", "dryRun": false}, a.StorageProviders), 400)
-	run("upload", "mirror", "", false, true)
-	if _, err := os.Stat(filepath.Join(remote, "extra.txt")); !os.IsNotExist(err) {
-		t.Fatal("mirror did not delete extra file")
-	}
-	run("download", "copy", "new-preview", true, false)
-	if _, err := os.Stat(filepath.Join(a.Root, "new-preview")); !os.IsNotExist(err) {
-		t.Fatal("preview created destination")
-	}
-	run("download", "copy", "import", false, false)
-	if data, err := os.ReadFile(filepath.Join(a.Root, "import/folder/a.txt")); err != nil || string(data) != "hello" {
-		t.Fatal("download failed", err)
-	}
-	var owner, size int
-	if err := a.DB.QueryRow("SELECT user_id,bytes FROM file_owners WHERE path='import/folder/a.txt'").Scan(&owner, &size); err != nil || owner != admin.ID || size != 5 {
-		t.Fatal("import ownership not recorded", err)
-	}
-	if _, err := os.Stat(filepath.Join(a.Root, ".trynas-trash/private.txt")); err != nil {
-		t.Fatal("internal trash modified")
-	}
-	for _, p := range []string{"../outside", ".trynas-trash"} {
-		expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "transfer", "id": c.ID, "direction": "download", "mode": "copy", "localPath": p}, a.StorageProviders), 400)
-	}
-	if err := os.Symlink(remote, filepath.Join(a.Root, "link")); err != nil {
-		t.Fatal(err)
-	}
-	expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "transfer", "id": c.ID, "direction": "upload", "mode": "copy", "localPath": "link"}, a.StorageProviders), 400)
-	var saved string
-	if err := a.DB.QueryRow("SELECT value FROM app_settings WHERE key='storage_job'").Scan(&saved); err != nil {
-		t.Fatal(err)
-	}
-	var job core.TransferJob
-	if json.Unmarshal([]byte(saved), &job) != nil || job.Status != "completed" {
-		t.Fatal("job status not persisted")
-	}
-}
-
-func TestStorageCancellationAndRestart(t *testing.T) {
-	a, admin, _ := setup(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	a.Providers.Job = &core.TransferJob{ID: "running", Status: "running", Cancel: cancel}
-	expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "save"}, a.StorageProviders), 409)
-	expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "cancel"}, a.StorageProviders), 200)
-	if ctx.Err() == nil {
-		t.Fatal("cancellation not delivered")
-	}
-	if err := a.SaveStorageJob(a.Providers.Job); err != nil {
-		t.Fatal(err)
-	}
-	a.Providers.Job = nil
 	w := request(a, admin, "GET", "/api/storage/providers", nil, a.StorageProviders)
 	expect(t, w, 200)
-	if !strings.Contains(w.Body.String(), "interrupted") {
-		t.Fatal("restart does not identify interrupted job")
+	if strings.Contains(w.Body.String(), `"job"`) || strings.Contains(w.Body.String(), "failed") {
+		t.Fatal("obsolete sync history returned", w.Body.String())
 	}
 }

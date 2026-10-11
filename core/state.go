@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"time"
 )
 
 type State struct {
@@ -27,8 +26,6 @@ type State struct {
 	Archives             sync.Mutex
 	ActiveArchives       int
 	NetworkLast          map[string]NetworkSample
-	SmartCached          map[string]any
-	SmartAt              time.Time
 }
 
 type User struct {

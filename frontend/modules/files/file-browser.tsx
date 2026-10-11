@@ -15,10 +15,14 @@ import { fmt, message, parent, join } from "@/modules/shared/format";
 import { useResource } from "@/modules/shared/use-resource";
 import { ErrorText, Empty } from "@/modules/shared/feedback";
 
+import { isHiddenFile } from "@/modules/shared/file-visibility";
+
 type SharedItem = { path: string; paths?: string[]; token: string; expiresAt: string };
 
 export function FileBrowser({
+  allowAttachedActions,
   defaultView,
+  showHiddenFiles,
   defaultShareExpiry,
   query,
   setQuery,
@@ -34,8 +38,10 @@ export function FileBrowser({
   notify,
   onChanged,
 }: {
+  allowAttachedActions: boolean;
   defaultView: "list" | "grid" | "large";
   defaultShareExpiry: string;
+  showHiddenFiles: boolean;
   query: string;
   setQuery: (value: string) => void;
   path: string;
@@ -53,6 +59,7 @@ export function FileBrowser({
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
   );
+  const attached = useResource<{connections:{id:string;name:string;attached:boolean}[]}>(allowAttachedActions ? "/api/storage/providers" : null);
   const shares = useResource<SharedItem[]>("/api/shares", 30000);
   const sharedLinks = new Map<string, string>();
   for (const share of shares.data || []) {
@@ -61,16 +68,18 @@ export function FileBrowser({
       if (!sharedLinks.has(sharedPath)) sharedLinks.set(sharedPath, share.token);
     }
   }
-  const copySharedLink = async (itemPath: string) => {
-    const token = sharedLinks.get(itemPath);
-    if (!token) return;
+  const copyShareToken = async (token: string) => {
     const url = shareURL(token);
     try {
       await navigator.clipboard.writeText(url);
-      notify("Share link copied");
+      notify("Share link copied to clipboard. Ready to paste.");
     } catch {
-      notify(`Share link: ${url}`);
+      notify(`Could not copy automatically. Copy this share link: ${url}`);
     }
+  };
+  const copySharedLink = async (itemPath: string) => {
+    const token = sharedLinks.get(itemPath);
+    if (token) await copyShareToken(token);
   };
   const [debounced, setDebounced] = useState(query.trim()),
     [view, setView] = useState<"list" | "grid" | "large">(defaultView),
@@ -115,12 +124,12 @@ export function FileBrowser({
     selectionAnchor.current = null;
   }, [debounced]);
   useEffect(() => () => controller.current?.abort(), []);
-  const [sortBy, setSortBy] = useState<"name" | "size" | "type" | "modified">("name");
+  const [sortBy, setSortBy] = useState<"name" | "size" | "type" | "modified">("type");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const sortLabels = { name: "Name", size: "Size", type: "Type", modified: "Date modified" };
   const sourceItems =
     debounced.length >= 2 ? search.data || [] : listing.data?.items || [];
-  const items = [...sourceItems].sort((a, b) => {
+  const items = sourceItems.filter(item => showHiddenFiles || !isHiddenFile(item)).sort((a, b) => {
     if (sortBy === "type" && a.dir !== b.dir) return a.dir ? -1 : 1;
     const type = (item: Item) => item.dir ? "Folder" : (item.name.includes(".") ? item.name.split(".").pop()!.toLowerCase() : "File");
     let result = sortBy === "size" ? a.size - b.size : sortBy === "modified" ? new Date(a.modified).getTime() - new Date(b.modified).getTime() : sortBy === "type" ? type(a).localeCompare(type(b)) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
@@ -130,13 +139,13 @@ export function FileBrowser({
 
   useEffect(() => {
     const visible = new Set(
-      (debounced.length >= 2 ? search.data : listing.data?.items)?.map(
+      (debounced.length >= 2 ? search.data : listing.data?.items)?.filter(item => showHiddenFiles || !isHiddenFile(item)).map(
         (item) => item.path,
       ) || [],
     );
     setSelected((old) => old.filter((p) => visible.has(p)));
     if (selectionAnchor.current && !visible.has(selectionAnchor.current)) selectionAnchor.current = null;
-  }, [listing.data, search.data, debounced]);
+  }, [listing.data, search.data, debounced, showHiddenFiles]);
   const writable = listing.data?.writable || false;
   const reload = async () => {
     await listing.reload();
@@ -242,11 +251,16 @@ export function FileBrowser({
           method: "POST",
           body: JSON.stringify({ paths, ...settings, password: v.password }),
         });
-        notify(`Share link: ${shareURL(result.token)}`);
+        await copyShareToken(result.token);
         void shares.reload();
       },
     });
+  const transferToStorage=(move:boolean,paths:string[])=>ask({title:move ? "Move to attached storage" : "Copy to attached storage",description:"Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.",fields:[{key:"destinationStorage",label:"Destination storage",value:attached.data?.connections.find(c=>c.attached)?.id || "",options:attached.data?.connections.filter(c=>c.attached).map(c=>({value:c.id,label:c.name})) || []},{key:"destination",label:"Destination folder",value:"",required:false}],submit:move ? "Move" : "Copy",run:async values=>{try {await api("/api/storage/actions",{method:"POST",body:JSON.stringify({action:move ? "move" : "copy",storage:"",paths,...values})});notify("File operation completed");}finally {await reload();}}});
   const fileActions = (item: Item): Action[] => [
+    ...(attached.data?.connections.some(c=>c.attached) ? [
+      {label:"Copy to attached storage",icon:Copy,run:()=>transferToStorage(false,selected.includes(item.path) ? [...selected] : [item.path])},
+      {label:"Move to attached storage",icon:Move,disabled:!writable,run:()=>transferToStorage(true,selected.includes(item.path) ? [...selected] : [item.path])},
+    ] : []),
     {
       label: item.dir ? "Open folder" : "Preview",
       icon: Eye,
@@ -605,6 +619,7 @@ export function FileBrowser({
                 <Copy />
                 Copy
               </Button>
+              {attached.data?.connections.some(c=>c.attached) && <><Button variant="outline" size="sm" onClick={()=>transferToStorage(false,[...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={()=>transferToStorage(true,[...selected])}><Move />Move to storage</Button></>}
               <Button variant="outline" size="sm" onClick={() => bulk("move")}>
                 <Move />
                 Move
@@ -723,20 +738,6 @@ export function FileBrowser({
                     </button>
                     {item.favorite && (
                       <Star className="size-3 shrink-0 text-amber-500" />
-                    )}
-                    {sharedLinks.has(item.path) && (
-                      <button
-                        type="button"
-                        className="ml-auto shrink-0 rounded-md p-2 text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"
-                        aria-label={`Copy shared link for ${item.name}`}
-                        title="Shared · Click to copy link"
-                        onClick={event => {
-                          event.stopPropagation();
-                          void copySharedLink(item.path);
-                        }}
-                      >
-                        <Link2 className="size-4" aria-hidden="true" />
-                      </button>
                     )}
                     {sharedLinks.has(item.path) && (
                       <button

@@ -24,7 +24,6 @@ func (a *Module) SaveServerConfiguration(w http.ResponseWriter, r *http.Request)
 		Address      string `json:"address"`
 		CorsOrigin   string `json:"corsOrigin"`
 		CookieSecure bool   `json:"cookieSecure"`
-		SmartUseSudo bool   `json:"smartUseSudo"`
 	}
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&input) != nil {
 		core.Bad(w, "invalid server configuration", 400)
@@ -79,10 +78,6 @@ func (a *Module) SaveServerConfiguration(w http.ResponseWriter, r *http.Request)
 	values["COOKIE_SECURE"] = "false"
 	if input.CookieSecure {
 		values["COOKIE_SECURE"] = "true"
-	}
-	values["SMART_USE_SUDO"] = "false"
-	if input.SmartUseSudo {
-		values["SMART_USE_SUDO"] = "true"
 	}
 	data, err := godotenv.Marshal(values)
 	if err != nil {

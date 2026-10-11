@@ -85,3 +85,35 @@ func TestAttachedStorageLifecycleAndFiles(t *testing.T) {
 		t.Fatal("detach deleted storage")
 	}
 }
+
+func TestAttachedStorageListingCache(t *testing.T) {
+	a, admin, user := setup(t)
+	remote := t.TempDir()
+	c := core.StorageConnection{ID: "cached", Name: "Cached", Provider: "local", Root: remote, Attached: true, Options: map[string]string{}}
+	if err := a.SaveConnections([]core.StorageConnection{c}); err != nil {
+		t.Fatal(err)
+	}
+	list := func(refresh string) []byte {
+		t.Helper()
+		w := request(a, admin, "GET", "/api/storage/files?storage=cached"+refresh, nil, a.RemoteStorage)
+		expect(t, w, 200)
+		return w.Body.Bytes()
+	}
+	first := list("")
+	if err := os.WriteFile(filepath.Join(remote, "external.txt"), []byte("external"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(first, list("")) {
+		t.Fatal("repeat listing did not use cache")
+	}
+	if !bytes.Contains(list("&refresh=true"), []byte("external.txt")) {
+		t.Fatal("refresh did not bypass cache")
+	}
+	expect(t, request(a, user, "GET", "/api/storage/files?storage=cached", nil, a.RemoteStorage), 403)
+	expect(t, jsonRequest(a, admin, "POST", "/api/storage/files?storage=cached", map[string]any{"action": "mkdir", "name": "New"}, a.RemoteStorage), 200)
+	if !bytes.Contains(list(""), []byte(`"name":"New"`)) {
+		t.Fatal("mutation did not invalidate listing")
+	}
+	expect(t, jsonRequest(a, admin, "POST", "/api/storage/providers", map[string]any{"action": "detach", "id": c.ID}, a.StorageProviders), 200)
+	expect(t, request(a, admin, "GET", "/api/storage/files?storage=cached", nil, a.RemoteStorage), 404)
+}

@@ -39,10 +39,6 @@ func (a *Module) OpenAttachedStorage(ctx context.Context, id string) (fs.Fs, fun
 		a.Providers.Mu.Unlock()
 		return nil, nil, 404
 	}
-	if a.Providers.Job != nil && a.Providers.Job.Status == "running" {
-		a.Providers.Mu.Unlock()
-		return nil, nil, 409
-	}
 	// Serialize remote operations, including streams, to avoid overlapping writes
 	// and token refreshes against the same connection.
 	if a.Providers.RemoteOps > 0 {
@@ -97,6 +93,14 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "invalid storage path", 400)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method == http.MethodGet && r.URL.Query().Get("download") != "1" && r.URL.Query().Get("refresh") != "true" {
+		if data := a.cachedListing(id, p); data != nil {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(data)
+			return
+		}
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
 	defer cancel()
 	f, finish, status := a.OpenAttachedStorage(ctx, id)
@@ -112,6 +116,9 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer finish()
+	if r.Method != http.MethodGet {
+		defer a.invalidateListings(id)
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method == http.MethodGet {
 		if r.URL.Query().Get("download") == "1" {
@@ -156,7 +163,14 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 			}
 			return strings.ToLower(items[i]["name"].(string)) < strings.ToLower(items[j]["name"].(string))
 		})
-		core.JSON(w, map[string]any{"items": items, "path": p})
+		data, err := json.Marshal(map[string]any{"items": items, "path": p})
+		if err != nil {
+			core.Bad(w, "could not encode storage listing", 500)
+			return
+		}
+		a.cacheListing(id, p, data)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(data)
 		return
 	}
 	if r.URL.Path == "/api/storage/upload" {

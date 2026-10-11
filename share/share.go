@@ -1,6 +1,7 @@
 package share
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"mime"
@@ -16,21 +17,21 @@ import (
 
 func (a *Module) Shares(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
-	rows, _ := a.DB.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]') FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
+	rows, _ := a.DB.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]'), COALESCE((SELECT storage FROM share_storage WHERE share_id=shares.id),'') FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
 	defer rows.Close()
 	out := []map[string]any{}
 	for rows.Next() {
 		var id int
 		var p, tok, exp, created string
 		var protected bool
-		var pathsJSON string
-		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON)
+		var pathsJSON, storage string
+		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON, &storage)
 		var paths []string
 		_ = json.Unmarshal([]byte(pathsJSON), &paths)
 		if len(paths) == 0 {
 			paths = []string{p}
 		}
-		out = append(out, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected})
+		out = append(out, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected, "storage": storage})
 	}
 	core.JSON(w, out)
 }
@@ -38,6 +39,7 @@ func (a *Module) Shares(w http.ResponseWriter, r *http.Request) {
 func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
 	var x struct {
+		Storage   string
 		Path      string
 		Paths     []string
 		Days      int
@@ -57,6 +59,16 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "share at most 500 items", 400)
 		return
 	}
+	if x.Storage != "" {
+		if u.Role != "admin" {
+			core.Bad(w, "administrator required", 403)
+			return
+		}
+		if err := a.ValidateRemoteShare(r.Context(), x.Storage, paths); err != nil {
+			core.Bad(w, "select existing attached-storage files or folders", 400)
+			return
+		}
+	}
 	var cleaned []string
 	for _, path := range paths {
 		p, err := core.CleanPath(path)
@@ -64,19 +76,21 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "invalid share path", 400)
 			return
 		}
-		if !a.Can(u, p, false) {
-			core.Bad(w, "folder permission denied", 403)
-			return
-		}
-		full, err := core.Safe(a.Root, p)
-		if err != nil {
-			core.Bad(w, "invalid path", 400)
-			return
-		}
-		st, err := os.Stat(full)
-		if err != nil || (!st.IsDir() && !st.Mode().IsRegular()) {
-			core.Bad(w, "select existing files or folders", 400)
-			return
+		if x.Storage == "" {
+			if !a.Can(u, p, false) {
+				core.Bad(w, "folder permission denied", 403)
+				return
+			}
+			full, err := core.Safe(a.Root, p)
+			if err != nil {
+				core.Bad(w, "invalid path", 400)
+				return
+			}
+			st, err := os.Stat(full)
+			if err != nil || (!st.IsDir() && !st.Mode().IsRegular()) {
+				core.Bad(w, "select existing files or folders", 400)
+				return
+			}
 		}
 		duplicate := false
 		for _, existing := range cleaned {
@@ -156,6 +170,12 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := res.LastInsertId()
+	if x.Storage != "" {
+		if _, err = tx.Exec("INSERT INTO share_storage(share_id,storage) VALUES(?,?)", id, x.Storage); err != nil {
+			core.Bad(w, "could not save share storage", 500)
+			return
+		}
+	}
 	for _, item := range paths {
 		if _, err = tx.Exec("INSERT INTO share_items(share_id,path) VALUES(?,?)", id, item); err != nil {
 			core.Bad(w, "could not save shared items", 500)
@@ -188,9 +208,15 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 	var shareID int64
 	var owner core.User
 	e := a.DB.QueryRow("SELECT s.id,s.path,s.user_id,COALESCE(p.password_hash,'') FROM shares s LEFT JOIN share_passwords p ON p.share_id=s.id WHERE s.token=? AND (s.expires_at IS NULL OR julianday(s.expires_at)>julianday('now'))", tok).Scan(&shareID, &p, &owner.ID, &passwordHash)
+	var storage string
+	storageErr := a.DB.QueryRow("SELECT storage FROM share_storage WHERE share_id=?", shareID).Scan(&storage)
+	if storageErr != nil && storageErr != sql.ErrNoRows {
+		core.Bad(w, "share unavailable", 500)
+		return
+	}
 	if e == nil {
 		e = a.DB.QueryRow("SELECT username,role FROM users WHERE id=?", owner.ID).Scan(&owner.Username, &owner.Role)
-		if e == nil && !a.Can(owner, p, false) {
+		if e == nil && ((storage == "" && !a.Can(owner, p, false)) || (storage != "" && owner.Role != "admin")) {
 			e = fmt.Errorf("access revoked")
 		}
 	}
@@ -201,6 +227,19 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 	paths, err := a.SharePaths(shareID, p)
 	if err != nil {
 		core.Bad(w, "share unavailable", 500)
+		return
+	}
+	if storage != "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		if passwordHash != "" && !a.AuthorizeShare(w, r, shareID, tok, passwordHash) {
+			return
+		}
+		if r.URL.Query().Get("qr") == "1" {
+			ServeQR(w, r, tok)
+			return
+		}
+		a.ServeRemoteShare(w, r, storage, paths)
 		return
 	}
 	for _, item := range paths {
