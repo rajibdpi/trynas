@@ -394,7 +394,6 @@ export function FileBrowser({
     }
     selectionAnchor.current = p;
     if (event.shiftKey) { setSelected([p]); return; }
-    if (!event.ctrlKey) return;
     setSelected(old => old.includes(p) ? old.filter(path => path !== p) : [...old, p]);
   };
   return (
@@ -599,7 +598,7 @@ export function FileBrowser({
           )}
         >
           <span className="mr-2 text-sm text-muted-foreground">
-            {selected.length ? `${selected.length} selected` : "Ctrl-click to select files and folders"}
+            {selected.length ? `${selected.length} selected` : "Click to select files and folders"}
           </span>
           {selected.length > 0 && (
             <>
@@ -669,12 +668,13 @@ export function FileBrowser({
               <ContextMenuTrigger asChild>
                 <div
                   data-selected={selected.includes(item.path)}
-                  onClick={(event) => {
+                  onClickCapture={(event) => {
                     const target = event.target as HTMLElement;
                     if (
                       event.detail > 1 ||
                       !event.currentTarget.contains(target) ||
-                      target.closest("button, input, label, a, [role='menuitem']")
+                      target.closest("input, label, a, [role='menuitem']") ||
+                      (target.closest("button") && !target.closest("[data-file-select]"))
                     ) return;
                     selectItem(item.path, event);
                   }}
@@ -716,14 +716,12 @@ export function FileBrowser({
                       )}
                     </span>
                     <button
+                      type="button"
+                      data-file-select
                       className={cn("min-w-0 text-left", view === "list" ? "flex-1" : "w-full sm:w-auto sm:flex-1")}
                       aria-pressed={selected.includes(item.path)}
                       title={`Double-click to open ${item.name}`}
                       onDoubleClick={() => openItem(item)}
-                      onClick={(event) => {
-                        if (event.detail === 0) openItem(item);
-                        else if (event.detail === 1) selectItem(item.path, event);
-                      }}
                     >
                       <span className="block truncate text-sm font-medium">
                         {item.name}
