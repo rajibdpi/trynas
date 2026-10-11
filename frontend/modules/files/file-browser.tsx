@@ -217,7 +217,7 @@ export function FileBrowser({
         {
           key: "expiry",
           label: "Expires at",
-          value: defaultShareExpiry,
+          value: "never",
           options: [
             { value: "never", label: "Never" },
             { value: "1", label: "1 day" },

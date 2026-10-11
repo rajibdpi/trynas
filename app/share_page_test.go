@@ -65,3 +65,45 @@ func TestSharePageAndQRDownloads(t *testing.T) {
 		expect(t, get(query), 404)
 	}
 }
+
+func TestPasswordShareUnlockThroughTrustedProxy(t *testing.T) {
+	a, _, user := setup(t)
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
+	t.Setenv("CORS_ORIGIN", "http://localhost:3000")
+	write(t, a, "shared/file.txt", "shared contents")
+	grant(t, a, user, "shared", "read")
+	made := jsonRequest(a, user, "POST", "/api/shares", map[string]any{"path": "shared/file.txt", "never": true, "password": "share-password"}, a.CreateShare)
+	expect(t, made, 200)
+	var share struct{ Token string }
+	if err := json.Unmarshal(made.Body.Bytes(), &share); err != nil {
+		t.Fatal(err)
+	}
+	router := a.Router()
+	page := httptest.NewRecorder()
+	router.ServeHTTP(page, httptest.NewRequest("GET", "http://127.0.0.1:8080/s/"+share.Token, nil))
+	expect(t, page, 200)
+	if page.Header().Get("Referrer-Policy") != "same-origin" {
+		t.Fatal("password form must preserve its same-origin POST Origin header")
+	}
+	for _, test := range []struct {
+		origin, password string
+		status           int
+	}{
+		{"https://nas.example.com", "share-password", 303},
+		{"https://nas.example.com", "wrong-password", 401},
+		{"https://evil.example", "share-password", 403},
+	} {
+		req := httptest.NewRequest("POST", "http://127.0.0.1:8080/s/"+share.Token, strings.NewReader("password="+test.password))
+		req.RemoteAddr = "127.0.0.1:1234"
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", test.origin)
+		req.Header.Set("X-Forwarded-Host", "nas.example.com")
+		req.Header.Set("X-Forwarded-Proto", "https")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		expect(t, w, test.status)
+		if test.status == 303 && len(w.Result().Cookies()) != 1 {
+			t.Fatal("missing share session")
+		}
+	}
+}

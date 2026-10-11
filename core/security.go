@@ -69,24 +69,27 @@ func ConfiguredBrowserOrigin(origin string) bool {
 	return false
 }
 
+// TrustedProxyIP identifies explicitly configured proxy peers.
+func TrustedProxyIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	for _, value := range strings.Split(Env("TRUSTED_PROXIES", ""), ",") {
+		value = strings.TrimSpace(value)
+		if configured := net.ParseIP(value); configured != nil && configured.Equal(ip) {
+			return true
+		}
+		if _, network, err := net.ParseCIDR(value); err == nil && network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 // ClientIP only accepts forwarding headers from explicitly trusted proxy peers.
 func ClientIP(r *http.Request) string {
 	peer := PeerIP(r)
-	trusted := net.ParseIP(peer)
-	if trusted == nil {
-		return peer
-	}
-	allowed := false
-	for _, value := range strings.Split(Env("TRUSTED_PROXIES", ""), ",") {
-		value = strings.TrimSpace(value)
-		if ip := net.ParseIP(value); ip != nil && ip.Equal(trusted) {
-			allowed = true
-		}
-		if _, network, err := net.ParseCIDR(value); err == nil && network.Contains(trusted) {
-			allowed = true
-		}
-	}
-	if !allowed {
+	if !TrustedProxyIP(net.ParseIP(peer)) {
 		return peer
 	}
 	chain := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
@@ -95,17 +98,7 @@ func ClientIP(r *http.Request) string {
 		if candidate == nil {
 			return peer
 		}
-		isProxy := false
-		for _, value := range strings.Split(Env("TRUSTED_PROXIES", ""), ",") {
-			value = strings.TrimSpace(value)
-			if ip := net.ParseIP(value); ip != nil && ip.Equal(candidate) {
-				isProxy = true
-			}
-			if _, network, err := net.ParseCIDR(value); err == nil && network.Contains(candidate) {
-				isProxy = true
-			}
-		}
-		if !isProxy {
+		if !TrustedProxyIP(candidate) {
 			return candidate.String()
 		}
 	}
@@ -122,7 +115,19 @@ func AllowedBrowserOrigin(r *http.Request, origin string) bool {
 	if r.TLS != nil || Env("COOKIE_SECURE", "false") == "true" {
 		scheme = "https"
 	}
-	return ConfiguredBrowserOrigin(normalized) || normalized == scheme+"://"+r.Host
+	if ConfiguredBrowserOrigin(normalized) || normalized == scheme+"://"+r.Host {
+		return true
+	}
+	// Next.js and HTTPS reverse proxies forward the browser-facing origin.
+	// Only explicitly trusted peers may supply these headers.
+	if TrustedProxyIP(net.ParseIP(PeerIP(r))) {
+		host := r.Header.Get("X-Forwarded-Host")
+		proto := r.Header.Get("X-Forwarded-Proto")
+		if host != "" && !strings.ContainsAny(host, ",/\\\r\n") && (proto == "http" || proto == "https") {
+			return normalized == proto+"://"+host
+		}
+	}
+	return false
 }
 
 func CheckBrowserMutation(w http.ResponseWriter, r *http.Request) bool {
