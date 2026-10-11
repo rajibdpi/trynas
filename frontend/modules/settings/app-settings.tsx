@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useNotification } from "@/modules/shared/notification-provider";
 
 export type AppSettings = { trashRetentionDays: number; appName: string; logoUrl: string; footerText: string; fileView: "list" | "grid" | "large"; shareExpiry: string; registrationEnabled: boolean; showHiddenFiles: boolean };
-export const defaultSettings: AppSettings = { trashRetentionDays: 30, appName: "TryNAS", logoUrl: "", footerText: "", fileView: "grid", shareExpiry: "7", registrationEnabled: false, showHiddenFiles: false };
+export const defaultSettings: AppSettings = { trashRetentionDays: 30, appName: "TryNAS", logoUrl: "", footerText: "", fileView: "grid", shareExpiry: "never", registrationEnabled: false, showHiddenFiles: false };
 export const expiryOptions = [{ value: "never", label: "Never" }, { value: "1", label: "1 day" }, { value: "7", label: "7 days" }, { value: "15", label: "15 days" }, { value: "30", label: "30 days" }];
 
 export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings) => void }) {

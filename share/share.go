@@ -231,7 +231,7 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 	}
 	if storage != "" {
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Referrer-Policy", "same-origin")
 		if passwordHash != "" && !a.AuthorizeShare(w, r, shareID, tok, passwordHash) {
 			return
 		}
@@ -268,7 +268,7 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Referrer-Policy", "same-origin")
 	if passwordHash != "" && !a.AuthorizeShare(w, r, shareID, tok, passwordHash) {
 		return
 	}

@@ -16,7 +16,7 @@ func TestBasicAppSettings(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
-	if response.Settings.ShowHiddenFiles || response.Settings.AppName != "TryNAS" || response.Settings.FileView != "grid" || response.Settings.ShareExpiry != "7" {
+	if response.Settings.ShowHiddenFiles || response.Settings.AppName != "TryNAS" || response.Settings.FileView != "grid" || response.Settings.ShareExpiry != "never" {
 		t.Fatal("incorrect defaults")
 	}
 	configured := core.AppSettings{ShowHiddenFiles: true, AppName: "Home NAS", LogoURL: "https://example.com/logo.png", FooterText: "© My home", FileView: "list", ShareExpiry: "15"}
