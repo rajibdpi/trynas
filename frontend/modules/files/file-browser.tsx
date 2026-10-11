@@ -384,17 +384,21 @@ export function FileBrowser({
       if (input.current) input.current.value = "";
     }
   };
-  const selectItem = (p: string, event: { ctrlKey: boolean; shiftKey: boolean }) => {
+  const selectItem = (p: string, event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
     const start = items.findIndex(item => item.path === selectionAnchor.current);
     const end = items.findIndex(item => item.path === p);
     if (event.shiftKey && start >= 0 && end >= 0) {
       const range = items.slice(Math.min(start, end), Math.max(start, end) + 1).map(item => item.path);
-      setSelected(old => event.ctrlKey ? [...new Set([...old, ...range])] : range);
+      setSelected(old => event.ctrlKey || event.metaKey ? [...new Set([...old, ...range])] : range);
       return;
     }
     selectionAnchor.current = p;
     if (event.shiftKey) { setSelected([p]); return; }
-    setSelected(old => old.includes(p) ? old.filter(path => path !== p) : [...old, p]);
+    if (event.ctrlKey || event.metaKey) {
+      setSelected(old => old.includes(p) ? old.filter(path => path !== p) : [...old, p]);
+    } else {
+      setSelected([p]);
+    }
   };
   return (
     <Card
@@ -598,7 +602,7 @@ export function FileBrowser({
           )}
         >
           <span className="mr-2 text-sm text-muted-foreground">
-            {selected.length ? `${selected.length} selected` : "Click to select files and folders"}
+            {selected.length ? `${selected.length} selected` : "Click to select a file or folder. Ctrl-click to select multiple."}
           </span>
           {selected.length > 0 && (
             <>
