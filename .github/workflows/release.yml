@@ -70,9 +70,13 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Check frontend types
+      - name: Build embedded frontend and check types
         working-directory: frontend
-        run: pnpm exec tsc --noEmit
+        env:
+          TRYNAS_EMBEDDED_BUILD: 'true'
+          NEXT_PUBLIC_EMBEDDED: 'true'
+          NEXT_PUBLIC_API_URL: ''
+        run: pnpm build
       - name: Test release tag selection
         run: python3 -m unittest discover -s scripts -p release_tag_test.py
       - name: Test and vet backend
@@ -82,7 +86,7 @@ jobs:
       - name: Build all six release binaries
         env:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: go run ./scripts/build --all --admin-password-env
+        run: go run ./scripts/build --all --skip-frontend --admin-password-env
       - name: Verify release checksums and include installation files
         run: |
           (cd dist && sha256sum --check SHA256SUMS)
