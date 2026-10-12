@@ -172,15 +172,21 @@ jobs:
             exit 1
           fi
           notes="$RUNNER_TEMP/release-notes.md"
-          cat > "$notes" <<'NOTES'
+          download_url="https://github.com/$GH_REPO/releases/download/$RELEASE_TAG"
+          cat > "$notes" <<NOTES
           Standalone TryNAS builds for Linux, macOS, and Windows on AMD64 and ARM64.
 
-          Download the matching binary and verify its hash against SHA256SUMS.
-          get.sh and get.ps1 provide checksum-verified installation. See installation.md.
+          Download the matching binary and verify its hash against [SHA256SUMS]($download_url/SHA256SUMS).
+          [get.sh]($download_url/get.sh) and [get.ps1]($download_url/get.ps1) provide checksum-verified installation. See the [installation guide]($download_url/installation.md).
 
           Fresh installations use a shared build-time administrator password. Set ADMIN_PASSWORD at runtime to override it.
           Initial credentials print in the terminal when a fresh database is initialized.
           Stop the previous instance before upgrading and keep your configuration and database.
+
+          | Architecture | Windows | macOS | Linux |
+          | --- | --- | --- | --- |
+          | x64 (AMD64) | [exe]($download_url/trynas-windows-amd64.exe) | [binary]($download_url/trynas-darwin-amd64) | [binary]($download_url/trynas-linux-amd64) |
+          | ARM64 | [exe]($download_url/trynas-windows-arm64.exe) | [binary]($download_url/trynas-darwin-arm64) | [binary]($download_url/trynas-linux-arm64) |
           NOTES
           state="$RUNNER_TEMP/release-state"
           if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > "$state"; then
@@ -199,6 +205,7 @@ jobs:
             gh release create "$RELEASE_TAG" --draft --title "TryNAS $RELEASE_TAG" --notes-file "$notes" "${flags[@]}"
           fi
           gh release upload "$RELEASE_TAG" dist/* --clobber
+          gh release edit "$RELEASE_TAG" --notes-file "$notes"
           if [[ "$PUBLISH" == true ]]; then
             flags=()
             if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then flags+=(--latest); fi
