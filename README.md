@@ -488,6 +488,13 @@ Version tags such as `v1.0.0` still create draft releases. Manual runs for exist
 tags can optionally publish them. Each release includes six binaries, checksums,
 installers, and the installation guide. Local builds do not publish releases.
 
+The release tag is selected before compilation and embedded in every binary.
+`/api/health` reports that version, and `dist/VERSION` records it alongside the
+release assets. Local `go run ./scripts/build` builds increment the patch version
+above the highest stable Git tag or previous `dist/VERSION`, starting at `v1.0.0`.
+The local version is saved after a successful build. Use `--version v1.2.3` to
+choose an explicit version; CI supplies its reserved tag through `RELEASE_TAG`.
+
 ## Standalone application for Windows, Linux and macOS
 
 Build once to embed the complete frontend in the Go executable. On the machine
