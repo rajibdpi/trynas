@@ -176,18 +176,17 @@ jobs:
           cat > "$notes" <<NOTES
           Standalone TryNAS builds for Linux, macOS, and Windows on AMD64 and ARM64.
 
-          | Platform | AMD64 | ARM64 |
-          | --- | --- | --- |
-          | Linux | [Download]($download_url/trynas-linux-amd64) | [Download]($download_url/trynas-linux-arm64) |
-          | macOS | [Download]($download_url/trynas-darwin-amd64) | [Download]($download_url/trynas-darwin-arm64) |
-          | Windows | [Download]($download_url/trynas-windows-amd64.exe) | [Download]($download_url/trynas-windows-arm64.exe) |
-
           Download the matching binary and verify its hash against [SHA256SUMS]($download_url/SHA256SUMS).
           [get.sh]($download_url/get.sh) and [get.ps1]($download_url/get.ps1) provide checksum-verified installation. See the [installation guide]($download_url/installation.md).
 
           Fresh installations use a shared build-time administrator password. Set ADMIN_PASSWORD at runtime to override it.
           Initial credentials print in the terminal when a fresh database is initialized.
           Stop the previous instance before upgrading and keep your configuration and database.
+
+          | Architecture | Windows | macOS | Linux |
+          | --- | --- | --- | --- |
+          | x64 (AMD64) | [exe]($download_url/trynas-windows-amd64.exe) | [binary]($download_url/trynas-darwin-amd64) | [binary]($download_url/trynas-linux-amd64) |
+          | ARM64 | [exe]($download_url/trynas-windows-arm64.exe) | [binary]($download_url/trynas-darwin-arm64) | [binary]($download_url/trynas-linux-arm64) |
           NOTES
           state="$RUNNER_TEMP/release-state"
           if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > "$state"; then
