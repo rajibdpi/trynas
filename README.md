@@ -11,6 +11,12 @@ Install the latest release on Linux or macOS:
 curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash
 ```
 
+Install the latest release on Windows (PowerShell):
+
+```powershell
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri https://raw.githubusercontent.com/rajibdpi/trynas/main/get.ps1).Content)) -AddToPath
+```
+
 For daily commands and a map of the source code, see [Developer guide](CONTRIBUTING.md).
 
 ## Run development servers

@@ -73,7 +73,13 @@ installation directory to PATH and follow [First start](#first-start).
 ## Native Windows installer
 
 Use Windows PowerShell 5.1 or PowerShell 7+; Go and Node.js are not required.
-Download the script and run it in your current session:
+Install the latest release and add it to your user PATH with one command:
+
+```powershell
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri https://raw.githubusercontent.com/rajibdpi/trynas/main/get.ps1).Content)) -AddToPath
+```
+
+Alternatively, download the script and run it in your current session:
 
 ```powershell
 Invoke-WebRequest -UseBasicParsing -Uri https://raw.githubusercontent.com/rajibdpi/trynas/main/get.ps1 -OutFile get.ps1
