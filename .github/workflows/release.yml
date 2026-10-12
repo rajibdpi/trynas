@@ -172,11 +172,18 @@ jobs:
             exit 1
           fi
           notes="$RUNNER_TEMP/release-notes.md"
-          cat > "$notes" <<'NOTES'
+          download_url="https://github.com/$GH_REPO/releases/download/$RELEASE_TAG"
+          cat > "$notes" <<NOTES
           Standalone TryNAS builds for Linux, macOS, and Windows on AMD64 and ARM64.
 
-          Download the matching binary and verify its hash against SHA256SUMS.
-          get.sh and get.ps1 provide checksum-verified installation. See installation.md.
+          | Platform | AMD64 | ARM64 |
+          | --- | --- | --- |
+          | Linux | [Download]($download_url/trynas-linux-amd64) | [Download]($download_url/trynas-linux-arm64) |
+          | macOS | [Download]($download_url/trynas-darwin-amd64) | [Download]($download_url/trynas-darwin-arm64) |
+          | Windows | [Download]($download_url/trynas-windows-amd64.exe) | [Download]($download_url/trynas-windows-arm64.exe) |
+
+          Download the matching binary and verify its hash against [SHA256SUMS]($download_url/SHA256SUMS).
+          [get.sh]($download_url/get.sh) and [get.ps1]($download_url/get.ps1) provide checksum-verified installation. See the [installation guide]($download_url/installation.md).
 
           Fresh installations use a shared build-time administrator password. Set ADMIN_PASSWORD at runtime to override it.
           Initial credentials print in the terminal when a fresh database is initialized.
@@ -199,6 +206,7 @@ jobs:
             gh release create "$RELEASE_TAG" --draft --title "TryNAS $RELEASE_TAG" --notes-file "$notes" "${flags[@]}"
           fi
           gh release upload "$RELEASE_TAG" dist/* --clobber
+          gh release edit "$RELEASE_TAG" --notes-file "$notes"
           if [[ "$PUBLISH" == true ]]; then
             flags=()
             if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then flags+=(--latest); fi
