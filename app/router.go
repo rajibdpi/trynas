@@ -15,7 +15,7 @@ func (a *App) Router() http.Handler {
 	r.Use(middleware.RequestID, middleware.Recoverer, core.SecurityHeaders)
 	r.Use(a.Cors)
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		core.JSON(w, map[string]any{"ok": true, "name": "TryNAS", "version": "5.0.0"})
+		core.JSON(w, map[string]any{"ok": true, "name": "TryNAS", "version": core.Version})
 	})
 	r.Get("/api/branding/logo", a.Logo)
 	r.Get("/api/auth/registration", a.RegistrationOptions)

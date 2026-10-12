@@ -45,6 +45,7 @@ func build() error {
 	target := flag.String("target", "", "Comma-separated targets (default: current OS/architecture)")
 	skipFrontend := flag.Bool("skip-frontend", false, "Reuse frontend/dist; only rebuild Go binaries")
 	adminFromEnv := flag.Bool("admin-password-env", false, "Read build administrator password from process ADMIN_PASSWORD instead of .env")
+	versionFlag := flag.String("version", os.Getenv("RELEASE_TAG"), "Version tag to embed (default: RELEASE_TAG or next local patch version)")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(flag.Args(), " "))
@@ -67,6 +68,11 @@ func build() error {
 		return err
 	}
 	frontend, dist := filepath.Join(root, "frontend"), filepath.Join(root, "dist")
+	version, err := buildVersion(root, dist, *versionFlag)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Building TryNAS %s\n", version)
 	if !*skipFrontend {
 		if _, err := os.Stat(filepath.Join(frontend, "node_modules")); os.IsNotExist(err) {
 			if err := tooling.Command(frontend, "pnpm", "install", "--frozen-lockfile").Run(); err != nil {
@@ -109,7 +115,7 @@ func build() error {
 			os.Remove(tempPath)
 			return err
 		}
-		err = buildBinary(root, tempPath, parts[0], parts[1], adminHash, adminEncoded)
+		err = buildBinary(root, tempPath, parts[0], parts[1], adminHash, adminEncoded, version)
 		if err == nil {
 			err = os.Rename(tempPath, filepath.Join(dist, artifactName(target)))
 		}
@@ -119,6 +125,9 @@ func build() error {
 		}
 	}
 	if err := checksums(dist); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dist, "VERSION"), []byte(version+"\n"), 0644); err != nil {
 		return err
 	}
 	fmt.Printf("Release binaries and SHA256SUMS ready in %s\n", dist)
@@ -148,9 +157,10 @@ func encodeAdminCredentials(password string) (string, string, error) {
 	return string(hash), base64.StdEncoding.EncodeToString([]byte(password)), err
 }
 
-func buildBinary(root, output, goos, arch, adminHash, adminEncoded string) error {
+func buildBinary(root, output, goos, arch, adminHash, adminEncoded, version string) error {
 	flags := "-s -w -X github.com/rajibdpi/trynas/core.BuildAdminPasswordHash=" + adminHash
 	flags += " -X github.com/rajibdpi/trynas/core.BuildAdminPasswordEncoded=" + adminEncoded
+	flags += " -X github.com/rajibdpi/trynas/core.Version=" + version
 	cmd := tooling.Command(root, "go", "build", "-trimpath", "-ldflags="+flags, "-o", output, ".")
 	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOOS="+goos, "GOARCH="+arch)
 	return cmd.Run()

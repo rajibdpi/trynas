@@ -48,4 +48,7 @@ if __name__ == "__main__":
     tag = reserve_tag(os.environ["GH_REPO"], os.environ["GITHUB_SHA"])
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
         env.write(f"RELEASE_TAG={tag}\n")
+    if os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write(f"tag={tag}\n")
     print(f"Release tag: {tag}")
