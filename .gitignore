@@ -16,3 +16,4 @@ storage/*
 .trynas-storage.key
 
 frontend/.next-dev/
+.DS_Store
