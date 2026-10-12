@@ -25,10 +25,23 @@ Stop the running app before upgrading. Installation does not reset existing data
 
 ## Download script for Linux and macOS
 
-No Go installation or source checkout is required. Download the installer, then run it:
+No Go installation or source checkout is required. Install the latest release with
+one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/master/get.sh -o get.sh
+curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash
+```
+
+To select a release tag or installation directory, pass arguments to Bash:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash -s -- --version v1.0.0 --dir ./bin
+```
+
+Alternatively, download the installer, then run it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh -o get.sh
 bash get.sh
 ```
 
@@ -63,7 +76,7 @@ Use Windows PowerShell 5.1 or PowerShell 7+; Go and Node.js are not required.
 Download the script and run it in your current session:
 
 ```powershell
-Invoke-WebRequest -UseBasicParsing -Uri https://raw.githubusercontent.com/rajibdpi/trynas/master/get.ps1 -OutFile get.ps1
+Invoke-WebRequest -UseBasicParsing -Uri https://raw.githubusercontent.com/rajibdpi/trynas/main/get.ps1 -OutFile get.ps1
 .\get.ps1 -AddToPath
 ```
 
