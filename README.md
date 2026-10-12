@@ -5,6 +5,12 @@ TryNAS is a lightweight self-hosted **File Browser + NAS Dashboard** using Next.
 For platform-specific setup, verified binary installation, and upgrades, see
 [Installation](installation.md), including Go-free `get.sh` (Linux/macOS) and `get.ps1` (Windows) installers.
 
+Install the latest release on Linux or macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash
+```
+
 For daily commands and a map of the source code, see [Developer guide](CONTRIBUTING.md).
 
 ## Run development servers
