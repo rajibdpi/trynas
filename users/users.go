@@ -81,6 +81,15 @@ func (a *Module) SaveUser(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "username must be a valid single folder name", 400)
 			return
 		}
+		var claimed int
+		if err := a.DB.QueryRow("SELECT COUNT(*) FROM user_homes WHERE path=?", name).Scan(&claimed); err != nil {
+			core.Bad(w, "could not check home folder assignment", 500)
+			return
+		}
+		if claimed > 0 {
+			core.Bad(w, "this home folder is already assigned; choose another username", 409)
+			return
+		}
 		home, e = core.Safe(a.Root, name)
 		if e != nil {
 			core.Bad(w, "invalid home folder name", 400)
@@ -223,10 +232,7 @@ func (a *Module) DeleteUser(w http.ResponseWriter, r *http.Request) {
 func (a *Module) Profile(u core.User) map[string]any {
 	home := ""
 	if u.Role != "admin" {
-		_ = a.DB.QueryRow("SELECT path FROM user_homes WHERE user_id=?", u.ID).Scan(&home)
-		if home == "" {
-			_ = a.DB.QueryRow("SELECT path FROM permissions WHERE user_id=? AND access IN ('read','write') AND path<>'' ORDER BY CASE WHEN path=? THEN 0 ELSE 1 END,length(path),path LIMIT 1", u.ID, u.Username).Scan(&home)
-		}
+		home = a.Home(u.ID)
 	}
 	var displayName, email string
 	_ = a.DB.QueryRow("SELECT display_name,email FROM user_profiles WHERE user_id=?", u.ID).Scan(&displayName, &email)

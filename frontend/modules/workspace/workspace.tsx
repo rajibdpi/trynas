@@ -234,8 +234,18 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   });
   useEffect(() => {
     const currentLocation = readFileLocation();
-    if (!me || !currentLocation || currentLocation.storage) return;
+    if (!me || !currentLocation) return;
     const nextPath = currentLocation.path ?? me.home ?? "";
+    if (me.role !== "admin") {
+      const insideHome = (value: string) => !!me.home && !value.split("/").some(part => part === ".." || part === ".") && (value === me.home || value.startsWith(`${me.home}/`));
+      if (currentLocation.storage || !insideHome(nextPath) || (currentLocation.file && !insideHome(currentLocation.file))) {
+        setPreview(null);
+        setPath(me.home || "");
+        if (me.home) writeFileLocation(me.home, undefined, undefined, true);
+        return;
+      }
+    }
+    if (currentLocation.storage) return;
     setPath(nextPath);
     setFileQuery("");
     if (currentLocation.path === null) {
@@ -253,7 +263,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       setPreview(item);
     }).catch(error => { if (!controller.signal.aborted) { setPreview(null); showNotification(message(error)); } });
     return () => controller.abort();
-  }, [me?.id, pathname, fileLocation?.path, fileLocation?.file, fileLocation?.storage]);
+  }, [me?.id, me?.role, me?.home, pathname, fileLocation?.path, fileLocation?.file, fileLocation?.storage]);
   const navigateFolder = (next: string) => {
     setTab("files");
     setPreview(null);
