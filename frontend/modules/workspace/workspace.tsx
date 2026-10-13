@@ -559,7 +559,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           </Button>
         </header>
         {sys.error && <ErrorText text={sys.error} />}
-        <section key={activeTab}>{content}</section>
+        <section key={activeTab} className={activeTab === "files" ? "flex min-w-0 flex-1 flex-col" : undefined}>{content}</section>
         <div className="mt-auto pt-8"><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
