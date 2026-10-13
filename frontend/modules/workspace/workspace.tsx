@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/modules/shared/utils";
 import { useNotification } from "@/modules/shared/notification-provider";
+import { applyThemeColors, type ThemeMode } from "@/modules/settings/color-theme";
 import { AppSettingsPanel, defaultSettings, type AppSettings } from "@/modules/settings/app-settings";
 import { AttachedStorageBrowser } from "@/modules/storage/attached-storage-browser";
 import { CommonNavbar } from "@/modules/workspace/common-navbar";
@@ -40,6 +41,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const fileLocation = useFileLocation();
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
+  const [themeOverride, setThemeOverride] = useState<ThemeMode | null>(null);
   const [storageControlsTarget, setStorageControlsTarget] = useState<HTMLDivElement | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
   const [me, setMe] = useState<User | null>(null),
@@ -180,18 +182,33 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     return () => window.removeEventListener("trynas:unauthorized", expired);
   }, []);
   useEffect(() => {
-    const value = localStorage.getItem("trynas-theme");
-    const enabled = value
-      ? value === "dark"
-      : window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setDark(enabled);
-    document.documentElement.classList.toggle("dark", enabled);
+    try {
+      const value = localStorage.getItem("trynas-theme");
+      if (value === "light" || value === "dark") setThemeOverride(value);
+    } catch { }
   }, []);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const mode = themeOverride || appSettings.themeMode || "system";
+    const update = () => {
+      const enabled = mode === "system" ? media.matches : mode === "dark";
+      setDark(enabled);
+      document.documentElement.classList.toggle("dark", enabled);
+      applyThemeColors(appSettings, enabled);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [themeOverride, appSettings]);
   const toggleTheme = () => {
-    const enabled = !dark;
-    setDark(enabled);
-    localStorage.setItem("trynas-theme", enabled ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", enabled);
+    const mode = dark ? "light" : "dark";
+    setThemeOverride(mode);
+    try { localStorage.setItem("trynas-theme", mode); } catch { }
+  };
+  const saveAppSettings = (settings: AppSettings) => {
+    setThemeOverride(null);
+    try { localStorage.removeItem("trynas-theme"); } catch { }
+    setAppSettings(settings);
   };
   const signIn = async () => {
     setSigning(true);
@@ -334,7 +351,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   };
   switch (activeTab) {
     case "settings":
-      content = me.role === "admin" ? <AppSettingsPanel onSaved={setAppSettings} /> : <ErrorText text="Settings are available to administrators." />;
+      content = me.role === "admin" ? <AppSettingsPanel onSaved={saveAppSettings} /> : <ErrorText text="Settings are available to administrators." />;
       break;
     case "dashboard":
       content = (

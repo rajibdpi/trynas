@@ -19,7 +19,7 @@ func TestBasicAppSettings(t *testing.T) {
 	if response.Settings.ShowHiddenFiles || response.Settings.AppName != "TryNAS" || response.Settings.FileView != "grid" || response.Settings.ShareExpiry != "never" {
 		t.Fatal("incorrect defaults")
 	}
-	configured := core.AppSettings{ShowHiddenFiles: true, AppName: "Home NAS", LogoURL: "https://example.com/logo.png", FooterText: "© My home", FileView: "list", ShareExpiry: "15"}
+	configured := core.AppSettings{ShowHiddenFiles: true, AppName: "Home NAS", LogoURL: "https://example.com/logo.png", FooterText: "© My home", ThemeMode: "dark", LightPrimary: "#0369a1", DarkPrimary: "#38bdf8", LightBackground: "#f4f6fa", DarkBackground: "#101522", LightCard: "#ffffff", DarkCard: "#181f2f", FileView: "list", ShareExpiry: "15"}
 	expect(t, jsonRequest(a, user, "POST", "/api/settings", configured, a.Settings), 403)
 	expect(t, jsonRequest(a, admin, "POST", "/api/settings", configured, a.Settings), 200)
 	saved, err := a.ReadSettings()
@@ -40,6 +40,14 @@ func TestBasicAppSettings(t *testing.T) {
 		invalid.LogoURL = logo
 		expect(t, jsonRequest(a, admin, "POST", "/api/settings", invalid, a.Settings), 400)
 	}
+	for _, color := range []string{"red", "#123", "#gggggg", "#123456; color: red"} {
+		invalid := configured
+		invalid.LightPrimary = color
+		expect(t, jsonRequest(a, admin, "POST", "/api/settings", invalid, a.Settings), 400)
+	}
+	invalidMode := configured
+	invalidMode.ThemeMode = "invalid"
+	expect(t, jsonRequest(a, admin, "POST", "/api/settings", invalidMode, a.Settings), 400)
 	invalid := configured
 	invalid.FooterText = strings.Repeat("x", 201)
 	expect(t, jsonRequest(a, admin, "POST", "/api/settings", invalid, a.Settings), 400)
