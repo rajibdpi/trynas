@@ -4,7 +4,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ZipPreview } from "@/modules/files/zip-preview";
 import { OfficePreview } from "@/modules/files/office-preview";
 import { FileEditor } from "@/modules/files/file-editor";
-import { Download, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { useResource } from "@/modules/shared/use-resource";
+import { parent } from "@/modules/shared/format";
+import { isHiddenFile } from "@/modules/shared/file-visibility";
+import { adjacentImage, isImageFile } from "./image-gallery";
 import { API } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -51,7 +55,7 @@ function DocumentPreview({ url, ext, size }: { url: string; ext: string; size: n
     return () => { controller.abort(); if (objectURL) URL.revokeObjectURL(objectURL); };
   }, [url, ext, size]);
   if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>;
-  if (ext === "pdf") return pdf ? <object data={pdf} type="application/pdf" className="h-[65vh] w-full rounded border bg-white"><p>Your browser cannot display PDF files. Use Download to open it.</p></object> : <p>Loading PDF…</p>;
+  if (ext === "pdf") return pdf ? <object data={pdf} type="application/pdf" className="h-full w-full rounded border bg-white"><p>Your browser cannot display PDF files. Use Download to open it.</p></object> : <p>Loading PDF…</p>;
   if (text === null) return <p>Loading preview…</p>;
   if (ext === "md" || ext === "markdown") return <MarkdownViewer text={text} />;
   if (ext === "csv" || ext === "tsv") return <CSVViewer text={text} delimiter={ext === "tsv" ? "\t" : ","} />;
@@ -59,27 +63,43 @@ function DocumentPreview({ url, ext, size }: { url: string; ext: string; size: n
 }
 
 function ImagePreview({ url, name }: { url: string; name: string }) {
-  const [zoom, setZoom] = useState(1);
   const [error, setError] = useState(false);
-  return <div><div className="mb-2 flex items-center gap-2"><Button variant="outline" size="sm" aria-label="Zoom out" disabled={zoom <= 0.25} onClick={() => setZoom(value => value - 0.25)}><ZoomOut /></Button><span className="text-xs">{Math.round(zoom * 100)}%</span><Button variant="outline" size="sm" aria-label="Zoom in" disabled={zoom >= 3} onClick={() => setZoom(value => value + 0.25)}><ZoomIn /></Button></div>{error ? <p role="alert">Could not load image. Use Download to open it.</p> : <div className="max-h-[65vh] overflow-auto rounded border p-2"><img alt={name} src={url} onError={() => setError(true)} className="mx-auto block" style={{ width: `${zoom * 100}%`, maxWidth: "none" }} /></div>}</div>;
+  return <div className="relative h-full min-h-0 w-full min-w-0 overflow-hidden">
+    {error ? <p role="alert">Could not load image. Use Download to open it.</p> : <img
+      alt={name}
+      src={url}
+      onError={() => setError(true)}
+      className="absolute inset-0 block h-full w-full"
+      style={{ objectFit: "contain", objectPosition: "center" }}
+    />}
+  </div>;
 }
 
 function MediaPreview({ url, video }: { url: string; video?: boolean }) {
   const [error, setError] = useState(false);
   if (error) return <p role="alert" className="text-sm text-muted-foreground">This media format cannot be played by your browser. Download it to open it.</p>;
-  return video ? <video src={url} controls preload="metadata" onError={() => setError(true)} className="mx-auto max-h-[65vh] w-full" /> : <audio src={url} controls preload="metadata" onError={() => setError(true)} className="w-full" />;
+  return video ? <video src={url} controls preload="metadata" onError={() => setError(true)} className="mx-auto h-full max-h-full w-full object-contain" /> : <audio src={url} controls preload="metadata" onError={() => setError(true)} className="w-full" />;
 }
 
-export function Preview({ item, close }: { item: Item; close: () => void }) {
+export function Preview({ item, close, onNavigate, showHiddenFiles = false, imageItems, storage }: { item: Item; close: () => void; onNavigate?: (item: Item) => void; showHiddenFiles?: boolean; imageItems?: Item[]; storage?: string }) {
   const [editing, setEditing] = useState(false);
+  const folder = parent(item.path);
+  const image = isImageFile(item);
+  const listing = useResource<{ items: Item[] }>(!imageItems ? `/api/files?path=${encodeURIComponent(folder)}` : null);
+  const images = (imageItems || listing.data?.items || []).filter(candidate => parent(candidate.path) === folder && !candidate.dir && (showHiddenFiles || candidate.path === item.path || !isHiddenFile(candidate))).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+  const index = images.findIndex(candidate => candidate.path === item.path);
+  const navigate = (direction: -1 | 1) => {
+    const next = adjacentImage(images, item.path, direction);
+    if (next) onNavigate?.(next);
+  };
   const ext = item.name.split(".").pop()?.toLowerCase() || "",
-    url = `${API}/api/files/preview?path=${encodeURIComponent(item.path)}`;
+    url = storage ? `${API}/api/storage/files?storage=${encodeURIComponent(storage)}&path=${encodeURIComponent(item.path)}&download=1` : `${API}/api/files/preview?path=${encodeURIComponent(item.path)}`;
   let content: ReactNode = (
     <Empty text="Preview unavailable. Download this file to open it." />
   );
-  if (["jpg", "jpeg", "png", "gif", "webp", "svg", "avif", "bmp", "ico", "apng"].includes(ext))
+  if (image)
     content = <ImagePreview key={url} url={url} name={item.name} />;
-  else if (ext === "zip") content = <ZipPreview key={url} path={item.path} />;
+  else if (ext === "zip" && !storage) content = <ZipPreview key={url} path={item.path} />;
   else if (["xlsx", "xls", "xlsm", "xlsb", "ods", "docx", "doc"].includes(ext))
     content = <OfficePreview key={url} url={url} ext={ext} size={item.size} />;
   else if (["mp4", "webm", "m4v", "mov", "ogv"].includes(ext))
@@ -97,17 +117,28 @@ export function Preview({ item, close }: { item: Item; close: () => void }) {
         if (!open && (!editing || window.confirm("Close editor? Unsaved changes will be discarded."))) close();
       }}
     >
-      <DialogContent className="max-w-5xl">
-        <DialogTitle className="pr-6 font-semibold">{item.name}</DialogTitle>
-        <DialogDescription className="mb-4 break-all text-xs text-muted-foreground">
+      <DialogContent className="inset-0 flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-4 sm:p-6" onKeyDown={event => {
+        if (editing || !onNavigate || event.altKey || event.ctrlKey || event.metaKey || (event.target as HTMLElement).closest("input, textarea, [contenteditable='true']")) return;
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault(); navigate(event.key === "ArrowLeft" ? -1 : 1);
+        }
+      }}>
+        <DialogTitle className="shrink-0 truncate pr-6 font-semibold">{item.name}</DialogTitle>
+        <DialogDescription className="mb-4 shrink-0 truncate text-xs text-muted-foreground">
           {item.path}
         </DialogDescription>
-        {editing ? <FileEditor key={item.path} path={item.path} close={() => setEditing(false)} /> : content}
-        <div className="mt-4 flex items-center gap-3">
+
+        <div className={`relative min-h-0 min-w-0 flex-1 ${image || (content as React.ReactElement).type === MediaPreview || ext === "pdf" ? "overflow-hidden" : "overflow-auto"}`}>{editing ? <FileEditor key={item.path} path={item.path} close={() => setEditing(false)} /> : content}</div>
+        <div className="mt-4 flex shrink-0 flex-wrap items-center gap-3 border-t pt-3">
+        {onNavigate && <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <Button variant="outline" size="icon" aria-label="Previous file" title="Previous file (left arrow)" disabled={editing || images.length < 2 || index < 0} onClick={() => navigate(-1)}><ChevronLeft /></Button>
+          <span role="status" aria-live="polite" className="text-sm text-muted-foreground">{index >= 0 ? `${index + 1} / ${images.length}` : listing.error ? "Could not load folder files" : "Loading folder files…"}</span>
+          <Button variant="outline" size="icon" aria-label="Next file" title="Next file (right arrow)" disabled={editing || images.length < 2 || index < 0} onClick={() => navigate(1)}><ChevronRight /></Button>
+        </div>}
           {!editing && item.writable && (content as React.ReactElement).type === DocumentPreview && ext !== "pdf" && <Button variant="outline" onClick={() => setEditing(true)}>Edit file</Button>}
           <Button asChild>
             <a
-              href={`${API}/api/files/download?path=${encodeURIComponent(item.path)}`}
+              href={storage ? url : `${API}/api/files/download?path=${encodeURIComponent(item.path)}`}
             >
               <Download />
               Download

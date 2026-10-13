@@ -560,7 +560,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         <div className="mt-auto pt-8"><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
-      {preview && <Preview item={preview} close={() => { setPreview(null); writeFileLocation(path); }} />}
+      {preview && <Preview item={preview} onNavigate={openItem} showHiddenFiles={appSettings.showHiddenFiles} close={() => { setPreview(null); writeFileLocation(path); }} />}
     </div>
   );
 }
