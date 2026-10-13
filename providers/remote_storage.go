@@ -94,7 +94,7 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	if r.Method == http.MethodGet && r.URL.Query().Get("download") != "1" && r.URL.Query().Get("refresh") != "true" {
+	if r.Method == http.MethodGet && r.URL.Query().Get("download") != "1" && r.URL.Query().Get("refresh") != "true" && r.URL.Query().Get("info") != "1" {
 		if data := a.cachedListing(id, p); data != nil {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(data)
@@ -121,6 +121,43 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method == http.MethodGet {
+		if r.URL.Query().Get("info") == "1" {
+			parent := path.Dir(p)
+			if parent == "." {
+				parent = ""
+			}
+			entries, err := f.List(ctx, parent)
+			if err != nil {
+				RemoteFailure(w, err)
+				return
+			}
+			for _, entry := range entries {
+				if entry.Remote() != p {
+					continue
+				}
+				_, dir := entry.(fs.Directory)
+				result := map[string]any{"name": path.Base(p), "path": p, "dir": dir, "modified": entry.ModTime(ctx)}
+				if !dir {
+					result["size"] = entry.Size()
+					result["extension"] = strings.TrimPrefix(path.Ext(p), ".")
+					result["mimeType"] = mime.TypeByExtension(path.Ext(p))
+				}
+				if provider, ok := entry.(fs.Metadataer); ok {
+					if metadata, err := provider.Metadata(ctx); err == nil {
+						result["created"] = metadata["btime"]
+						result["owner"] = metadata["owner"]
+						result["permissions"] = metadata["mode"]
+						if metadata["content-type"] != "" {
+							result["mimeType"] = metadata["content-type"]
+						}
+					}
+				}
+				core.JSON(w, result)
+				return
+			}
+			core.Bad(w, "file or folder not found", 404)
+			return
+		}
 		if r.URL.Query().Get("download") == "1" {
 			obj, err := f.NewObject(ctx, p)
 			if err != nil {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload } from "lucide-react";
+import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload, Info } from "lucide-react";
 import { API, api, uploadFiles, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/modules/shared/utils";
+import { FileInfoDialog } from "./file-info-dialog";
 import { FileTypeIcon } from "@/modules/files/file-type-icon";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
 import { fmt, message, parent, join } from "@/modules/shared/format";
@@ -56,6 +57,7 @@ export function FileBrowser({
   notify: (s: string) => void;
   onChanged: () => void;
 }) {
+  const [infoItem, setInfoItem] = useState<Item | null>(null);
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
   );
@@ -257,6 +259,7 @@ export function FileBrowser({
     });
   const transferToStorage=(move:boolean,paths:string[])=>ask({title:move ? "Move to attached storage" : "Copy to attached storage",description:"Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.",fields:[{key:"destinationStorage",label:"Destination storage",value:attached.data?.connections.find(c=>c.attached)?.id || "",options:attached.data?.connections.filter(c=>c.attached).map(c=>({value:c.id,label:c.name})) || []},{key:"destination",label:"Destination folder",value:"",required:false}],submit:move ? "Move" : "Copy",run:async values=>{try {await api("/api/storage/actions",{method:"POST",body:JSON.stringify({action:move ? "move" : "copy",storage:"",paths,...values})});notify("File operation completed");}finally {await reload();}}});
   const fileActions = (item: Item): Action[] => [
+    { label: "Info", icon: Info, run: () => setInfoItem(item) },
     ...(attached.data?.connections.some(c=>c.attached) ? [
       {label:"Copy to attached storage",icon:Copy,run:()=>transferToStorage(false,selected.includes(item.path) ? [...selected] : [item.path])},
       {label:"Move to attached storage",icon:Move,disabled:!writable,run:()=>transferToStorage(true,selected.includes(item.path) ? [...selected] : [item.path])},
@@ -601,9 +604,7 @@ export function FileBrowser({
             selected.length > 0 && "has-selection",
           )}
         >
-          <span className="mr-2 text-sm text-muted-foreground">
-            {selected.length ? `${selected.length} selected` : "Click to select a file or folder. Ctrl-click to select multiple."}
-          </span>
+          {selected.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selected.length} selected</span>}
           {selected.length > 0 && (
             <>
               <Button
@@ -796,6 +797,7 @@ export function FileBrowser({
             }
           />
         )}
+        <FileInfoDialog item={infoItem} close={() => setInfoItem(null)} />
       </CardContent>
     </Card>
   );

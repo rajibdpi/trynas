@@ -10,9 +10,10 @@ import { api, API, ApiError, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { FileInfoDialog } from "@/modules/files/file-info-dialog";
 import { FileTypeIcon } from "@/modules/files/file-type-icon";
 import { useNotification } from "@/modules/shared/notification-provider";
-import { HardDrive, Cloud, Folder, Download, Trash2, Upload, RefreshCw, Check, Grid2X2, Grip, List, ArrowDownWideNarrow, ChevronDown, Plus, Copy, Move, Archive, Link2, Pencil } from "lucide-react";
+import { HardDrive, Cloud, Folder, Download, Trash2, Upload, RefreshCw, Check, Grid2X2, Grip, List, ArrowDownWideNarrow, ChevronDown, Plus, Copy, Move, Archive, Link2, Pencil, Info } from "lucide-react";
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
@@ -73,6 +74,7 @@ export function AttachedStorageBrowser({ onChanged, ask, defaultShareExpiry, def
   );
 }
 function RemoteFiles({ onChanged, ask, connections, defaultShareExpiry, defaultView, showHiddenFiles, connection, query, setQuery }: { onChanged: () => void; ask: (command: Command) => void; connections: Connection[]; defaultShareExpiry: string; defaultView: "list" | "grid" | "large"; showHiddenFiles: boolean; connection: Connection; query: string; setQuery: (q: string) => void }) {
+  const [infoItem, setInfoItem] = useState<Item | null>(null);
   const notify = useNotification();
   const shares=useResource<{storage?:string;paths?:string[];path:string;token:string;expiresAt?:string}[]>("/api/shares",30000);
   const sharedLinks=new Map<string,string>();
@@ -211,7 +213,7 @@ function RemoteFiles({ onChanged, ask, connections, defaultShareExpiry, defaultV
     <nav aria-label="Remote folder" className="flex flex-wrap gap-2 text-sm"><button className="text-primary hover:underline" disabled={busy} onClick={() => setPath("")}>{connection.name}</button>{path.split("/").filter(Boolean).map((part, i, parts) => <span key={i} className="flex gap-2"><span>/</span><button className="hover:underline" disabled={busy} onClick={() => setPath(parts.slice(0, i + 1).join("/"))}>{part}</button></span>)}</nav>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}{loading ? <div role="status" aria-live="polite" aria-busy="true" className="space-y-4 rounded-lg border p-4"><p className="flex items-center gap-2 text-sm text-muted-foreground"><RefreshCw aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />Loading…</p><div aria-hidden="true" className="space-y-4 animate-pulse motion-reduce:animate-none">{[0, 1, 2, 3].map(row => <div key={row} className="flex items-center gap-3"><div className="h-12 w-12 shrink-0 rounded-lg bg-muted" /><div className="flex-1 space-y-2"><div className="h-4 w-2/3 max-w-72 rounded bg-muted" /><div className="h-3 w-1/3 max-w-32 rounded bg-muted" /></div></div>)}</div></div> : !visible.length && <p className="text-sm text-muted-foreground">{query ? "No matching files." : "This folder is empty."}</p>}
     <div className={cn("selection-toolbar flex flex-wrap items-center gap-2", selected.length > 0 && "has-selection")}>
-      <span className="mr-2 text-sm text-muted-foreground">{selected.length ? `${selected.length} selected` : "Click to select a file or folder. Ctrl-click to select multiple."}</span>
+      {selected.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selected.length} selected</span>}
       {!!selected.length && <><Button size="sm" variant="outline" onClick={() => setSelected(visible.map(i => i.path))}>Select all</Button><Button size="sm" variant="ghost" onClick={() => setSelected([])}>Clear</Button>{remoteActions.filter(a=>a.action !== "rename").map(a=><Button key={a.action} variant={a.action === "trash" ? "destructive" : "outline"} size="sm" disabled={busy} onClick={()=>fileAction(a.action,[...selected])}><a.icon />{a.label}</Button>)}</>}
     </div>
     {!loading && <div className={view === "list" ? "space-y-1" : view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"}>
@@ -224,6 +226,7 @@ function RemoteFiles({ onChanged, ask, connections, defaultShareExpiry, defaultV
         <div className="file-meta flex items-center justify-between gap-2"><span className="text-xs text-muted-foreground">{new Date(item.modified).toLocaleDateString()}</span><div className="flex shrink-0 gap-1">{!item.dir && <Button variant="ghost" size="icon-sm" disabled={busy} aria-label={`Download ${item.name}`} onClick={() => download(item)}><Download /></Button>}</div></div>
       </div></ContextMenuTrigger><ContextMenuContent>
         <ContextMenuItem disabled={busy} onSelect={() => item.dir ? setPath(item.path) : download(item)}>{item.dir ? <Folder className="size-4" /> : <Download className="size-4" />}<span>{item.dir ? "Open folder" : "Download"}</span></ContextMenuItem>
+        <ContextMenuItem onSelect={() => setInfoItem(item)}><Info className="size-4" /><span>Info</span></ContextMenuItem>
         {remoteActions.map(a=><ContextMenuItem key={a.action} disabled={busy} className={a.action === "trash" ? "text-destructive" : undefined} onSelect={()=>fileAction(a.action,a.action !== "rename" && selected.includes(item.path) ? [...selected] : [item.path])}><a.icon className="size-4" /><span>{a.label}</span></ContextMenuItem>)}
         <ContextMenuItem disabled={busy} className="text-destructive" onSelect={() => setDeleting(item)}><Trash2 className="size-4" /><span>Delete permanently</span></ContextMenuItem>
       </ContextMenuContent></ContextMenu>)}
@@ -231,5 +234,6 @@ function RemoteFiles({ onChanged, ask, connections, defaultShareExpiry, defaultV
     <Dialog open={trashOpen} onOpenChange={setTrashOpen}><DialogContent><DialogTitle>Storage trash · {connection.name}</DialogTitle><DialogDescription>Restore items or delete them permanently. Remote trash stays until you empty it.</DialogDescription><div className="max-h-96 space-y-3 overflow-auto">{!trashItems.length && <p className="text-sm text-muted-foreground">Trash is empty.</p>}{trashItems.map(item=><div key={item.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-3"><span className="min-w-0 flex-1 break-all text-sm">{item.path}</span><Button size="sm" variant="outline" onClick={()=>{setTrashOpen(false);restoreTrash(item);}}>Restore</Button><Button size="sm" variant="destructive" onClick={()=>{setTrashOpen(false);restoreTrash(item,true);}}>Delete permanently</Button></div>)}</div></DialogContent></Dialog>
     <Dialog open={!!deleting} onOpenChange={open => { if (!open && !busy) setDeleting(null); }}><DialogContent><DialogTitle>Delete {deleting?.name}?</DialogTitle><DialogDescription className="my-4">This permanently deletes the {deleting?.dir ? "folder and its contents" : "file"} from {connection.name}.</DialogDescription><Button variant="destructive" disabled={busy} onClick={() => deleting && void mutate(deleting.path, { action: "delete", dir: deleting.dir, confirm: true }, "Remote item deleted")}>{busy ? "Deleting…" : "Delete permanently"}</Button></DialogContent></Dialog>
     <Dialog open={creating} onOpenChange={open => { if (!busy) setCreating(open); }}><DialogContent><DialogTitle>New folder</DialogTitle><DialogDescription className="my-4">Create a folder on {connection.name}.</DialogDescription><form className="space-y-4" onSubmit={e => { e.preventDefault(); void mutate(path, { action: "mkdir", name }, "Folder created"); }}><input aria-label="Folder name" required value={name} onChange={e => setName(e.target.value)} /><Button disabled={busy} type="submit">{busy ? "Creating…" : "Create folder"}</Button></form></DialogContent></Dialog>
+    <FileInfoDialog item={infoItem} storage={connection} close={() => setInfoItem(null)} />
   </CardContent></Card>;
 }

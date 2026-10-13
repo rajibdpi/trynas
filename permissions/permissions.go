@@ -105,7 +105,7 @@ func (a *Module) Guard(next http.Handler) http.Handler {
 			target := r.URL.Query().Get("path")
 			_, err := core.Safe(a.Root, target)
 			ok := a.Can(u, target, false)
-			if p == "/api/files" || p == "/api/files/search" {
+			if p == "/api/files" || p == "/api/files/search" || p == "/api/files/info" {
 				ok = a.CanBrowse(u, target)
 			}
 			if err != nil {

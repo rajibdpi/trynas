@@ -6,6 +6,7 @@ export const defaultColors = {
 };
 export type ThemeColors = typeof defaultColors;
 export const colorPresets = [
+  { name: "Blue", lightPrimary: "#1e64d6", darkPrimary: "#1e64d6" },
   { name: "Violet", lightPrimary: "#6254e8", darkPrimary: "#a69cff" },
   { name: "Ocean", lightPrimary: "#0369a1", darkPrimary: "#38bdf8" },
   { name: "Forest", lightPrimary: "#047857", darkPrimary: "#34d399" },

@@ -177,7 +177,7 @@ select option {
   --sidebar-panel: var(--background);
   --sidebar-border: var(--border);
   background: var(--card);
-  color: var(--foreground);
+  color: var(--card-foreground);
   border-right: 1px solid var(--sidebar-border);
 }
 .brand-mark {
@@ -260,15 +260,7 @@ select option {
 .app-sidebar button[aria-label="Toggle dark mode"]:hover {
   background: var(--sidebar-hover);
 }
-.dark .app-sidebar {
-  --sidebar-muted: #9aa9c0;
-  --sidebar-hover: #ffffff08;
-  --sidebar-active: #7565ee22;
-  --sidebar-active-text: #c3baff;
-  --sidebar-panel: #ffffff03;
-  --sidebar-border: #ffffff0c;
-  background: #121a2b;
-}
+
 .app-sidebar .text-slate-400 { color: var(--sidebar-muted); }
 .app-sidebar > div:last-child { border-color: var(--sidebar-border); }
 .workspace {
@@ -393,8 +385,8 @@ select option {
   border-radius: 11px;
 }
 .folder-icon {
-  color: #d09a2a;
-  background: #f8b93c13;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 .document-icon {
   color: var(--primary);
