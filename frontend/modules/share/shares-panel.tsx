@@ -2,6 +2,7 @@
 
 import { ViewSwitcher, useCollectionView, collectionLayout, collectionItem } from "@/modules/files/view-switcher";
 
+import { Eye, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { type Command } from "@/modules/shared/types";
 import { useResource } from "@/modules/shared/use-resource";
 import { ErrorText, Empty } from "@/modules/shared/feedback";
 
-type SharedLink = { id: number; token: string; path: string; paths?: string[]; storage?: string; passwordProtected: boolean; expiresAt?: string };
+type SharedLink = { visits?: number; downloads?: number; id: number; token: string; path: string; paths?: string[]; storage?: string; passwordProtected: boolean; expiresAt?: string };
 
 export function SharesPanel({
   ask,
@@ -21,7 +22,7 @@ export function SharesPanel({
   notify: (s: string) => void;
 }) {
   const [view, changeView] = useCollectionView("trynas-shares-view");
-  const shares = useResource<SharedLink[]>("/api/shares");
+  const shares = useResource<SharedLink[]>("/api/shares", 15000);
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -95,6 +96,10 @@ export function SharesPanel({
               <p className="break-all text-sm font-semibold">{(item.paths?.length || 0) > 1 ? `${item.paths?.length} shared items` : item.path || "Storage root"}</p>
               {(item.paths?.length || 0) > 1 && <p className="break-all text-xs text-muted-foreground">{item.paths?.join(", ")}</p>}
               {item.storage && <p className="text-xs text-muted-foreground">Attached storage</p>}
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5" title="Successful shared-page visits; repeat visits are counted"><Eye aria-hidden="true" className="size-3.5" />{(item.visits || 0).toLocaleString()} visits</span>
+                <span className="inline-flex items-center gap-1.5" title="Successful full file or folder download requests; QR downloads and range retries are excluded"><Download aria-hidden="true" className="size-3.5" />{(item.downloads || 0).toLocaleString()} downloads</span>
+              </div>
               {item.passwordProtected && <p className="text-xs text-primary">Password protected</p>}
               <p className="text-xs text-muted-foreground">
                 {item.expiresAt

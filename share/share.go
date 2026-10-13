@@ -17,21 +17,22 @@ import (
 
 func (a *Module) Shares(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
-	rows, _ := a.DB.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]'), COALESCE((SELECT storage FROM share_storage WHERE share_id=shares.id),'') FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
+	rows, _ := a.DB.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]'), COALESCE((SELECT storage FROM share_storage WHERE share_id=shares.id),''),COALESCE((SELECT visits FROM share_stats WHERE share_id=shares.id),0),COALESCE((SELECT downloads FROM share_stats WHERE share_id=shares.id),0) FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
 	defer rows.Close()
 	out := []map[string]any{}
 	for rows.Next() {
 		var id int
+		var visits, downloads int64
 		var p, tok, exp, created string
 		var protected bool
 		var pathsJSON, storage string
-		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON, &storage)
+		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON, &storage, &visits, &downloads)
 		var paths []string
 		_ = json.Unmarshal([]byte(pathsJSON), &paths)
 		if len(paths) == 0 {
 			paths = []string{p}
 		}
-		out = append(out, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected, "storage": storage})
+		out = append(out, map[string]any{"visits": visits, "downloads": downloads, "id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected, "storage": storage})
 	}
 	core.JSON(w, out)
 }
@@ -235,6 +236,9 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 		if passwordHash != "" && !a.AuthorizeShare(w, r, shareID, tok, passwordHash) {
 			return
 		}
+		tracked, record := a.trackShare(w, r, shareID)
+		w = tracked
+		defer record()
 		if r.URL.Query().Get("qr") == "1" {
 			ServeQR(w, r, tok)
 			return
@@ -272,6 +276,9 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 	if passwordHash != "" && !a.AuthorizeShare(w, r, shareID, tok, passwordHash) {
 		return
 	}
+	tracked, record := a.trackShare(w, r, shareID)
+	w = tracked
+	defer record()
 	if r.URL.Query().Get("qr") == "1" {
 		ServeQR(w, r, tok)
 		return
