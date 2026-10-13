@@ -68,6 +68,7 @@ func (a *App) Router() http.Handler {
 		r.Post("/api/files/edit", a.EditFile)
 		r.Post("/api/files/folder", a.Mkdir)
 		r.Post("/api/files/upload", a.UploadV5)
+		r.Post("/api/files/upload/check", a.UploadConflicts)
 		r.Post("/api/files/rename", a.RenameV5)
 		r.Post("/api/files/copy", a.CopyMoveV5(false))
 		r.Post("/api/files/move", a.CopyMoveV5(true))

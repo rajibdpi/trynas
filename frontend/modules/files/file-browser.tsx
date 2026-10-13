@@ -4,7 +4,7 @@ import { useErrorNotification } from "@/modules/shared/notification-provider";
 
 import { useEffect, useRef, useState } from "react";
 import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload, Info } from "lucide-react";
-import { API, api, uploadFiles, shareURL } from "@/modules/shared/api";
+import { API, api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -16,6 +16,7 @@ import { ViewSwitcher } from "./view-switcher";
 import { useDragSelection } from "./drag-selection";
 import { findExistingShare } from "./existing-share";
 import { NewMenu } from "./new-menu";
+import { useUploadWithConflicts } from "./upload-conflict-dialog";
 import { uploadFolderFiles } from "./upload-folder";
 import { FileThumbnail } from "@/modules/files/file-thumbnail";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
@@ -369,15 +370,13 @@ export function FileBrowser({
       run: () => bulk("trash", [item.path]),
     },
   ];
+  const { upload: uploadWithConflicts, dialog: uploadConflictDialog } = useUploadWithConflicts();
   const send = async (files: File[]) => {
     if (!files.length || upload) return;
     if (!writable) {
       notify("This folder is read-only");
       return;
     }
-    const data = new FormData();
-    data.append("path", path);
-    files.forEach((f) => data.append("files", f));
     controller.current = new AbortController();
     setUploadError("");
     setUpload({
@@ -386,8 +385,8 @@ export function FileBrowser({
       stage: "Uploading",
     });
     try {
-      const result = await uploadFiles(
-        data,
+      const result = await uploadWithConflicts(
+        path, files,
         (loaded, total) =>
           setUpload({
             loaded,
@@ -396,10 +395,10 @@ export function FileBrowser({
           }),
         controller.current.signal,
       );
-      notify(`Uploaded ${result.files} file(s), ${fmt(result.bytes)}`);
+      notify(result.files ? `Uploaded ${result.files} file(s), ${fmt(result.bytes)}` : "Kept existing files. Nothing uploaded.");
       await reload();
     } catch (e) {
-      setUploadError(message(e));
+      if (!(e instanceof Error && e.name === "AbortError")) setUploadError(message(e));
     } finally {
       setUpload(null);
       controller.current = null;
@@ -806,13 +805,13 @@ export function FileBrowser({
           setFolderUploading(true); setUploadError("");
           try {
             await uploadFolderFiles(files, path, async directory => { await api("/api/files/folder", { method: "POST", body: JSON.stringify({ path: directory, existOk: true }) }); }, async (directory, files) => {
-              const body = new FormData(); body.append("path", directory); for (const file of files) body.append("files", file);
-              await uploadFiles(body, () => {}, new AbortController().signal);
+              await uploadWithConflicts(directory, files, () => {});
             });
             notify("Folder uploaded");
-          } catch (error) { setUploadError(message(error)); }
+          } catch (error) { if (!(error instanceof Error && error.name === "AbortError")) setUploadError(message(error)); }
           finally { setFolderUploading(false); await reload(); }
         }} />
+        {uploadConflictDialog}
         {dragSelection.overlay}
         <FileInfoDialog item={infoItem} close={() => setInfoItem(null)} />
       </CardContent>

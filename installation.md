@@ -420,3 +420,10 @@ request; backend quotas and the 10 GiB backend cap still apply. A separately
 started frontend reads the project-root `.env`; set `TRYNAS_CONFIG_FILE` when using
 a custom configuration file. An explicit `PROXY_UPLOAD_LIMIT_MB` environment
 variable takes precedence over the saved value.
+
+File uploads handle name conflicts as follows: matching names with different
+byte sizes receive numbered names such as `report(1).txt`, `report(2).txt`.
+Matching names and byte sizes open a dialog with Keep existing (skip), Keep both
+(numbered copy), and Replace. Equal byte sizes do not imply equal contents.
+The same rules apply to files inside a local folder upload. Destination permissions
+and quota are rechecked at commit; replacement failure restores the original.
