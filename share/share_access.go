@@ -65,11 +65,23 @@ func (a *Module) NormalizeExpiries(table, key string) error {
 }
 
 func (a *Module) AuthorizeShare(w http.ResponseWriter, r *http.Request, id int64, tok, hash string) bool {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	resource := r.URL.Query().Get("download") == "1" || r.URL.Query().Get("qr") == "1"
 	if cookie, err := r.Cookie("trynas_share"); err == nil {
-		var valid int
-		if a.DB.QueryRow("SELECT 1 FROM share_sessions WHERE token=? AND share_id=? AND julianday(expires_at)>julianday('now')", cookie.Value, id).Scan(&valid) == nil {
-			return true
+		// A grant supports downloads/QR during the current visit, never a new page
+		// visit or password submission. Reopening the page revokes this browser's
+		// grant without affecting other visitors to the same share.
+		if resource && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			var valid int
+			if a.DB.QueryRow("SELECT 1 FROM share_sessions WHERE token=? AND share_id=? AND julianday(expires_at)>julianday('now')", cookie.Value, id).Scan(&valid) == nil {
+				return true
+			}
+		} else {
+			if _, err := a.DB.Exec("DELETE FROM share_sessions WHERE token=? AND share_id=?", cookie.Value, id); err != nil {
+				core.Bad(w, "could not relock share", 500)
+				return false
+			}
+			http.SetCookie(w, &http.Cookie{Name: "trynas_share", Path: "/s/" + tok, HttpOnly: true, Secure: core.SecureCookie(r), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 		}
 	}
 	errorText := ""
@@ -84,6 +96,7 @@ func (a *Module) AuthorizeShare(w http.ResponseWriter, r *http.Request, id int64
 		}
 		password := r.PostForm.Get("password")
 		if len(password) > 72 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			errorText = "Incorrect password. Please try again."
 			w.WriteHeader(http.StatusUnauthorized)
 		} else {
@@ -94,19 +107,21 @@ func (a *Module) AuthorizeShare(w http.ResponseWriter, r *http.Request, id int64
 				core.Bad(w, "could not unlock share", 500)
 				return false
 			}
-			http.SetCookie(w, &http.Cookie{Name: "trynas_share", Value: session, Path: "/s/" + tok, HttpOnly: true, Secure: r.TLS != nil || core.Env("COOKIE_SECURE", "false") == "true", SameSite: http.SameSiteLaxMode, MaxAge: 3600})
-			http.Redirect(w, r, "/s/"+tok, http.StatusSeeOther)
-			return false
+			http.SetCookie(w, &http.Cookie{Name: "trynas_share", Value: session, Path: "/s/" + tok, HttpOnly: true, Secure: core.SecureCookie(r), SameSite: http.SameSiteLaxMode, MaxAge: 3600})
+			// Render the unlocked page directly. A redirect to GET would count as a
+			// new visit and must prompt again; no unlock token is put in the URL.
+			return true
 		}
-	} else if r.URL.Query().Get("download") == "1" || r.URL.Query().Get("qr") == "1" {
+	} else if resource {
 		core.Bad(w, "share password required", 401)
 		return false
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = SharePasswordPage.Execute(w, errorText)
 	return false
 }
 
-var SharePasswordPage = template.Must(template.New("password").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Protected share · TryNAS</title><script src="/api/branding/theme.js" defer></script><style>:root{--bg:#f4f6fa;--text:#192338;--card:white;--primary:#6254e8;--muted:#64748b;--border:#cbd5e1}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);font:15px/1.5 system-ui;color:var(--text)}main{margin:20px;padding:32px;border-radius:20px;background:var(--card);color:var(--card-text,var(--text));width:min(380px,calc(100% - 100px))}h1{font-size:24px}label,input,button{display:block}input{box-sizing:border-box;width:100%;padding:12px;margin:8px 0 16px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px}button{padding:12px 20px;border:0;border-radius:8px;background:var(--primary);color:var(--primary-foreground,white);cursor:pointer}p{color:var(--muted)}.error{color:#dc2626}</style></head><body><main><b>TryNAS</b><h1>Password-protected share</h1><p>Enter the share password to access this file or folder.</p>{{if .}}<p class="error" role="alert">{{.}}</p>{{end}}<form method="post" action=""><label for="password">Share password</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="72"><button type="submit">Unlock share</button></form></main></body></html>`))
+var SharePasswordPage = template.Must(template.New("password").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Protected share · TryNAS</title><script src="/api/branding/theme.js" defer></script><style>:root{--bg:#f4f6fa;--text:#192338;--card:white;--primary:#6254e8;--muted:#64748b;--border:#cbd5e1}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);font:15px/1.5 system-ui;color:var(--text)}main{margin:20px;padding:32px;border-radius:20px;background:var(--card);color:var(--card-text,var(--text));width:min(380px,calc(100% - 100px))}h1{font-size:24px}label,input,button{display:block}input{box-sizing:border-box;width:100%;padding:12px;margin:8px 0 16px;border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:8px}button{padding:12px 20px;border:0;border-radius:8px;background:var(--primary);color:var(--primary-foreground,white);cursor:pointer}p{color:var(--muted)}.error{color:#dc2626}</style></head><body><main><b>TryNAS</b><h1>Password-protected share</h1><p>Enter the share password to access this file or folder. You will be asked again when you reopen this link.</p>{{if .}}<p class="error" role="alert">{{.}}</p>{{end}}<form method="post" action=""><label for="password">Share password</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="72"><button type="submit">Unlock share</button></form></main></body></html>`))
 
 func (a *Module) DownloadSharedFolder(w http.ResponseWriter, r *http.Request, owner core.User, p, full string) {
 	a.DownloadSharedItems(w, r, owner, []string{p}, filepath.Base(full)+".zip")

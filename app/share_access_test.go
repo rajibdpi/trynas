@@ -67,13 +67,13 @@ func TestProtectedFolderShare(t *testing.T) {
 	expect(t, get("GET", "?qr=1", "", nil), 401)
 	expect(t, get("POST", "", "wrong-password", nil), 401)
 	unlock := get("POST", "", "share-password", nil)
-	expect(t, unlock, 303)
+	expect(t, unlock, 200)
 	cookies := unlock.Result().Cookies()
 	if len(cookies) != 1 || !cookies[0].HttpOnly {
 		t.Fatal("missing share session")
 	}
 	cookie := cookies[0]
-	page := get("GET", "", "", cookie)
+	page := unlock
 	expect(t, page, 200)
 	if !strings.Contains(page.Body.String(), "Download folder ZIP") {
 		t.Fatal("missing folder page")
@@ -116,6 +116,13 @@ func TestProtectedFolderShare(t *testing.T) {
 		t.Fatal("missing readable file")
 	}
 	expect(t, get("GET", "?qr=1", "", cookie), 200)
+	reopened := get("GET", "", "", cookie)
+	expect(t, reopened, 200)
+	if !strings.Contains(reopened.Body.String(), "Unlock share") || strings.Contains(reopened.Body.String(), "public.txt") {
+		t.Fatal("reopened folder share bypassed password prompt")
+	}
+	expect(t, get("GET", "?download=1", "", cookie), 401)
+	expect(t, get("GET", "?qr=1", "", cookie), 401)
 	if _, err := a.DB.Exec("UPDATE shares SET expires_at='2000-01-01' WHERE token=?", share.Token); err != nil {
 		t.Fatal(err)
 	}

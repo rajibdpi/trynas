@@ -205,7 +205,7 @@ func TestRemoteSharesPasswordFolderAndExpiry(t *testing.T) {
 	form := httptest.NewRequest("POST", url, strings.NewReader("password=test-password"))
 	form.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	unlocked := serve(form)
-	expect(t, unlocked, 303)
+	expect(t, unlocked, 200)
 	cookies := unlocked.Result().Cookies()
 	if len(cookies) == 0 {
 		t.Fatal("share session missing")
@@ -237,6 +237,13 @@ func TestRemoteSharesPasswordFolderAndExpiry(t *testing.T) {
 		t.Fatal("shared child download failed")
 	}
 	expect(t, get("?qr=1"), 200)
+	reopened := get("")
+	expect(t, reopened, 200)
+	if !strings.Contains(reopened.Body.String(), "Unlock share") || strings.Contains(reopened.Body.String(), "Docs/a.txt") {
+		t.Fatal("reopened remote share bypassed password prompt")
+	}
+	expect(t, get("?download=1"), 401)
+	expect(t, get("?qr=1"), 401)
 	if _, err := a.DB.Exec("UPDATE shares SET expires_at='2000-01-01' WHERE id=?", shared.ID); err != nil {
 		t.Fatal(err)
 	}
