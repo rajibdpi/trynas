@@ -156,7 +156,7 @@ func TestQuotaAtomicUploadAndOwnership(t *testing.T) {
 		t.Fatal("failed upload changed quota")
 	}
 	expect(t, uploadRequest(a, u, map[string]string{"a.txt": "1234"}), 200)
-	expect(t, uploadRequest(a, u, map[string]string{"a.txt": "x"}), 409)
+	expect(t, uploadRequest(a, u, map[string]string{"a.txt": "xx"}), 413)
 	expect(t, jsonRequest(a, u, "POST", "/api/files/copy", map[string]any{"from": "shared/a.txt", "to": "shared/copy.txt"}, a.CopyMoveV5(false)), 413)
 	expect(t, jsonRequest(a, u, "POST", "/api/files/rename", map[string]any{"from": "shared/a.txt", "to": "shared/renamed.txt"}, a.RenameV5), 200)
 	expect(t, request(a, u, "DELETE", "/api/files?path=shared/renamed.txt", nil, a.TrashV5), 200)

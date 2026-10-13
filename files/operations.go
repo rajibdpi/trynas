@@ -3,6 +3,7 @@ package files
 import (
 	"archive/zip"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -222,6 +223,9 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	if quota > 0 {
 		remaining = min(remaining, max(int64(0), quota-used))
 	}
+	policies := map[string]string{}
+	policiesSeen := false
+	credited := map[string]bool{}
 	dir := ""
 	pathSeen := false
 	stage := ""
@@ -232,6 +236,7 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	}()
 	type upload struct {
 		staged, dest, rel string
+		replace           bool
 		size              int64
 	}
 	pending := []upload{}
@@ -245,6 +250,22 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 		if e != nil {
 			core.Bad(w, "invalid upload or upload exceeds limit", 413)
 			return
+		}
+		if part.FormName() == "conflicts" && part.FileName() == "" {
+			data, e := io.ReadAll(io.LimitReader(part, (1<<20)+1))
+			if e != nil || len(data) > 1<<20 || policiesSeen || len(pending) > 0 || json.Unmarshal(data, &policies) != nil {
+				core.Bad(w, "invalid upload conflict choices", 400)
+				return
+			}
+			for name, policy := range policies {
+				clean, e := core.CleanPath(name)
+				if e != nil || clean != name || clean == "" || path.Base(name) != name || (policy != "keep" && policy != "replace") {
+					core.Bad(w, "invalid upload conflict choices", 400)
+					return
+				}
+			}
+			policiesSeen = true
+			continue
 		}
 		if part.FormName() == "path" && part.FileName() == "" {
 			data, e := io.ReadAll(io.LimitReader(part, 4097))
@@ -285,10 +306,19 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 		names[rel] = true
 		dest := ""
 		if pathSeen {
-			dest, e = a.Destination(u, core.RelJoin(dir, rel))
+			var info os.FileInfo
+			dest, info, e = a.uploadTarget(u, core.RelJoin(dir, rel))
 			if e != nil {
 				core.Report(w, e)
 				return
+			}
+			// Replacements may reuse the uploader's already-accounted quota.
+			if info != nil && policies[rel] == "replace" && !credited[rel] {
+				var owned int64
+				if a.DB.QueryRow("SELECT bytes FROM file_owners WHERE path=? AND user_id=?", core.RelJoin(dir, rel), u.ID).Scan(&owned) == nil {
+					remaining = min(int64(10<<30)-total, remaining+owned)
+				}
+				credited[rel] = true
 			}
 		}
 		if stage == "" {
@@ -319,7 +349,7 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 		}
 		remaining -= n
 		total += n
-		pending = append(pending, upload{tmp, dest, rel, n})
+		pending = append(pending, upload{staged: tmp, dest: dest, rel: rel, size: n})
 	}
 	if len(pending) == 0 {
 		core.Bad(w, "no files", 400)
@@ -329,15 +359,44 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	// have changed while bytes were streamed to private staging files.
 	a.Mutation.Lock()
 	defer a.Mutation.Unlock()
+	reserved := map[string]bool{}
+	// Reserve incoming original names, so generated copies cannot steal a later
+	// incoming file's name within the same request.
+	for _, x := range pending {
+		reserved[core.RelJoin(dir, x.rel)] = true
+	}
+	var quotaExtra int64 = total
 	for i := range pending {
-		pending[i].rel = core.RelJoin(dir, pending[i].rel)
-		pending[i].dest, err = a.Destination(u, pending[i].rel)
+		x := &pending[i]
+		name := x.rel
+		x.rel = core.RelJoin(dir, name)
+		var info os.FileInfo
+		x.dest, info, err = a.uploadTarget(u, x.rel)
 		if err != nil {
 			core.Report(w, err)
 			return
 		}
+		if info != nil {
+			if info.Size() != x.size || policies[name] == "keep" {
+				x.rel, x.dest, err = a.numberedUploadTarget(u, x.rel, reserved)
+				if err != nil {
+					core.Report(w, err)
+					return
+				}
+				reserved[x.rel] = true
+			} else if policies[name] == "replace" {
+				x.replace = true
+				var owned int64
+				if a.DB.QueryRow("SELECT bytes FROM file_owners WHERE path=? AND user_id=?", x.rel, u.ID).Scan(&owned) == nil {
+					quotaExtra -= owned
+				}
+			} else {
+				core.Bad(w, "same-name, same-size file exists; choose keep both or replace", 409)
+				return
+			}
+		}
 	}
-	if err = a.CheckQuota(u.ID, total); err != nil {
+	if err = a.CheckQuota(u.ID, quotaExtra); err != nil {
 		core.Bad(w, err.Error(), 413)
 		return
 	}
@@ -348,13 +407,26 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	installed := []string{}
+	backups := map[string]string{}
 	rollback := func() {
 		for _, f := range installed {
 			_ = os.Remove(f)
 		}
+		for dest, backup := range backups {
+			_ = os.Rename(backup, dest)
+		}
 	}
-	for _, x := range pending {
-		if _, err = tx.Exec("INSERT INTO file_owners(path,user_id,bytes) VALUES(?,?,?)", x.rel, u.ID, x.size); err != nil {
+	for i, x := range pending {
+		if x.replace {
+			backup := filepath.Join(stage, fmt.Sprintf("backup-%d", i))
+			if err = os.Rename(x.dest, backup); err != nil {
+				rollback()
+				core.Report(w, err)
+				return
+			}
+			backups[x.dest] = backup
+		}
+		if _, err = tx.Exec("INSERT INTO file_owners(path,user_id,bytes) VALUES(?,?,?) ON CONFLICT(path) DO UPDATE SET user_id=excluded.user_id,bytes=excluded.bytes", x.rel, u.ID, x.size); err != nil {
 			rollback()
 			core.Report(w, err)
 			return
