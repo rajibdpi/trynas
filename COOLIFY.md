@@ -11,14 +11,14 @@ container on port 8080. Node.js is only needed during the image build.
 2. Select **Dockerfile** as the build pack, set the base directory to `/`, and
    the Dockerfile location to `/Dockerfile`. Set **Ports Exposes** to `8080`.
    No custom build or start command is needed.
-3. Set your domain, for example `https://nas.example.com`, and point its DNS to
+3. Set your domain to `https://nas.tryplusit.com`, and point its DNS to
    the Coolify server. Coolify terminates HTTPS and forwards traffic to port 8080.
 4. Add the following **runtime** environment variables. Replace both placeholders:
 
    ```dotenv
    ADMIN_USER=admin
    ADMIN_PASSWORD=<unique-random-password-of-8-to-72-bytes>
-   CORS_ORIGIN=https://nas.example.com
+   CORS_ORIGIN=https://nas.tryplusit.com
    COOKIE_SECURE=true
    ADDR=0.0.0.0:8080
    DB_PATH=/data/trynas.db
@@ -44,7 +44,7 @@ container on port 8080. Node.js is only needed during the image build.
    Expect brief downtime during redeploys. Disable preview deployments that
    would share the production volumes.
 8. Deploy. The image includes a health check for `/api/health`. Confirm that
-   `https://nas.example.com/api/health` returns `ok: true`, then sign in and
+   `https://nas.tryplusit.com/api/health` returns `ok: true`, then sign in and
    verify an upload survives a redeploy.
 
 Coolify environment variables override settings stored in `/data/.env`.
