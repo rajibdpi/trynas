@@ -10,7 +10,8 @@ import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/modules/shared/utils";
 import { FileInfoDialog } from "./file-info-dialog";
-import { FileTypeIcon } from "@/modules/files/file-type-icon";
+import { ViewSwitcher } from "./view-switcher";
+import { FileThumbnail } from "@/modules/files/file-thumbnail";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
 import { fmt, message, parent, join } from "@/modules/shared/format";
 import { useResource } from "@/modules/shared/use-resource";
@@ -557,13 +558,7 @@ export function FileBrowser({
                 {(["asc", "desc"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortDirection(value)} className="justify-between py-2.5"><span>{value === "asc" ? "Ascending" : "Descending"}</span>{sortDirection === value && <Check className="size-4" />}</DropdownMenuItem>)}
               </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Change file view">{view === "large" ? <Grid2X2 /> : view === "grid" ? <Grip /> : <List />}<span className="hidden sm:inline">View</span><ChevronDown className="hidden sm:block" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 rounded-xl p-1.5">
-                <p className="px-3 py-2 text-xs text-muted-foreground">View</p>
-                {([{ value: "large", label: "Large tiles", icon: Grid2X2 }, { value: "grid", label: "Tiles", icon: Grip }, { value: "list", label: "List", icon: List }] as const).map(option => <DropdownMenuItem key={option.value} onSelect={() => changeView(option.value)} className="gap-3 py-2.5"><option.icon className="size-4" /><span>{option.label}</span>{view === option.value && <Check className="ml-auto size-3.5" />}</DropdownMenuItem>)}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ViewSwitcher value={view} onChange={changeView} />
           </div>
         </div>
       </CardHeader>
@@ -717,7 +712,7 @@ export function FileBrowser({
                           <Folder className={view === "large" ? "size-14" : "size-10"} />
                         </span>
                       ) : (
-                        <span className={view === "large" ? "inline-flex origin-left scale-125 mr-2" : ""}><FileTypeIcon name={item.name} /></span>
+                        <FileThumbnail item={item} large={view === "large"} />
                       )}
                       {selected.includes(item.path) && (
                         <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">

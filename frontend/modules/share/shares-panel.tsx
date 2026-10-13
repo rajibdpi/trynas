@@ -1,5 +1,7 @@
 "use client";
 
+import { ViewSwitcher, useCollectionView, collectionLayout, collectionItem } from "@/modules/files/view-switcher";
+
 import { useEffect, useState } from "react";
 import { api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,7 @@ export function SharesPanel({
   ask: (c: Command) => void;
   notify: (s: string) => void;
 }) {
+  const [view, changeView] = useCollectionView("trynas-shares-view");
   const shares = useResource<SharedLink[]>("/api/shares");
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
@@ -58,7 +61,7 @@ export function SharesPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Shared links</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>Shared links</CardTitle><ViewSwitcher label="Shared links view" value={view} onChange={changeView} /></div>
       </CardHeader>
       <CardContent>
         <ErrorText text={shares.error} />
@@ -81,10 +84,11 @@ export function SharesPanel({
           <Button variant="destructive" size="sm" disabled={busy || !selectedLinks.length} onClick={() => revokeLinks([...selectedLinks])}>Revoke selected</Button>
           <Button variant="ghost" size="sm" disabled={busy || !selectedLinks.length} onClick={() => setSelected([])}>Clear</Button>
         </div>}
+        <div className={collectionLayout(view)}>
         {shares.data?.map((item) => (
           <div
             key={item.id}
-            className="flex flex-wrap items-center gap-3 border-b py-4"
+            className={collectionItem(view)}
           >
             <input type="checkbox" className="!w-4 shrink-0" aria-label={`Select shared link for ${item.path || "Storage root"}`} checked={selected.includes(item.id)} disabled={busy} onChange={() => setSelected(previous => previous.includes(item.id) ? previous.filter(id => id !== item.id) : [...previous, item.id])} />
             <div className="min-w-0 flex-1">
@@ -116,6 +120,7 @@ export function SharesPanel({
             </Button>
           </div>
         ))}
+        </div>
         {shares.data?.length === 0 && <Empty text="No shared links." />}
       </CardContent>
     </Card>

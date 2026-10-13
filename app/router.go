@@ -62,6 +62,7 @@ func (a *App) Router() http.Handler {
 		r.Get("/api/files/search", a.SearchFiles)
 		r.Get("/api/files/download", a.Download)
 		r.Get("/api/files/preview", a.Preview)
+		r.Get("/api/files/thumbnail", a.Thumbnail)
 		r.Get("/api/files/archive", a.ZipContents)
 		r.Get("/api/files/edit", a.EditFile)
 		r.Post("/api/files/edit", a.EditFile)
