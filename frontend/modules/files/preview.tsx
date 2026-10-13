@@ -4,14 +4,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ZipPreview } from "@/modules/files/zip-preview";
 import { OfficePreview } from "@/modules/files/office-preview";
 import { FileEditor } from "@/modules/files/file-editor";
-import { Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useResource } from "@/modules/shared/use-resource";
 import { parent } from "@/modules/shared/format";
 import { isHiddenFile } from "@/modules/shared/file-visibility";
 import { adjacentImage, isImageFile } from "./image-gallery";
 import { API } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { type Item } from "@/modules/shared/types";
 import { Empty } from "@/modules/shared/feedback";
 
@@ -117,25 +117,17 @@ export function Preview({ item, close, onNavigate, showHiddenFiles = false, imag
         if (!open && (!editing || window.confirm("Close editor? Unsaved changes will be discarded."))) close();
       }}
     >
-      <DialogContent className="inset-0 flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-4 sm:p-6" onKeyDown={event => {
+      <DialogContent showCloseButton={false} className="inset-0 flex h-dvh max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 p-4 sm:p-6" onKeyDown={event => {
         if (editing || !onNavigate || event.altKey || event.ctrlKey || event.metaKey || (event.target as HTMLElement).closest("input, textarea, [contenteditable='true']")) return;
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault(); navigate(event.key === "ArrowLeft" ? -1 : 1);
         }
       }}>
-        <DialogTitle className="shrink-0 truncate pr-6 font-semibold">{item.name}</DialogTitle>
-        <DialogDescription className="mb-4 shrink-0 truncate text-xs text-muted-foreground">
-          {item.path}
-        </DialogDescription>
-
-        <div className={`relative min-h-0 min-w-0 flex-1 ${image || (content as React.ReactElement).type === MediaPreview || ext === "pdf" ? "overflow-hidden" : "overflow-auto"}`}>{editing ? <FileEditor key={item.path} path={item.path} close={() => setEditing(false)} /> : content}</div>
-        <div className="mt-4 flex shrink-0 flex-wrap items-center gap-3 border-t pt-3">
-        {onNavigate && <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-          <Button variant="outline" size="icon" aria-label="Previous file" title="Previous file (left arrow)" disabled={editing || images.length < 2 || index < 0} onClick={() => navigate(-1)}><ChevronLeft /></Button>
-          <span role="status" aria-live="polite" className="text-sm text-muted-foreground">{index >= 0 ? `${index + 1} / ${images.length}` : listing.error ? "Could not load folder files" : "Loading folder files…"}</span>
-          <Button variant="outline" size="icon" aria-label="Next file" title="Next file (right arrow)" disabled={editing || images.length < 2 || index < 0} onClick={() => navigate(1)}><ChevronRight /></Button>
-        </div>}
-          {!editing && item.writable && (content as React.ReactElement).type === DocumentPreview && ext !== "pdf" && <Button variant="outline" onClick={() => setEditing(true)}>Edit file</Button>}
+        <div className="mb-4 flex shrink-0 items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <DialogTitle className="truncate font-semibold">{item.name}</DialogTitle>
+            <DialogDescription className="truncate text-xs text-muted-foreground">{item.path}</DialogDescription>
+          </div>
           <Button asChild>
             <a
               href={storage ? url : `${API}/api/files/download?path=${encodeURIComponent(item.path)}`}
@@ -144,6 +136,18 @@ export function Preview({ item, close, onNavigate, showHiddenFiles = false, imag
               Download
             </a>
           </Button>
+          <DialogClose asChild><Button variant="ghost" size="icon" aria-label="Close viewer" title="Close viewer"><X /></Button></DialogClose>
+        </div>
+
+        <div className={`relative min-h-0 min-w-0 flex-1 ${image || (content as React.ReactElement).type === MediaPreview || ext === "pdf" ? "overflow-hidden" : "overflow-auto"}`}>{editing ? <FileEditor key={item.path} path={item.path} close={() => setEditing(false)} /> : content}</div>
+        <div className="mt-4 flex shrink-0 flex-wrap items-center gap-3 border-t pt-3">
+        {onNavigate && <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
+          <Button variant="outline" size="icon" aria-label="Previous file" title="Previous file (left arrow)" disabled={editing || images.length < 2 || index < 0} onClick={() => navigate(-1)}><ChevronLeft /></Button>
+          <span role="status" aria-live="polite" className="text-sm text-muted-foreground">{index >= 0 ? `${index + 1} / ${images.length}` : listing.error ? "Could not load folder files" : "Loading folder files…"}</span>
+          <Button variant="outline" size="icon" aria-label="Next file" title="Next file (right arrow)" disabled={editing || images.length < 2 || index < 0} onClick={() => navigate(1)}><ChevronRight /></Button>
+        </div>}
+          {!editing && item.writable && (content as React.ReactElement).type === DocumentPreview && ext !== "pdf" && <Button variant="outline" onClick={() => setEditing(true)}>Edit file</Button>}
+
         </div>
       </DialogContent>
     </Dialog>
