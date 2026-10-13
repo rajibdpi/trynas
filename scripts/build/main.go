@@ -2,17 +2,13 @@
 package main
 
 import (
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/joho/godotenv"
-	"github.com/rajibdpi/trynas/core"
 	"github.com/rajibdpi/trynas/scripts/internal/tooling"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -44,7 +40,7 @@ func build() error {
 	all := flag.Bool("all", false, "Build all six supported OS/architecture targets")
 	target := flag.String("target", "", "Comma-separated targets (default: current OS/architecture)")
 	skipFrontend := flag.Bool("skip-frontend", false, "Reuse frontend/dist; only rebuild Go binaries")
-	adminFromEnv := flag.Bool("admin-password-env", false, "Read build administrator password from process ADMIN_PASSWORD instead of .env")
+	flag.Bool("admin-password-env", false, "Deprecated compatibility flag; credentials are configured at runtime")
 	versionFlag := flag.String("version", os.Getenv("RELEASE_TAG"), "Version tag to embed (default: RELEASE_TAG or next local patch version)")
 	flag.Parse()
 	if flag.NArg() != 0 {
@@ -55,15 +51,6 @@ func build() error {
 		return err
 	}
 	root, err := projectRoot()
-	if err != nil {
-		return err
-	}
-	var adminHash, adminEncoded string
-	if *adminFromEnv {
-		adminHash, adminEncoded, err = encodeAdminCredentials(os.Getenv("ADMIN_PASSWORD"))
-	} else {
-		adminHash, adminEncoded, err = buildAdminCredentials(root)
-	}
 	if err != nil {
 		return err
 	}
@@ -115,7 +102,7 @@ func build() error {
 			os.Remove(tempPath)
 			return err
 		}
-		err = buildBinary(root, tempPath, parts[0], parts[1], adminHash, adminEncoded, version)
+		err = buildBinary(root, tempPath, parts[0], parts[1], version)
 		if err == nil {
 			err = os.Rename(tempPath, filepath.Join(dist, artifactName(target)))
 		}
@@ -131,7 +118,7 @@ func build() error {
 		return err
 	}
 	fmt.Printf("Release binaries and SHA256SUMS ready in %s\n", dist)
-	fmt.Println("Build-time .env ADMIN_PASSWORD hash included for first startup; runtime ADMIN_PASSWORD overrides it. Existing accounts are unchanged.")
+	fmt.Println("Set a unique runtime ADMIN_PASSWORD before first startup. Existing accounts are unchanged.")
 	return nil
 }
 
@@ -141,26 +128,8 @@ func buildFrontend(dir string) error {
 	return cmd.Run()
 }
 
-func buildAdminCredentials(root string) (string, string, error) {
-	values, err := godotenv.Read(filepath.Join(root, ".env"))
-	if err != nil {
-		return "", "", fmt.Errorf("read build .env: %w", err)
-	}
-	return encodeAdminCredentials(values["ADMIN_PASSWORD"])
-}
-
-func encodeAdminCredentials(password string) (string, string, error) {
-	if !core.ValidAdminPassword(password) {
-		return "", "", fmt.Errorf("set build ADMIN_PASSWORD to a strong 8–72 byte password before building")
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
-	return string(hash), base64.StdEncoding.EncodeToString([]byte(password)), err
-}
-
-func buildBinary(root, output, goos, arch, adminHash, adminEncoded, version string) error {
-	flags := "-s -w -X github.com/rajibdpi/trynas/core.BuildAdminPasswordHash=" + adminHash
-	flags += " -X github.com/rajibdpi/trynas/core.BuildAdminPasswordEncoded=" + adminEncoded
-	flags += " -X github.com/rajibdpi/trynas/core.Version=" + version
+func buildBinary(root, output, goos, arch, version string) error {
+	flags := "-s -w -X github.com/rajibdpi/trynas/core.Version=" + version
 	cmd := tooling.Command(root, "go", "build", "-trimpath", "-ldflags="+flags, "-o", output, ".")
 	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOOS="+goos, "GOARCH="+arch)
 	return cmd.Run()

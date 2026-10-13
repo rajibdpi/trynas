@@ -1,0 +1,2 @@
+patchedDependencies:
+  sprintf-js@1.0.3: patches/sprintf-js@1.0.3.patch

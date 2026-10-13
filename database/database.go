@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"encoding/base64"
 	"fmt"
 	"net/url"
 	"os"
@@ -77,25 +76,14 @@ func (a *Module) Migrate() error {
 	}
 	if n == 0 {
 		password := core.Env("ADMIN_PASSWORD", "")
-		hash := core.BuildAdminPasswordHash
-		if password != "" || hash == "" {
-			if !core.ValidAdminPassword(password) {
-				return fmt.Errorf("set ADMIN_PASSWORD to a strong 8–72 byte password before first startup")
-			}
-			h, err := bcrypt.GenerateFromPassword([]byte(password), 12)
-			if err != nil {
-				return err
-			}
-			hash = string(h)
-		} else if _, err := bcrypt.Cost([]byte(hash)); err != nil {
-			return fmt.Errorf("invalid build administrator password hash")
-		} else if core.BuildAdminPasswordEncoded != "" {
-			decoded, err := base64.StdEncoding.DecodeString(core.BuildAdminPasswordEncoded)
-			if err != nil {
-				return fmt.Errorf("invalid build administrator password encoding")
-			}
-			password = string(decoded)
+		if !core.ValidAdminPassword(password) {
+			return fmt.Errorf("set ADMIN_PASSWORD to a strong 8–72 byte password before first startup")
 		}
+		h, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+		if err != nil {
+			return err
+		}
+		hash := string(h)
 		_, e := a.DB.Exec("INSERT INTO users(username,password_hash,role) VALUES(?,?,?)", core.Env("ADMIN_USER", "admin"), hash, "admin")
 		if e == nil {
 			a.InitialAdminPassword = password

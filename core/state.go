@@ -19,6 +19,8 @@ type State struct {
 	InitialAdminPassword string
 	DB                   *sql.DB
 	Root, Trash          string
+	Uploads              sync.Mutex
+	ActiveUploads        int
 	Mutation             sync.Mutex
 	Metrics              sync.Mutex
 	Attempts             AttemptLimiter
