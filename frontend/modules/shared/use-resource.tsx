@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/modules/shared/api";
 import { message } from "@/modules/shared/format";
@@ -7,6 +9,7 @@ import { message } from "@/modules/shared/format";
 export function useResource<T>(url: string | null, interval = 0) {
   const [data, setData] = useState<T | null>(null),
     [error, setError] = useState("");
+  useErrorNotification(error);
   const reload = useCallback(
     async (overrideUrl?: string) => {
       if (!url) return;

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Settings, ChevronRight } from "lucide-react";
 import { api } from "@/modules/shared/api";
 import { type User } from "@/modules/shared/types";
-import { useNotification } from "@/modules/shared/notification-provider";
+import { useNotification, useErrorNotification } from "@/modules/shared/notification-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -18,8 +18,10 @@ export function ProfilePanel({ user, onSaved }: { user: User; onSaved: (user: Us
   const [confirmation, setConfirmation] = useState("");
   const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState("");
+  useErrorNotification(imageError);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   const notify = useNotification();
   useEffect(() => {
     setDisplayName(user.displayName || ""); setEmail(user.email || "");
@@ -47,7 +49,7 @@ export function ProfilePanel({ user, onSaved }: { user: User; onSaved: (user: Us
           }} />
           <p className="text-xs text-muted-foreground">PNG, JPEG, or GIF. Up to 2 MiB and 4096 × 4096 pixels. Image changes save immediately.</p>
           {uploading && <p role="status" className="text-sm text-muted-foreground">Updating image…</p>}
-          {imageError && <p role="alert" className="text-sm text-destructive">{imageError}</p>}
+
           {user.avatarUrl && <Button type="button" size="sm" variant="outline" disabled={uploading || saving} onClick={async () => {
             setUploading(true); setImageError("");
             try { onSaved(await api("/api/profile/avatar", { method: "DELETE" })); notify("Profile image removed"); }
@@ -66,7 +68,7 @@ export function ProfilePanel({ user, onSaved }: { user: User; onSaved: (user: Us
         } catch (error) { setError(error instanceof Error ? error.message : "Could not save profile"); }
         finally { setSaving(false); }
       }}>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
         <fieldset disabled={saving || uploading} className="grid gap-5 sm:grid-cols-2">
           <label className="space-y-2 text-sm font-medium"><span>Display name</span><input autoComplete="name" maxLength={100} value={displayName} onChange={event => setDisplayName(event.target.value)} /></label>
           <label className="space-y-2 text-sm font-medium"><span>Email</span><input type="email" autoComplete="email" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /><p className="text-xs text-muted-foreground">Optional contact information.</p></label>

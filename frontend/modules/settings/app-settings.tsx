@@ -10,7 +10,7 @@ import { ImageIcon, X } from "lucide-react";
 import { api, API } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { useNotification } from "@/modules/shared/notification-provider";
+import { useNotification, useErrorNotification } from "@/modules/shared/notification-provider";
 
 export type AppSettings = ThemeColors & { themeMode: ThemeMode; trashRetentionDays: number; appName: string; logoUrl: string; footerText: string; fileView: "list" | "grid" | "large"; shareExpiry: string; registrationEnabled: boolean; showHiddenFiles: boolean };
 export const defaultSettings: AppSettings = { ...defaultColors, themeMode: "system", trashRetentionDays: 30, appName: "TryNAS", logoUrl: "", footerText: "", fileView: "grid", shareExpiry: "never", registrationEnabled: false, showHiddenFiles: false };
@@ -25,6 +25,7 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   const notify = useNotification();
   useEffect(() => {
     const controller = new AbortController();
@@ -38,7 +39,7 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
     <div className="space-y-4">
       <Card><CardHeader><CardTitle>Basic configurations</CardTitle><p className="text-sm text-muted-foreground">Defaults shared by all users. Changes are saved to the database.</p></CardHeader>
         <CardContent>
-          {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
+
           {loading ? <p>Loading settings…</p> : <form className="space-y-5" onSubmit={async event => {
             event.preventDefault(); setSaving(true); setError("");
             try { const saved = await api("/api/settings", { method: "POST", body: JSON.stringify(settings) }); setSettings(saved); onSaved(saved); notify("Settings saved"); }

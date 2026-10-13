@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { Select } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { type WorkBook } from "xlsx";
@@ -10,6 +12,7 @@ export function OfficePreview({ url, ext, size }: { url: string; ext: string; si
   const [rows, setRows] = useState<string[][]>([]);
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   useEffect(() => {
     const controller = new AbortController();
     if (ext === "doc") { setError("Legacy .doc files need conversion to .docx or PDF for preview. Download to open this file in Word or LibreOffice."); return; }
@@ -57,7 +60,7 @@ export function OfficePreview({ url, ext, size }: { url: string; ext: string; si
     });
     return () => { active = false; };
   }, [workbook, sheet]);
-  if (error) return <p role="alert" className="text-sm text-muted-foreground">{error}</p>;
+  if (error) return <p className="text-sm text-muted-foreground">Download the file to open it.</p>;
   if (ext === "docx") return text === null ? <p>Loading Word document…</p> : <article className="max-h-[65vh] overflow-auto whitespace-pre-wrap rounded border p-5 text-sm">{text || "This document contains no text."}</article>;
   if (!workbook) return <p>Loading spreadsheet…</p>;
   return <div className="space-y-3"><label className="flex items-center gap-3 text-sm">Worksheet<Select className="!w-auto" value={sheet} onValueChange={value => setSheet(value)}>{workbook.SheetNames.map(name => <option key={name}>{name}</option>)}</Select></label><div className="max-h-[55vh] overflow-auto rounded border"><table className="w-full text-left text-sm"><tbody>{rows.map((row, index) => <tr key={index} className="border-b"><th className="bg-muted px-2 text-muted-foreground">{index + 1}</th>{row.map((cell, column) => <td key={column} className="whitespace-pre-wrap px-3 py-2">{String(cell)}</td>)}</tr>)}</tbody></table></div><p className="text-xs text-muted-foreground">Shows cell values from up to 1,000 rows and 100 columns per worksheet. Charts and macros are not displayed.</p></div>;

@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { useEffect, useState, type ReactNode } from "react";
 import { ZipPreview } from "@/modules/files/zip-preview";
 import { OfficePreview } from "@/modules/files/office-preview";
@@ -21,6 +23,7 @@ function DocumentPreview({ url, ext, size }: { url: string; ext: string; size: n
   const [text, setText] = useState<string | null>(null);
   const [pdf, setPDF] = useState("");
   const [error, setError] = useState("");
+  useErrorNotification(error);
   useEffect(() => {
     const controller = new AbortController();
     let objectURL = "";
@@ -54,7 +57,7 @@ function DocumentPreview({ url, ext, size }: { url: string; ext: string; size: n
     })();
     return () => { controller.abort(); if (objectURL) URL.revokeObjectURL(objectURL); };
   }, [url, ext, size]);
-  if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>;
+  if (error) return <p className="text-sm text-muted-foreground">Download the file to open it.</p>;
   if (ext === "pdf") return pdf ? <object data={pdf} type="application/pdf" className="h-full w-full rounded border bg-white"><p>Your browser cannot display PDF files. Use Download to open it.</p></object> : <p>Loading PDF…</p>;
   if (text === null) return <p>Loading preview…</p>;
   if (ext === "md" || ext === "markdown") return <MarkdownViewer text={text} />;
@@ -65,6 +68,7 @@ function DocumentPreview({ url, ext, size }: { url: string; ext: string; size: n
 function ImagePreview({ url, name }: { url: string; name: string }) {
   const [displayed, setDisplayed] = useState<{ url: string; name: string } | null>(null);
   const [error, setError] = useState(false);
+  useErrorNotification(error ? "Could not load this file preview. Download the file to open it." : "");
   const loading = !error && displayed?.url !== url;
   useEffect(() => {
     let active = true;
@@ -86,7 +90,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
       className="absolute inset-0 block h-full w-full"
       style={{ objectFit: "contain", objectPosition: "center" }}
     />}
-    {error && <p role="alert" className="absolute inset-x-0 bottom-0 bg-card/90 p-3 text-center text-sm">This image could not be displayed. Its format may require a compatible image app. Use Download to open it.</p>}
+    {error && <p className="absolute inset-x-0 bottom-0 bg-card/90 p-3 text-center text-sm">Download the file to open it.</p>}
     {loading && <div role="status" aria-label="Loading image" className="pointer-events-none absolute inset-0 grid place-items-center">
       <span className="grid size-12 place-items-center rounded-full bg-card/90 text-primary shadow-sm">
         <LoaderCircle aria-hidden="true" className="size-6 animate-spin motion-reduce:animate-none" />
@@ -97,7 +101,8 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
 
 function MediaPreview({ url, video }: { url: string; video?: boolean }) {
   const [error, setError] = useState(false);
-  if (error) return <p role="alert" className="text-sm text-muted-foreground">This media format cannot be played by your browser. Download it to open it.</p>;
+  useErrorNotification(error ? "Could not load this file preview. Download the file to open it." : "");
+  if (error) return <p className="text-sm text-muted-foreground">Download the file to open it.</p>;
   return video ? <video src={url} controls preload="metadata" onError={() => setError(true)} className="mx-auto h-full max-h-full w-full object-contain" /> : <audio src={url} controls preload="metadata" onError={() => setError(true)} className="w-full" />;
 }
 

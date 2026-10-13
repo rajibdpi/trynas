@@ -1,16 +1,13 @@
 "use client";
 
+import { useErrorNotification } from "./notification-provider";
+
 import { Folder } from "lucide-react";
 
+// Operational errors belong in the shared toaster, not above the page content.
 export function ErrorText({ text }: { text: string }) {
-  return text ? (
-    <p
-      role="alert"
-      className="my-3 rounded border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
-    >
-      {text}
-    </p>
-  ) : null;
+  useErrorNotification(text);
+  return null;
 }
 
 export function Empty({ text }: { text: string }) {
