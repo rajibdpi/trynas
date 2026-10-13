@@ -672,6 +672,12 @@ export function FileBrowser({
               <ContextMenuTrigger asChild>
                 <div
                   data-selected={selected.includes(item.path)}
+                  onMouseDownCapture={event => {
+                    if (event.button === 0 && (event.detail > 1 || event.shiftKey)) {
+                      event.preventDefault();
+                    }
+                  }}
+                  onDoubleClickCapture={() => window.getSelection()?.removeAllRanges()}
                   onClickCapture={(event) => {
                     const target = event.target as HTMLElement;
                     if (
