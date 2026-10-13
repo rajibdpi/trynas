@@ -405,3 +405,9 @@ excluding GHSA-hp3w-g68c-fv3c from the registry audit. The registry cannot detec
 local patches, so an unfiltered audit still lists the upstream package version.
 No other advisories are excluded. Release CI also runs `govulncheck` and pins
 GitHub Actions to immutable commits.
+
+Password-protected shares prompt on every new visit, including a browser that
+unlocked the link earlier. Reopening the page revokes that browser's download
+grant. Downloads and QR codes remain available during the current unlocked
+visit; other visitors are unaffected. Unlocked pages relock when restored from
+browser history. The share URL never contains an unlock credential.

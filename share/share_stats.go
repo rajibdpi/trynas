@@ -42,7 +42,7 @@ func (w *shareResponse) Flush() {
 // Count successful authorized page loads and full download requests, excluding QR,
 // HEAD, password prompts, errors, and Range retries.
 func (a *Module) trackShare(w http.ResponseWriter, r *http.Request, id int64) (http.ResponseWriter, func()) {
-	if r.Method != http.MethodGet || r.URL.Query().Get("qr") == "1" {
+	if (r.Method != http.MethodGet && r.Method != http.MethodPost) || r.URL.Query().Get("qr") == "1" {
 		return w, func() {}
 	}
 	response := &shareResponse{ResponseWriter: w, status: http.StatusOK}

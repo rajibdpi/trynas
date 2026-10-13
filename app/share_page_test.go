@@ -89,7 +89,7 @@ func TestPasswordShareUnlockThroughTrustedProxy(t *testing.T) {
 		origin, password string
 		status           int
 	}{
-		{"https://nas.example.com", "share-password", 303},
+		{"https://nas.example.com", "share-password", 200},
 		{"https://nas.example.com", "wrong-password", 401},
 		{"https://evil.example", "share-password", 403},
 	} {
@@ -102,7 +102,7 @@ func TestPasswordShareUnlockThroughTrustedProxy(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		expect(t, w, test.status)
-		if test.status == 303 && len(w.Result().Cookies()) != 1 {
+		if test.status == 200 && len(w.Result().Cookies()) != 1 {
 			t.Fatal("missing share session")
 		}
 	}
