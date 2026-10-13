@@ -141,7 +141,13 @@ func (a *Module) Preview(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "not previewable", 400)
 		return
 	}
-	ct := mime.TypeByExtension(strings.ToLower(filepath.Ext(f)))
+	ct := core.ImageContentType(filepath.Ext(f))
+	if ct == "" {
+		ct = mime.TypeByExtension(strings.ToLower(filepath.Ext(f)))
+	}
+	if strings.EqualFold(filepath.Ext(f), ".svgz") {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
 	if ct == "" {
 		ct = "application/octet-stream"
 	}

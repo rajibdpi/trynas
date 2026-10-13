@@ -61,6 +61,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     [sidebarCollapsed, setSidebarCollapsed] = useState(false),
     [command, setCommand] = useState<Command | null>(null),
     [preview, setPreview] = useState<Item | null>(null);
+  const previewRef = useRef<Item | null>(null);
+  previewRef.current = preview;
   useEffect(() => {
     try {
       setSidebarCollapsed(localStorage.getItem("trynas-sidebar-collapsed") === "true");
@@ -235,20 +237,20 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     const nextPath = currentLocation.path ?? me.home ?? "";
     setPath(nextPath);
     setFileQuery("");
-    setPreview(null);
     if (currentLocation.path === null) {
       writeFileLocation(nextPath, currentLocation.file ?? undefined, undefined, true);
       return;
     }
-    if (!currentLocation.file) return;
+    if (!currentLocation.file) { setPreview(null); return; }
+    if (previewRef.current?.path === currentLocation.file) return;
     const controller = new AbortController();
     const file = currentLocation.file;
     void api(`/api/files?path=${encodeURIComponent(parent(file))}`, { signal: controller.signal }).then(data => {
       if (controller.signal.aborted) return;
       const item = (data.items as Item[]).find(item => item.path === file && !item.dir);
-      if (!item) { showNotification("File not found or access denied."); return; }
+      if (!item) { setPreview(null); showNotification("File not found or access denied."); return; }
       setPreview(item);
-    }).catch(error => { if (!controller.signal.aborted) showNotification(message(error)); });
+    }).catch(error => { if (!controller.signal.aborted) { setPreview(null); showNotification(message(error)); } });
     return () => controller.abort();
   }, [me?.id, pathname, fileLocation?.path, fileLocation?.file, fileLocation?.storage]);
   const navigateFolder = (next: string) => {

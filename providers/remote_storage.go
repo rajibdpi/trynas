@@ -171,7 +171,15 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 			}
 			defer reader.Close()
 			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(p)}))
-			w.Header().Set("Content-Type", "application/octet-stream")
+			contentType := core.ImageContentType(path.Ext(p))
+			if contentType == "" {
+				contentType = "application/octet-stream"
+			}
+			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Content-Security-Policy", "sandbox")
+			if strings.EqualFold(path.Ext(p), ".svgz") {
+				w.Header().Set("Content-Encoding", "gzip")
+			}
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			if obj.Size() >= 0 {
 				w.Header().Set("Content-Length", strconv.FormatInt(obj.Size(), 10))
