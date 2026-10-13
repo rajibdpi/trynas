@@ -152,13 +152,13 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	tok := core.Token()
 	tx, err := a.DB.Begin()
 	if err != nil {
 		core.Bad(w, "could not create share", 500)
 		return
 	}
 	defer tx.Rollback()
-	tok := core.Token()
 	var exp any
 	expiryText := ""
 	if !x.Never {

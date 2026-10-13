@@ -80,6 +80,7 @@ func (a *App) Router() http.Handler {
 		r.Post("/api/trash/restore", a.RestoreV5)
 		r.Delete("/api/trash", a.PurgeV5)
 		r.Get("/api/shares", a.Shares)
+		r.Post("/api/shares/{id}/password", a.RegenerateSharePassword)
 		r.Post("/api/shares", a.CreateShare)
 		r.Delete("/api/shares/{id}", a.DeleteShare)
 	})
