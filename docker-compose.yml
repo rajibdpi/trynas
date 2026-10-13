@@ -1,0 +1,33 @@
+services:
+  trynas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TRYNAS_VERSION: ${TRYNAS_VERSION:-dev}
+    restart: unless-stopped
+    environment:
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in Coolify}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://nas.tryplusit.com}
+      COOKIE_SECURE: "true"
+      ADDR: 0.0.0.0:8080
+      DB_PATH: /data/trynas.db
+      STORAGE_ROOT: /storage
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      PROXY_UPLOAD_LIMIT_MB: ${PROXY_UPLOAD_LIMIT_MB:-10240}
+    expose:
+      - "8080"
+    volumes:
+      - trynas-data:/data
+      - trynas-storage:/storage
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  trynas-data:
+  trynas-storage:
