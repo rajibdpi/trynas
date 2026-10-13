@@ -21,6 +21,10 @@ func (a *Module) Can(u core.User, p string, write bool) bool {
 	if u.Role == "admin" {
 		return true
 	}
+	home := a.Home(u.ID)
+	if home == "" || !core.Under(p, home) {
+		return false
+	}
 	rows, err := a.DB.Query("SELECT path,access FROM permissions WHERE user_id=?", u.ID)
 	if err != nil {
 		return false
@@ -48,6 +52,12 @@ func (a *Module) CanBrowse(u core.User, p string) bool {
 	p, err := core.CleanPath(p)
 	if err != nil || p == "" {
 		return false
+	}
+	if u.Role != "admin" {
+		home := a.Home(u.ID)
+		if home == "" || !core.Under(p, home) {
+			return false
+		}
 	}
 	rows, err := a.DB.Query("SELECT path,access FROM permissions WHERE user_id=?", u.ID)
 	if err != nil {
@@ -229,6 +239,13 @@ func (a *Module) SavePermission(w http.ResponseWriter, r *http.Request) {
 	if role == "admin" {
 		core.Bad(w, "administrators have full access", 400)
 		return
+	}
+	if x.Access != "inherit" {
+		home := a.Home(x.UserID)
+		if home == "" || !core.Under(p, home) {
+			core.Bad(w, "permissions must be inside the user's assigned home folder", 400)
+			return
+		}
 	}
 	if x.Access == "inherit" {
 		_, err = a.DB.Exec("DELETE FROM permissions WHERE user_id=? AND path=?", x.UserID, p)

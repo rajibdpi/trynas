@@ -81,8 +81,8 @@ export function PermissionPanel({
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          New users have write access to their home folder. Granted folder ancestors are visible for
-          navigation. Recursive operations respect nested rules.
+          Normal users can access only their assigned home folder and its contents. Permissions apply
+          within that home folder. Recursive operations respect nested rules.
         </p>
       </CardHeader>
       <CardContent>

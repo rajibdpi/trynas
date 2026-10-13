@@ -427,3 +427,12 @@ Matching names and byte sizes open a dialog with Keep existing (skip), Keep both
 (numbered copy), and Replace. Equal byte sizes do not imply equal contents.
 The same rules apply to files inside a local folder upload. Destination permissions
 and quota are rechecked at commit; replacement failure restores the original.
+
+Normal users are restricted to their explicitly assigned home folder and its
+recursive contents. Root or outside-folder permission grants cannot widen that
+boundary. Administrator permissions for normal users apply only inside their
+home; administrators retain full storage access. Direct browser links outside
+the home return to the user's home, and the backend independently rejects outside
+paths. Legacy accounts without homes are provisioned with username folders when
+the app starts; files are not moved. Invalid or conflicting legacy home assignments
+remain inaccessible rather than inheriting another folder's permissions.
