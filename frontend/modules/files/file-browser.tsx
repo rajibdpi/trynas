@@ -12,6 +12,7 @@ import { cn } from "@/modules/shared/utils";
 import { FileInfoDialog } from "./file-info-dialog";
 import { ViewSwitcher } from "./view-switcher";
 import { useDragSelection } from "./drag-selection";
+import { findExistingShare } from "./existing-share";
 import { NewMenu } from "./new-menu";
 import { uploadFolderFiles } from "./upload-folder";
 import { FileThumbnail } from "@/modules/files/file-thumbnail";
@@ -22,7 +23,7 @@ import { ErrorText, Empty } from "@/modules/shared/feedback";
 
 import { isHiddenFile } from "@/modules/shared/file-visibility";
 
-type SharedItem = { path: string; paths?: string[]; token: string; expiresAt: string };
+type SharedItem = { storage?: string; path: string; paths?: string[]; token: string; expiresAt: string };
 
 export function FileBrowser({
   newMenuTarget,
@@ -73,6 +74,7 @@ export function FileBrowser({
   const shares = useResource<SharedItem[]>("/api/shares", 30000);
   const sharedLinks = new Map<string, string>();
   for (const share of shares.data || []) {
+    if (share.storage) continue;
     if (share.expiresAt && new Date(share.expiresAt).getTime() <= Date.now()) continue;
     for (const sharedPath of share.paths?.length ? share.paths : [share.path]) {
       if (!sharedLinks.has(sharedPath)) sharedLinks.set(sharedPath, share.token);
@@ -82,7 +84,7 @@ export function FileBrowser({
     const url = shareURL(token);
     try {
       await navigator.clipboard.writeText(url);
-      notify("Share link copied to clipboard. Ready to paste.");
+      notify(`Share link copied: ${url}`);
     } catch {
       notify(`Could not copy automatically. Copy this share link: ${url}`);
     }
@@ -219,7 +221,11 @@ export function FileBrowser({
       });
     else void perform(action, paths).catch((e) => notify(message(e)));
   };
-  const shareSelection = (paths: string[]) =>
+  const shareSelection = async (paths: string[]) => {
+    const available = await api("/api/shares").catch(error => { notify(message(error)); return null; });
+    if (!available) return;
+    const existing = findExistingShare(available, paths);
+    if (existing) { void copyShareToken(existing.token); return; }
     ask({
       title: "Create share link",
       description:
@@ -266,6 +272,7 @@ export function FileBrowser({
         void shares.reload();
       },
     });
+  };
   const transferToStorage=(move:boolean,paths:string[])=>ask({title:move ? "Move to attached storage" : "Copy to attached storage",description:"Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.",fields:[{key:"destinationStorage",label:"Destination storage",value:attached.data?.connections.find(c=>c.attached)?.id || "",options:attached.data?.connections.filter(c=>c.attached).map(c=>({value:c.id,label:c.name})) || []},{key:"destination",label:"Destination folder",value:"",required:false}],submit:move ? "Move" : "Copy",run:async values=>{try {await api("/api/storage/actions",{method:"POST",body:JSON.stringify({action:move ? "move" : "copy",storage:"",paths,...values})});notify("File operation completed");}finally {await reload();}}});
   const fileActions = (item: Item): Action[] => [
     { label: "Info", icon: Info, run: () => setInfoItem(item) },

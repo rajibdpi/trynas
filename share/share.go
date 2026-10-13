@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -140,6 +141,19 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 		}
 		expires = now.Add(time.Duration(x.Days) * 24 * time.Hour)
 	}
+	if x.Password != "" && (len(x.Password) < 8 || len(x.Password) > 72) {
+		core.Bad(w, "share password must be 8–72 bytes", 400)
+		return
+	}
+	existing, err := a.existingShare(u.ID, x.Storage, paths)
+	if err != nil {
+		core.Bad(w, "could not check existing shares", 500)
+		return
+	}
+	if existing != nil {
+		core.JSON(w, existing)
+		return
+	}
 	var hash []byte
 	if x.Password != "" {
 		if len(x.Password) < 8 || len(x.Password) > 72 {
@@ -199,7 +213,41 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 
 func (a *Module) DeleteShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
-	_, _ = a.DB.Exec("DELETE FROM shares WHERE id=? AND user_id=?", chi.URLParam(r, "id"), u.ID)
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		core.Bad(w, "invalid share", 400)
+		return
+	}
+	tx, err := a.DB.Begin()
+	if err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
+	defer tx.Rollback()
+	var owned int
+	err = tx.QueryRow("SELECT 1 FROM shares WHERE id=? AND user_id=?", id, u.ID).Scan(&owned)
+	if err == sql.ErrNoRows {
+		core.Bad(w, "share not found", 404)
+		return
+	}
+	if err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
+	for _, table := range []string{"share_sessions", "share_passwords", "share_stats", "share_items", "share_storage"} {
+		if _, err = tx.Exec("DELETE FROM "+table+" WHERE share_id=?", id); err != nil {
+			core.Bad(w, "could not revoke share", 500)
+			return
+		}
+	}
+	if _, err = tx.Exec("DELETE FROM shares WHERE id=? AND user_id=?", id, u.ID); err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
 	core.JSON(w, map[string]bool{"ok": true})
 }
 

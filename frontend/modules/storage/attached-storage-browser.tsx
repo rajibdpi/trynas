@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ViewSwitcher } from "@/modules/files/view-switcher";
+import { findExistingShare } from "@/modules/files/existing-share";
 import { NewMenu } from "@/modules/files/new-menu";
 import { uploadFolderFiles } from "@/modules/files/upload-folder";
 import { Preview } from "@/modules/files/preview";
@@ -90,7 +91,7 @@ function RemoteFiles({ onChanged, ask, connections, defaultShareExpiry, defaultV
     for (const p of share.paths?.length ? share.paths : [share.path]) if (!sharedLinks.has(p)) sharedLinks.set(p,share.token);
   }
   const copyShare=async(token:string)=>{
-    const url=shareURL(token); try { await navigator.clipboard.writeText(url); notify("Share link copied to clipboard. Ready to paste."); } catch { notify(`Share link: ${url}`); }
+    const url=shareURL(token); try { await navigator.clipboard.writeText(url); notify(`Share link copied: ${url}`); } catch { notify(`Share link: ${url}`); }
   };
   const [view, setView] = useState<"list" | "grid" | "large">(defaultView);
   const [sortBy, setSortBy] = useState<"name" | "size" | "type" | "modified">("type");
@@ -191,8 +192,14 @@ function RemoteFiles({ onChanged, ask, connections, defaultShareExpiry, defaultV
     catch (e) { notify(e instanceof Error ? e.message : "Could not load trash"); }
   }, [connection.id,notify]);
   useEffect(() => { if (trashOpen) void loadTrash(); },[trashOpen,loadTrash]);
-  const fileAction = (action: "copy" | "move" | "rename" | "zip" | "share" | "trash", paths: string[]) => {
+  const fileAction = async (action: "copy" | "move" | "rename" | "zip" | "share" | "trash", paths: string[]) => {
     const transfer=action === "copy" || action === "move";
+    if (action === "share") {
+      const available = await api("/api/shares").catch(error => { notify(error instanceof Error ? error.message : "Could not check shared links"); return null; });
+      if (!available) return;
+      const existing = findExistingShare(available, paths, connection.id);
+      if (existing) { void copyShare(existing.token); return; }
+    }
     ask({title:{copy:"Copy items",move:"Move items",rename:"Rename item",zip:"Create ZIP",share:"Create share link",trash:"Move to storage trash"}[action],
       description: transfer ? "Choose a destination folder relative to the selected storage root. Existing items are never overwritten. Moves verify copied content before removing the source." : action === "share" ? "Share remote items through TryNAS. Detached storage disables access. Folders download as ZIP archives." : action === "trash" ? "Keep a recoverable copy on this provider. Open Storage trash to restore it." : "Enter a single name without slashes.",
       fields:transfer ? [{key:"destinationStorage",label:"Destination storage",value:connection.id,options:[{value:"",label:"Local storage"},...connections.map(c=>({value:c.id,label:c.name}))]},{key:"destination",label:"Destination folder",value:"",required:false}] : action === "rename" || action === "zip" ? [{key:"name",label:action === "rename" ? "New name" : "Archive name",value:action === "rename" ? paths[0].split("/").pop()! : "archive.zip",required:true}] : action === "share" ? [{key:"expiry",label:"Expires at",value:"never",options:[{value:"never",label:"Never"},{value:"1",label:"1 day"},{value:"7",label:"7 days"},{value:"15",label:"15 days"},{value:"30",label:"30 days"}]},{key:"password",label:"Password (optional, 8–72 bytes)",value:"",type:"password",required:false}] : [],
