@@ -193,35 +193,43 @@ func (a *Module) RenameV5(w http.ResponseWriter, r *http.Request) { a.CopyMoveV5
 
 func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
+	// Reserve bounded staging capacity without holding the application mutation lock.
+	a.Uploads.Lock()
+	if a.ActiveUploads >= 2 {
+		a.Uploads.Unlock()
+		core.Bad(w, "upload capacity busy; retry later", 429)
+		return
+	}
+	a.ActiveUploads++
+	a.Uploads.Unlock()
+	defer func() {
+		a.Uploads.Lock()
+		a.ActiveUploads--
+		a.Uploads.Unlock()
+	}()
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<30)
-	if err := r.ParseMultipartForm(16 << 20); err != nil {
-		core.Bad(w, "invalid upload or upload exceeds 10 GiB", 413)
-		return
-	}
-	defer r.MultipartForm.RemoveAll()
-	dir, err := core.CleanPath(r.FormValue("path"))
+	reader, err := r.MultipartReader()
 	if err != nil {
-		core.Bad(w, "invalid path", 400)
+		core.Bad(w, "invalid multipart upload", 400)
 		return
 	}
-	if !a.Can(u, dir, true) {
-		core.Bad(w, "folder permission denied", 403)
+	var used, quota int64
+	if err = a.DB.QueryRow(`SELECT COALESCE((SELECT SUM(bytes) FROM file_owners WHERE user_id=?),0), COALESCE((SELECT quota_bytes FROM user_limits WHERE user_id=?),0)`, u.ID, u.ID).Scan(&used, &quota); err != nil {
+		core.Bad(w, "quota unavailable", 500)
 		return
 	}
-	files := r.MultipartForm.File["files"]
-	if len(files) == 0 {
-		files = r.MultipartForm.File["file"]
+	remaining := int64(10 << 30)
+	if quota > 0 {
+		remaining = min(remaining, max(int64(0), quota-used))
 	}
-	if len(files) == 0 {
-		core.Bad(w, "no files", 400)
-		return
-	}
-	stage, err := os.MkdirTemp(a.Root, ".trynas-upload-")
-	if err != nil {
-		core.Report(w, err)
-		return
-	}
-	defer os.RemoveAll(stage)
+	dir := ""
+	pathSeen := false
+	stage := ""
+	defer func() {
+		if stage != "" {
+			_ = os.RemoveAll(stage)
+		}
+	}()
 	type upload struct {
 		staged, dest, rel string
 		size              int64
@@ -229,43 +237,105 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	pending := []upload{}
 	names := map[string]bool{}
 	var total int64
-	for i, h := range files {
-		name := filepath.Base(h.Filename)
-		rel := core.RelJoin(dir, name)
+	for {
+		part, e := reader.NextPart()
+		if e == io.EOF {
+			break
+		}
+		if e != nil {
+			core.Bad(w, "invalid upload or upload exceeds limit", 413)
+			return
+		}
+		if part.FormName() == "path" && part.FileName() == "" {
+			data, e := io.ReadAll(io.LimitReader(part, 4097))
+			if e != nil || len(data) > 4096 || pathSeen {
+				core.Bad(w, "invalid upload destination", 400)
+				return
+			}
+			dir, e = core.CleanPath(string(data))
+			if e != nil {
+				core.Bad(w, "invalid path", 400)
+				return
+			}
+			if !a.Can(u, dir, true) {
+				core.Bad(w, "folder permission denied", 403)
+				return
+			}
+			pathSeen = true
+			continue
+		}
+		if part.FileName() == "" || (part.FormName() != "files" && part.FormName() != "file") {
+			core.Bad(w, "unexpected upload field", 400)
+			return
+		}
+		if len(pending) >= 10000 {
+			core.Bad(w, "upload exceeds 10,000 files", 413)
+			return
+		}
+		name := filepath.Base(part.FileName())
+		rel, e := core.CleanPath(name)
+		if e != nil || rel == "" {
+			core.Bad(w, "invalid filename", 400)
+			return
+		}
 		if names[rel] {
 			core.Bad(w, "duplicate upload filename", 409)
 			return
 		}
 		names[rel] = true
-		dest, e := a.Destination(u, rel)
+		dest := ""
+		if pathSeen {
+			dest, e = a.Destination(u, core.RelJoin(dir, rel))
+			if e != nil {
+				core.Report(w, e)
+				return
+			}
+		}
+		if stage == "" {
+			stage, e = os.MkdirTemp(a.Root, ".trynas-upload-")
+			if e != nil {
+				core.Report(w, e)
+				return
+			}
+		}
+		tmp := filepath.Join(stage, fmt.Sprintf("%d", len(pending)))
+		out, e := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if e != nil {
 			core.Report(w, e)
 			return
 		}
-		f, e := h.Open()
-		if e != nil {
-			core.Report(w, e)
-			return
-		}
-		tmp := filepath.Join(stage, fmt.Sprintf("%d", i))
-		out, e := os.Create(tmp)
-		if e != nil {
-			f.Close()
-			core.Report(w, e)
-			return
-		}
-		n, e := io.Copy(out, f)
+		n, e := io.Copy(out, io.LimitReader(part, remaining+1))
 		closeErr := out.Close()
-		f.Close()
+		if n > remaining {
+			core.Bad(w, "storage quota or upload limit exceeded", 413)
+			return
+		}
 		if e == nil {
 			e = closeErr
 		}
 		if e != nil {
-			core.Report(w, e)
+			core.Bad(w, "upload interrupted or exceeds limit", 413)
 			return
 		}
+		remaining -= n
 		total += n
 		pending = append(pending, upload{tmp, dest, rel, n})
+	}
+	if len(pending) == 0 {
+		core.Bad(w, "no files", 400)
+		return
+	}
+	// Revalidate under the mutation lock: permissions, quota and destinations may
+	// have changed while bytes were streamed to private staging files.
+	a.Mutation.Lock()
+	defer a.Mutation.Unlock()
+	for i := range pending {
+		pending[i].rel = core.RelJoin(dir, pending[i].rel)
+		pending[i].dest, err = a.Destination(u, pending[i].rel)
+		if err != nil {
+			core.Report(w, err)
+			return
+		}
 	}
 	if err = a.CheckQuota(u.ID, total); err != nil {
 		core.Bad(w, err.Error(), 413)

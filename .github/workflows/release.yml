@@ -36,21 +36,7 @@ jobs:
     outputs:
       tag: ${{ steps.version.outputs.tag }}
     steps:
-      - name: Validate administrator password secret
-        env:
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: |
-          python3 - <<'PY'
-          import os
-          password = os.environ.get("ADMIN_PASSWORD", "")
-          if not password:
-              print("::error::Missing repository Actions secret ADMIN_PASSWORD. Add it under Settings > Secrets and variables > Actions > New repository secret, then rerun all jobs.")
-              raise SystemExit(1)
-          if not 8 <= len(password.encode("utf-8")) <= 72 or password in ("change-this-now", "replace-with-a-strong-random-password"):
-              print("::error::ADMIN_PASSWORD must contain 8–72 UTF-8 bytes and must not use a placeholder password. Update the repository Actions secret, then rerun all jobs.")
-              raise SystemExit(1)
-          PY
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
@@ -61,16 +47,16 @@ jobs:
             echo 'Use a version tag such as v1.0.0 or v1.0.0-rc.1.' >&2
             exit 1
           fi
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
           package-manager-cache: false
       - name: Install pnpm
-        run: npm install --global pnpm@10
+        run: npm install --global pnpm@12.5.1
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
@@ -87,6 +73,11 @@ jobs:
         run: |
           go test ./...
           go vet ./...
+      - name: Audit Go dependencies
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: pnpm security:check
       - name: Select build version and reserve incremental release tag
         id: version
         env:
@@ -99,14 +90,12 @@ jobs:
             echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           fi
       - name: Build all six release binaries
-        env:
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: go run ./scripts/build --all --skip-frontend --admin-password-env
+        run: go run ./scripts/build --all --skip-frontend
       - name: Verify release checksums and include installation files
         run: |
           (cd dist && sha256sum --check SHA256SUMS)
           cp get.sh get.ps1 installation.md dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-assets
           if-no-files-found: error
@@ -132,11 +121,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
@@ -152,11 +141,11 @@ jobs:
     env:
       RELEASE_TAG: ${{ needs.build.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-assets
           path: dist
@@ -179,7 +168,7 @@ jobs:
           Download the matching binary and verify its hash against [SHA256SUMS]($download_url/SHA256SUMS).
           [get.sh]($download_url/get.sh) and [get.ps1]($download_url/get.ps1) provide checksum-verified installation. See the [installation guide]($download_url/installation.md).
 
-          Fresh installations use a shared build-time administrator password. Set ADMIN_PASSWORD at runtime to override it.
+          Fresh installations require a unique runtime ADMIN_PASSWORD. Release binaries contain no administrator credentials.
           Initial credentials print in the terminal when a fresh database is initialized.
           Stop the previous instance before upgrading and keep your configuration and database.
 

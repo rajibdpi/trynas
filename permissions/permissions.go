@@ -97,19 +97,27 @@ func (a *Module) Guard(next http.Handler) http.Handler {
 				return
 			}
 		}
-		if r.Method == "POST" || r.Method == "DELETE" {
+		if (r.Method == "POST" || r.Method == "DELETE") && p != "/api/files/upload" {
 			a.Mutation.Lock()
 			defer a.Mutation.Unlock()
 		}
 		if r.Method == "GET" && strings.HasPrefix(p, "/api/files") {
 			target := r.URL.Query().Get("path")
-			_, err := core.Safe(a.Root, target)
+			_, err := core.CleanPath(target)
 			ok := a.Can(u, target, false)
 			if p == "/api/files" || p == "/api/files/search" || p == "/api/files/info" {
 				ok = a.CanBrowse(u, target)
 			}
 			if err != nil {
 				core.Bad(w, err.Error(), 400)
+				return
+			}
+			if !ok {
+				core.Bad(w, "folder permission denied", 403)
+				return
+			}
+			if _, err := core.Safe(a.Root, target); err != nil {
+				core.Bad(w, "invalid path", 400)
 				return
 			}
 			if p == "/api/files/download" {
@@ -119,10 +127,6 @@ func (a *Module) Guard(next http.Handler) http.Handler {
 					core.Bad(w, "select a file to download", 400)
 					return
 				}
-			}
-			if !ok {
-				core.Bad(w, "folder permission denied", 403)
-				return
 			}
 		}
 		if r.Method == "POST" && (p == "/api/files/folder" || p == "/api/favorites") {

@@ -1,0 +1,43 @@
+diff --git a/src/sprintf.js b/src/sprintf.js
+index c0fc7c08b2e6fe38de2883034b8d28c8f34e9866..b720b07798853711d30a313683a9b2a8b6a16b9f 100644
+--- a/src/sprintf.js
++++ b/src/sprintf.js
+@@ -22,7 +22,7 @@
+     }
+ 
+     sprintf.format = function(parse_tree, argv) {
+-        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
++        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = "", precision
+         for (i = 0; i < tree_length; i++) {
+             node_type = get_type(parse_tree[i])
+             if (node_type === "string") {
+@@ -58,6 +58,12 @@
+                     is_positive = arg >= 0
+                 }
+ 
++                // Bound attacker-controlled precision before calling Number formatters.
++                // Clamp rather than throw so malformed formats cannot abort consumers.
++                precision = match[7] ? Math.min(100, parseInt(match[7], 10)) : undefined
++                if (match[8] === "g" && precision !== undefined) {
++                    precision = Math.max(1, precision)
++                }
+                 switch (match[8]) {
+                     case "b":
+                         arg = arg.toString(2)
+@@ -73,13 +79,13 @@
+                         arg = JSON.stringify(arg, null, match[6] ? parseInt(match[6]) : 0)
+                     break
+                     case "e":
+-                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
++                        arg = match[7] ? arg.toExponential(precision) : arg.toExponential()
+                     break
+                     case "f":
+-                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
++                        arg = match[7] ? parseFloat(arg).toFixed(precision) : parseFloat(arg)
+                     break
+                     case "g":
+-                        arg = match[7] ? parseFloat(arg).toPrecision(match[7]) : parseFloat(arg)
++                        arg = match[7] ? parseFloat(arg).toPrecision(precision) : parseFloat(arg)
+                     break
+                     case "o":
+                         arg = arg.toString(8)

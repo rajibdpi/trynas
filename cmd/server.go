@@ -62,5 +62,12 @@ func serve() error {
 	addr := core.Env("ADDR", "127.0.0.1:8080")
 	log.Printf("TryNAS v5 API %s storage=%s", addr, root)
 	server := &http.Server{Addr: addr, Handler: r, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 15 * time.Minute, WriteTimeout: 15 * time.Minute, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
+	cert, key := core.Env("TLS_CERT_FILE", ""), core.Env("TLS_KEY_FILE", "")
+	if cert != "" || key != "" {
+		if cert == "" || key == "" {
+			return fmt.Errorf("TLS_CERT_FILE and TLS_KEY_FILE must both be configured")
+		}
+		return server.ListenAndServeTLS(cert, key)
+	}
 	return server.ListenAndServe()
 }

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "security:check": "node scripts/security-dependencies.cjs"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.3.7",

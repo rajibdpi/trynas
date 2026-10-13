@@ -1,6 +1,6 @@
 module github.com/rajibdpi/trynas
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/go-chi/chi/v5 v5.3.1
@@ -121,7 +121,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
