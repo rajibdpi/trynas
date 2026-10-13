@@ -79,6 +79,43 @@ The service account needs read access to `.env` and write access to the database
 and storage directories. Stop any manually running instance first. View logs
 with `sudo journalctl -u trynas.service -f`.
 
+## Deploy with Coolify Dockerfile
+
+The root `Dockerfile` builds the frontend, embeds it in the Go server, and
+runs a single production container. `.dockerignore` excludes local secrets,
+data, and generated files from the build.
+
+Push both files and select **Dockerfile** as the build pack in Coolify
+(**General > Build pipeline > Build strategy** for an existing application).
+Set base directory `/` and Dockerfile location `/Dockerfile`, then save.
+Clear custom build/start commands.
+Expose port `8080` and set the domain to `https://nas.tryplusit.com`.
+Configure these runtime variables in Coolify:
+
+```dotenv
+ADMIN_USER=admin
+ADMIN_PASSWORD=<unique-random-password-of-8-to-72-bytes>
+ADDR=0.0.0.0:8080
+COOKIE_SECURE=true
+CORS_ORIGIN=https://nas.tryplusit.com
+DB_PATH=/data/trynas.db
+STORAGE_ROOT=/storage
+```
+
+Mount persistent storage at `/data` and `/storage` and keep both across
+redeploys. `/data` includes SQLite and the remote-storage encryption key.
+The container runs as UID/GID `10001:10001`; existing mounts must be writable
+by that user. Use one instance and disable overlapping deployments using
+consistent container naming. The image includes a health check at `/api/health`.
+The initial admin password belongs
+in Coolify's runtime settings, never in Git or build variables.
+
+Optionally set build argument `TRYNAS_VERSION` to your release tag; it defaults
+to `dev`. Deploy the commit containing the Dockerfile and verify
+`https://nas.tryplusit.com/api/health`.
+
+See the [Coolify Dockerfile guide](https://coolify.io/docs/applications/builds/dockerfile).
+
 ## Documentation
 
 - [Installation and upgrades](installation.md)
