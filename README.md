@@ -81,5 +81,6 @@ with `sudo journalctl -u trynas.service -f`.
 
 ## Documentation
 
+- [Deploy to Coolify](COOLIFY.md)
 - [Installation and upgrades](installation.md)
 - [Development commands and project structure](CONTRIBUTING.md)
