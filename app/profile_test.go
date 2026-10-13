@@ -25,8 +25,13 @@ func TestProfileUpdatesOwnAccount(t *testing.T) {
 	update["username"] = "renamed-member"
 	expect(t, jsonRequest(a, user, "POST", "/api/profile", update, a.UpdateProfile), 400)
 	update["currentPassword"] = "old-password"
-	expect(t, jsonRequest(a, user, "POST", "/api/profile", update, a.UpdateProfile), 200)
-	user.Username = "renamed-member"
+	expect(t, jsonRequest(a, user, "POST", "/api/profile", update, a.UpdateProfile), 400)
+	var unchanged string
+	_ = a.DB.QueryRow("SELECT username FROM users WHERE id=?", user.ID).Scan(&unchanged)
+	if unchanged != user.Username {
+		t.Fatal("username changed")
+	}
+	delete(update, "username")
 	update["newPassword"] = "new-password"
 	if _, err := a.DB.Exec("INSERT INTO sessions(token,user_id,expires_at) VALUES('old-session',?,datetime('now','+1 day'))", user.ID); err != nil {
 		t.Fatal(err)
@@ -50,7 +55,7 @@ func TestProfileUpdatesOwnAccount(t *testing.T) {
 	update["email"] = "member@example.com"
 	update["username"] = "test-admin"
 	update["currentPassword"] = "new-password"
-	expect(t, jsonRequest(a, user, "POST", "/api/profile", update, a.UpdateProfile), 409)
+	expect(t, jsonRequest(a, user, "POST", "/api/profile", update, a.UpdateProfile), 400)
 	update["username"] = "../invalid"
 	expect(t, jsonRequest(a, user, "POST", "/api/profile", update, a.UpdateProfile), 400)
 }

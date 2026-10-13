@@ -20,9 +20,8 @@ func (a *Module) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	input.Username = strings.TrimSpace(input.Username)
 	input.DisplayName = strings.TrimSpace(input.DisplayName)
 	input.Email = strings.TrimSpace(input.Email)
-	cleaned, err := core.CleanPath(input.Username)
-	if err != nil || cleaned != input.Username || cleaned == "" || strings.Contains(cleaned, "/") || len(cleaned) > 64 || strings.ContainsAny(cleaned, "\r\n\t") {
-		core.Bad(w, "username must be a single valid name of at most 64 bytes", 400)
+	if input.Username != "" && input.Username != u.Username {
+		core.Bad(w, "username cannot be changed", 400)
 		return
 	}
 	if utf8.RuneCountInString(input.DisplayName) > 100 || strings.ContainsAny(input.DisplayName, "\r\n") {
@@ -40,8 +39,7 @@ func (a *Module) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "password must be 8–72 bytes", 400)
 		return
 	}
-	sensitive := input.Username != u.Username || input.NewPassword != ""
-	if sensitive {
+	if input.NewPassword != "" {
 		if !a.AllowAttempt(w, r, "profile-password:"+u.Username) {
 			return
 		}
@@ -57,19 +55,6 @@ func (a *Module) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
-	var exists int
-	if err = tx.QueryRow("SELECT COUNT(*) FROM users WHERE username=? AND id<>?", input.Username, u.ID).Scan(&exists); err != nil {
-		core.Bad(w, "could not save profile", 500)
-		return
-	}
-	if exists > 0 {
-		core.Bad(w, "username is already in use", 409)
-		return
-	}
-	if _, err = tx.Exec("UPDATE users SET username=? WHERE id=?", input.Username, u.ID); err != nil {
-		core.Bad(w, "could not save profile", 500)
-		return
-	}
 	if input.NewPassword != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
@@ -97,7 +82,6 @@ func (a *Module) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "could not save profile", 500)
 		return
 	}
-	u.Username = input.Username
 	a.Log(u.ID, "profile-update", "", u.IP)
 	core.JSON(w, a.Profile(u))
 }

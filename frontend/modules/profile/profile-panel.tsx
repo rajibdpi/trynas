@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ProfilePanel({ user, onSaved }: { user: User; onSaved: (user: User) => void }) {
-  const [username, setUsername] = useState(user.username);
   const [displayName, setDisplayName] = useState(user.displayName || "");
   const [email, setEmail] = useState(user.email || "");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -20,9 +19,9 @@ export function ProfilePanel({ user, onSaved }: { user: User; onSaved: (user: Us
   const [error, setError] = useState("");
   const notify = useNotification();
   useEffect(() => {
-    setUsername(user.username); setDisplayName(user.displayName || ""); setEmail(user.email || "");
+    setDisplayName(user.displayName || ""); setEmail(user.email || "");
   }, [user.username, user.displayName, user.email]);
-  const sensitive = username.trim() !== user.username || !!newPassword;
+  const sensitive = !!newPassword;
   return <div className="space-y-4">
     <Card><CardHeader><CardTitle>Your profile</CardTitle><p className="text-sm text-muted-foreground">Manage your account information and password.</p></CardHeader><CardContent>
       <form className="space-y-5" onSubmit={async event => {
@@ -30,7 +29,7 @@ export function ProfilePanel({ user, onSaved }: { user: User; onSaved: (user: Us
         if (newPassword !== confirmation) { setError("New passwords do not match."); return; }
         setSaving(true);
         try {
-          const saved = await api("/api/profile", { method: "POST", body: JSON.stringify({ username, displayName, email, currentPassword, newPassword }) });
+          const saved = await api("/api/profile", { method: "POST", body: JSON.stringify({ displayName, email, currentPassword, newPassword }) });
           onSaved(saved); setCurrentPassword(""); setNewPassword(""); setConfirmation(""); notify("Profile saved");
         } catch (error) { setError(error instanceof Error ? error.message : "Could not save profile"); }
         finally { setSaving(false); }
@@ -39,7 +38,7 @@ export function ProfilePanel({ user, onSaved }: { user: User; onSaved: (user: Us
         <fieldset disabled={saving} className="grid gap-5 sm:grid-cols-2">
           <label className="space-y-2 text-sm font-medium"><span>Display name</span><input autoComplete="name" maxLength={100} value={displayName} onChange={event => setDisplayName(event.target.value)} /></label>
           <label className="space-y-2 text-sm font-medium"><span>Email</span><input type="email" autoComplete="email" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /><p className="text-xs text-muted-foreground">Optional contact information.</p></label>
-          <label className="space-y-2 text-sm font-medium"><span>Username</span><input required autoComplete="username" maxLength={64} value={username} onChange={event => setUsername(event.target.value)} /><p className="text-xs text-muted-foreground">Changing your username requires your current password.</p></label>
+          <label className="space-y-2 text-sm font-medium"><span>Username</span><input autoComplete="username" value={user.username} readOnly className="text-muted-foreground" /><p className="text-xs text-muted-foreground">Your username cannot be changed.</p></label>
           <div className="space-y-2 text-sm"><p className="font-medium">Account access</p><p className="capitalize">{user.role}</p><p className="break-all text-muted-foreground">Home folder: /{user.home || ""}</p></div>
           <label className="space-y-2 text-sm font-medium"><span>New password</span><input type="password" autoComplete="new-password" minLength={8} maxLength={72} value={newPassword} onChange={event => setNewPassword(event.target.value)} /><p className="text-xs text-muted-foreground">Leave blank to keep your current password. Other sessions end after a password change.</p></label>
           <label className="space-y-2 text-sm font-medium"><span>Confirm new password</span><input type="password" autoComplete="new-password" required={!!newPassword} value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>
