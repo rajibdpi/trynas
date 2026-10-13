@@ -43,6 +43,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
   const { dark, toggleTheme, updateTheme } = useTheme();
+  const [newMenuTarget, setNewMenuTarget] = useState<HTMLDivElement | null>(null);
   const [storageControlsTarget, setStorageControlsTarget] = useState<HTMLDivElement | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
   const [me, setMe] = useState<User | null>(null),
@@ -61,6 +62,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     [sidebarCollapsed, setSidebarCollapsed] = useState(false),
     [command, setCommand] = useState<Command | null>(null),
     [preview, setPreview] = useState<Item | null>(null);
+  const previewRef = useRef<Item | null>(null);
+  previewRef.current = preview;
   useEffect(() => {
     try {
       setSidebarCollapsed(localStorage.getItem("trynas-sidebar-collapsed") === "true");
@@ -235,20 +238,20 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     const nextPath = currentLocation.path ?? me.home ?? "";
     setPath(nextPath);
     setFileQuery("");
-    setPreview(null);
     if (currentLocation.path === null) {
       writeFileLocation(nextPath, currentLocation.file ?? undefined, undefined, true);
       return;
     }
-    if (!currentLocation.file) return;
+    if (!currentLocation.file) { setPreview(null); return; }
+    if (previewRef.current?.path === currentLocation.file) return;
     const controller = new AbortController();
     const file = currentLocation.file;
     void api(`/api/files?path=${encodeURIComponent(parent(file))}`, { signal: controller.signal }).then(data => {
       if (controller.signal.aborted) return;
       const item = (data.items as Item[]).find(item => item.path === file && !item.dir);
-      if (!item) { showNotification("File not found or access denied."); return; }
+      if (!item) { setPreview(null); showNotification("File not found or access denied."); return; }
       setPreview(item);
-    }).catch(error => { if (!controller.signal.aborted) showNotification(message(error)); });
+    }).catch(error => { if (!controller.signal.aborted) { setPreview(null); showNotification(message(error)); } });
     return () => controller.abort();
   }, [me?.id, pathname, fileLocation?.path, fileLocation?.file, fileLocation?.storage]);
   const navigateFolder = (next: string) => {
@@ -306,6 +309,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   if (!me) return <div className="flex h-dvh flex-col overflow-hidden"><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>;
   let content: ReactNode = null;
   const fileProps = {
+    newMenuTarget,
     allowAttachedActions: me.role === "admin",
     defaultView: appSettings.fileView,
     showHiddenFiles: appSettings.showHiddenFiles,
@@ -340,7 +344,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       );
       break;
     case "files":
-      content = <AttachedStorageBrowser storageControlsTarget={storageControlsTarget} onChanged={fileProps.onChanged} ask={ask} defaultShareExpiry={appSettings.shareExpiry} defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
+      content = <AttachedStorageBrowser newMenuTarget={newMenuTarget} storageControlsTarget={storageControlsTarget} onChanged={fileProps.onChanged} ask={ask} defaultShareExpiry={appSettings.shareExpiry} defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
       break;
     case "system":
       content = <SystemPanel sys={sys.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} />;
@@ -554,13 +558,14 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           >
             <RefreshCw />
           </Button>
+          {activeTab === "files" && <div ref={setNewMenuTarget} className="shrink-0" />}
         </header>
         {sys.error && <ErrorText text={sys.error} />}
         <section key={activeTab} className={activeTab === "files" ? "flex min-w-0 flex-1 flex-col" : undefined}>{content}</section>
         <div className="mt-auto pt-8"><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />
-      {preview && <Preview item={preview} close={() => { setPreview(null); writeFileLocation(path); }} />}
+      {preview && <Preview item={preview} onNavigate={openItem} showHiddenFiles={appSettings.showHiddenFiles} close={() => { setPreview(null); writeFileLocation(path); }} />}
     </div>
   );
 }

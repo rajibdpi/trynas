@@ -2,6 +2,7 @@
 
 import { defaultColors, colorPresets, type ThemeColors, type ThemeMode } from "./color-theme";
 
+import { ViewSwitcher } from "@/modules/files/view-switcher";
 import { Select } from "@/components/ui/select";
 import { StorageProvidersPanel } from "@/modules/storage/storage-providers";
 import { useEffect, useState } from "react";
@@ -62,7 +63,7 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
                 finally { setSaving(false); input.value = ""; }
               }} /></div><p className="text-xs text-muted-foreground">PNG, JPEG, or GIF. Up to 2 MiB and 4096 × 4096 pixels. Save settings to apply logo changes.</p></div>
               <label className="min-w-0 space-y-2 text-sm font-medium"><span>Footer text</span><input value={settings.footerText} maxLength={200} placeholder="Leave blank for the default copyright" onChange={event => setSettings({ ...settings, footerText: event.target.value })} /><p className="text-xs text-muted-foreground">Leave blank to show the current year and app name.</p></label>
-              <label className="min-w-0 space-y-2 text-sm font-medium"><span>Default file view</span><Select value={settings.fileView} onValueChange={value => setSettings({ ...settings, fileView: value as AppSettings["fileView"] })}><option value="large">Large tiles</option><option value="grid">Tiles</option><option value="list">List</option></Select></label>
+              <div className="min-w-0 space-y-2 text-sm font-medium"><span className="block">Default file view</span><ViewSwitcher label="Default file view" value={settings.fileView} onChange={fileView => setSettings({ ...settings, fileView })} disabled={saving || !server} /></div>
               <label className="min-w-0 space-y-2 text-sm font-medium"><span className="flex items-center gap-2"><input type="checkbox" checked={settings.showHiddenFiles ?? false} onChange={event => setSettings({ ...settings, showHiddenFiles: event.target.checked })} />Show hidden files and folders</span><p className="text-xs text-muted-foreground">Show names starting with a dot (.), such as .env and .config, in file listings and search results.</p></label>
               <label className="min-w-0 space-y-2 text-sm font-medium"><span>Default share expiry</span><Select value={settings.shareExpiry} onValueChange={value => setSettings({ ...settings, shareExpiry: value })}>{expiryOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></label>
               <label className="min-w-0 space-y-2 text-sm font-medium"><span>Trash retention (days)</span><input type="number" min={0} max={3650} required value={settings.trashRetentionDays} onChange={event => setSettings({ ...settings, trashRetentionDays: Number(event.target.value) })} /><p className="text-xs text-muted-foreground">Automatically delete trash after this many days. Use 0 to disable. Cleanup runs at startup and hourly; reducing retention also applies to existing trash.</p></label>

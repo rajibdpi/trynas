@@ -1,5 +1,7 @@
 "use client";
 
+import { ViewSwitcher, useCollectionView, collectionLayout, collectionItem } from "@/modules/files/view-switcher";
+
 import { Star } from "lucide-react";
 import { api } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -15,16 +17,18 @@ export function FavoritesPanel({
   openPath: (p: string) => void;
   notify: (s: string) => void;
 }) {
+  const [view, changeView] = useCollectionView("trynas-favorites-view");
   const favorites = useResource<any[]>("/api/favorites");
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Favorites</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>Favorites</CardTitle><ViewSwitcher label="Favorites view" value={view} onChange={changeView} /></div>
       </CardHeader>
       <CardContent>
         <ErrorText text={favorites.error} />
+        <div className={collectionLayout(view)}>
         {favorites.data?.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 border-b py-3">
+          <div key={item.id} className={collectionItem(view)}>
             <Star className="size-4 text-amber-500" />
             <button
               className="flex-1 break-all text-left text-sm"
@@ -52,6 +56,7 @@ export function FavoritesPanel({
             </Button>
           </div>
         ))}
+        </div>
         {favorites.data?.length === 0 && <Empty text="No favorites yet." />}
       </CardContent>
     </Card>

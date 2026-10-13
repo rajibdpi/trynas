@@ -215,7 +215,7 @@ select option {
   background: var(--sidebar-active);
   color: var(--sidebar-active-text);
   box-shadow: inset 3px 0 var(--primary);
-  font-weight: 600;
+  font-weight: normal;
 }
 .nav-link.is-active svg {
   color: var(--sidebar-active-text);

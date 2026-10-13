@@ -10,7 +10,12 @@ import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/modules/shared/utils";
 import { FileInfoDialog } from "./file-info-dialog";
-import { FileTypeIcon } from "@/modules/files/file-type-icon";
+import { ViewSwitcher } from "./view-switcher";
+import { useDragSelection } from "./drag-selection";
+import { findExistingShare } from "./existing-share";
+import { NewMenu } from "./new-menu";
+import { uploadFolderFiles } from "./upload-folder";
+import { FileThumbnail } from "@/modules/files/file-thumbnail";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
 import { fmt, message, parent, join } from "@/modules/shared/format";
 import { useResource } from "@/modules/shared/use-resource";
@@ -18,9 +23,10 @@ import { ErrorText, Empty } from "@/modules/shared/feedback";
 
 import { isHiddenFile } from "@/modules/shared/file-visibility";
 
-type SharedItem = { path: string; paths?: string[]; token: string; expiresAt: string };
+type SharedItem = { storage?: string; path: string; paths?: string[]; token: string; expiresAt: string };
 
 export function FileBrowser({
+  newMenuTarget,
   allowAttachedActions,
   defaultView,
   showHiddenFiles,
@@ -39,6 +45,7 @@ export function FileBrowser({
   notify,
   onChanged,
 }: {
+  newMenuTarget: HTMLDivElement | null;
   allowAttachedActions: boolean;
   defaultView: "list" | "grid" | "large";
   defaultShareExpiry: string;
@@ -57,6 +64,8 @@ export function FileBrowser({
   notify: (s: string) => void;
   onChanged: () => void;
 }) {
+  const folderInput = useRef<HTMLInputElement>(null);
+  const [folderUploading, setFolderUploading] = useState(false);
   const [infoItem, setInfoItem] = useState<Item | null>(null);
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
@@ -65,6 +74,7 @@ export function FileBrowser({
   const shares = useResource<SharedItem[]>("/api/shares", 30000);
   const sharedLinks = new Map<string, string>();
   for (const share of shares.data || []) {
+    if (share.storage) continue;
     if (share.expiresAt && new Date(share.expiresAt).getTime() <= Date.now()) continue;
     for (const sharedPath of share.paths?.length ? share.paths : [share.path]) {
       if (!sharedLinks.has(sharedPath)) sharedLinks.set(sharedPath, share.token);
@@ -74,7 +84,7 @@ export function FileBrowser({
     const url = shareURL(token);
     try {
       await navigator.clipboard.writeText(url);
-      notify("Share link copied to clipboard. Ready to paste.");
+      notify(`Share link copied: ${url}`);
     } catch {
       notify(`Could not copy automatically. Copy this share link: ${url}`);
     }
@@ -111,6 +121,7 @@ export function FileBrowser({
     selectionAnchor = useRef<string | null>(null),
     controller = useRef<AbortController | null>(null),
     dragDepth = useRef(0);
+  const dragSelection = useDragSelection({ selected, onSelect: setSelected, scope: path });
   const [draggingFiles, setDraggingFiles] = useState(false);
   const resetDrag = () => { dragDepth.current = 0; setDraggingFiles(false); };
   useEffect(() => {
@@ -210,7 +221,11 @@ export function FileBrowser({
       });
     else void perform(action, paths).catch((e) => notify(message(e)));
   };
-  const shareSelection = (paths: string[]) =>
+  const shareSelection = async (paths: string[]) => {
+    const available = await api("/api/shares").catch(error => { notify(message(error)); return null; });
+    if (!available) return;
+    const existing = findExistingShare(available, paths);
+    if (existing) { void copyShareToken(existing.token); return; }
     ask({
       title: "Create share link",
       description:
@@ -257,6 +272,7 @@ export function FileBrowser({
         void shares.reload();
       },
     });
+  };
   const transferToStorage=(move:boolean,paths:string[])=>ask({title:move ? "Move to attached storage" : "Copy to attached storage",description:"Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.",fields:[{key:"destinationStorage",label:"Destination storage",value:attached.data?.connections.find(c=>c.attached)?.id || "",options:attached.data?.connections.filter(c=>c.attached).map(c=>({value:c.id,label:c.name})) || []},{key:"destination",label:"Destination folder",value:"",required:false}],submit:move ? "Move" : "Copy",run:async values=>{try {await api("/api/storage/actions",{method:"POST",body:JSON.stringify({action:move ? "move" : "copy",storage:"",paths,...values})});notify("File operation completed");}finally {await reload();}}});
   const fileActions = (item: Item): Action[] => [
     { label: "Info", icon: Info, run: () => setInfoItem(item) },
@@ -492,14 +508,7 @@ export function FileBrowser({
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-            <Button
-              variant="outline"
-              disabled={!writable || !!upload}
-              onClick={() => input.current?.click()}
-            >
-              <Upload />
-              <span>Upload</span>
-            </Button>
+
             <input
               ref={input}
               type="file"
@@ -507,40 +516,7 @@ export function FileBrowser({
               multiple
               onChange={(e) => void send(Array.from(e.target.files || []))}
             />
-            <Button
-              disabled={!writable}
-              onClick={() =>
-                ask({
-                  title: "New folder",
-                  description: "Create a folder in the current location.",
-                  fields: [
-                    {
-                      key: "name",
-                      label: "Folder name",
-                      value: "",
-                      required: true,
-                    },
-                  ],
-                  submit: "Create",
-                  run: async (v) => {
-                    if (
-                      /[\\/]/.test(v.name) ||
-                      v.name === "." ||
-                      v.name === ".."
-                    )
-                      throw new Error("Enter a single folder name");
-                    await api("/api/files/folder", {
-                      method: "POST",
-                      body: JSON.stringify({ path: join(path, v.name) }),
-                    });
-                    await reload();
-                  },
-                })
-              }
-            >
-              <Plus />
-              <span>Folder</span>
-            </Button>
+
             <Button
               variant="outline"
               size="icon"
@@ -557,17 +533,11 @@ export function FileBrowser({
                 {(["asc", "desc"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortDirection(value)} className="justify-between py-2.5"><span>{value === "asc" ? "Ascending" : "Descending"}</span>{sortDirection === value && <Check className="size-4" />}</DropdownMenuItem>)}
               </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Change file view">{view === "large" ? <Grid2X2 /> : view === "grid" ? <Grip /> : <List />}<span className="hidden sm:inline">View</span><ChevronDown className="hidden sm:block" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 rounded-xl p-1.5">
-                <p className="px-3 py-2 text-xs text-muted-foreground">View</p>
-                {([{ value: "large", label: "Large tiles", icon: Grid2X2 }, { value: "grid", label: "Tiles", icon: Grip }, { value: "list", label: "List", icon: List }] as const).map(option => <DropdownMenuItem key={option.value} onSelect={() => changeView(option.value)} className="gap-3 py-2.5"><option.icon className="size-4" /><span>{option.label}</span>{view === option.value && <Check className="ml-auto size-3.5" />}</DropdownMenuItem>)}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ViewSwitcher value={view} onChange={changeView} />
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className="flex flex-1 flex-col">
         <ErrorText text={listing.error || search.error || uploadError} />
         {!writable && (
           <p className="mb-3 text-xs text-muted-foreground">
@@ -662,16 +632,20 @@ export function FileBrowser({
           </div>
         )}
         <div
+          ref={dragSelection.ref}
+          onPointerDownCapture={dragSelection.onPointerDownCapture}
+          onClickCapture={dragSelection.onClickCapture}
           className={
             view !== "list"
-              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
-              : "space-y-1"
+              ? view === "large" ? "grid min-h-40 flex-1 content-start grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" : "grid min-h-40 flex-1 content-start grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+              : "min-h-40 flex-1 space-y-1"
           }
         >
           {items.map((item) => (
             <ContextMenu key={item.path}>
               <ContextMenuTrigger asChild>
                 <div
+                  data-selection-id={item.path}
                   data-selected={selected.includes(item.path)}
                   onMouseDownCapture={event => {
                     if (event.button === 0 && (event.detail > 1 || event.shiftKey)) {
@@ -717,7 +691,7 @@ export function FileBrowser({
                           <Folder className={view === "large" ? "size-14" : "size-10"} />
                         </span>
                       ) : (
-                        <span className={view === "large" ? "inline-flex origin-left scale-125 mr-2" : ""}><FileTypeIcon name={item.name} /></span>
+                        <FileThumbnail item={item} large={view === "large"} />
                       )}
                       {selected.includes(item.path) && (
                         <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
@@ -797,6 +771,46 @@ export function FileBrowser({
             }
           />
         )}
+        <NewMenu target={newMenuTarget} disabled={!writable || !!upload || folderUploading} uploadFiles={() => input.current?.click()} uploadFolder={() => folderInput.current?.click()} newFolder={() => ask({
+                  title: "New folder",
+                  description: "Create a folder in the current location.",
+                  fields: [
+                    {
+                      key: "name",
+                      label: "Folder name",
+                      value: "",
+                      required: true,
+                    },
+                  ],
+                  submit: "Create",
+                  run: async (v) => {
+                    if (
+                      /[\\/]/.test(v.name) ||
+                      v.name === "." ||
+                      v.name === ".."
+                    )
+                      throw new Error("Enter a single folder name");
+                    await api("/api/files/folder", {
+                      method: "POST",
+                      body: JSON.stringify({ path: join(path, v.name) }),
+                    });
+                    await reload();
+                  },
+                })} />
+        <input ref={element => { folderInput.current = element; if (element) element.setAttribute("webkitdirectory", ""); }} type="file" multiple className="hidden" onChange={async event => {
+          const files = Array.from(event.target.files || []); event.target.value = "";
+          if (!files.length) return;
+          setFolderUploading(true); setUploadError("");
+          try {
+            await uploadFolderFiles(files, path, async directory => { await api("/api/files/folder", { method: "POST", body: JSON.stringify({ path: directory, existOk: true }) }); }, async (directory, files) => {
+              const body = new FormData(); body.append("path", directory); for (const file of files) body.append("files", file);
+              await uploadFiles(body, () => {}, new AbortController().signal);
+            });
+            notify("Folder uploaded");
+          } catch (error) { setUploadError(message(error)); }
+          finally { setFolderUploading(false); await reload(); }
+        }} />
+        {dragSelection.overlay}
         <FileInfoDialog item={infoItem} close={() => setInfoItem(null)} />
       </CardContent>
     </Card>

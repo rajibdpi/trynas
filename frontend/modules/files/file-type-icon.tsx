@@ -1,7 +1,8 @@
+import { imageExtensions } from "./image-gallery";
 import { File, FileImage, FileVideo, FileAudio, FileText, FileSpreadsheet, FileArchive, FileCode, FileSliders, FileCog, Presentation } from "lucide-react";
 
 const types = [
-  { extensions: ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "ico", "tif", "tiff", "heic", "avif", "raw"], icon: FileImage, label: "Image", color: "text-pink-600 dark:text-pink-400", background: "bg-pink-500/10" },
+  { extensions: imageExtensions, icon: FileImage, label: "Image", color: "text-pink-600 dark:text-pink-400", background: "bg-pink-500/10" },
   { extensions: ["mp4", "mkv", "mov", "avi", "webm", "m4v", "mpeg", "mpg", "wmv", "flv"], icon: FileVideo, label: "Video", color: "text-purple-600 dark:text-purple-400", background: "bg-purple-500/10" },
   { extensions: ["mp3", "wav", "ogg", "flac", "aac", "m4a", "wma", "opus", "aiff"], icon: FileAudio, label: "Audio", color: "text-amber-600 dark:text-amber-400", background: "bg-amber-500/10" },
   { extensions: ["pdf"], icon: FileText, label: "PDF document", color: "text-red-600 dark:text-red-400", background: "bg-red-500/10" },

@@ -170,6 +170,10 @@ func TestNeverAndPresetShareExpiry(t *testing.T) {
 	write(t, a, "shared/file.txt", "file")
 	grant(t, a, user, "shared", "read")
 	for _, days := range []int{0, 1, 7, 15, 30} {
+		// Each preset needs a fresh share; active links now retain their original expiry.
+		if _, err := a.DB.Exec("DELETE FROM shares WHERE user_id=?", user.ID); err != nil {
+			t.Fatal(err)
+		}
 		settings := map[string]any{"path": "shared/file.txt"}
 		if days == 0 {
 			settings["never"] = true

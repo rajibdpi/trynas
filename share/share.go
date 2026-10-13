@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -17,21 +18,22 @@ import (
 
 func (a *Module) Shares(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
-	rows, _ := a.DB.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]'), COALESCE((SELECT storage FROM share_storage WHERE share_id=shares.id),'') FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
+	rows, _ := a.DB.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]'), COALESCE((SELECT storage FROM share_storage WHERE share_id=shares.id),''),COALESCE((SELECT visits FROM share_stats WHERE share_id=shares.id),0),COALESCE((SELECT downloads FROM share_stats WHERE share_id=shares.id),0) FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
 	defer rows.Close()
 	out := []map[string]any{}
 	for rows.Next() {
 		var id int
+		var visits, downloads int64
 		var p, tok, exp, created string
 		var protected bool
 		var pathsJSON, storage string
-		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON, &storage)
+		_ = rows.Scan(&id, &p, &tok, &exp, &created, &protected, &pathsJSON, &storage, &visits, &downloads)
 		var paths []string
 		_ = json.Unmarshal([]byte(pathsJSON), &paths)
 		if len(paths) == 0 {
 			paths = []string{p}
 		}
-		out = append(out, map[string]any{"id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected, "storage": storage})
+		out = append(out, map[string]any{"visits": visits, "downloads": downloads, "id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected, "storage": storage})
 	}
 	core.JSON(w, out)
 }
@@ -139,6 +141,19 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 		}
 		expires = now.Add(time.Duration(x.Days) * 24 * time.Hour)
 	}
+	if x.Password != "" && (len(x.Password) < 8 || len(x.Password) > 72) {
+		core.Bad(w, "share password must be 8–72 bytes", 400)
+		return
+	}
+	existing, err := a.existingShare(u.ID, x.Storage, paths)
+	if err != nil {
+		core.Bad(w, "could not check existing shares", 500)
+		return
+	}
+	if existing != nil {
+		core.JSON(w, existing)
+		return
+	}
 	var hash []byte
 	if x.Password != "" {
 		if len(x.Password) < 8 || len(x.Password) > 72 {
@@ -151,13 +166,13 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	tok := core.Token()
 	tx, err := a.DB.Begin()
 	if err != nil {
 		core.Bad(w, "could not create share", 500)
 		return
 	}
 	defer tx.Rollback()
-	tok := core.Token()
 	var exp any
 	expiryText := ""
 	if !x.Never {
@@ -198,7 +213,41 @@ func (a *Module) CreateShare(w http.ResponseWriter, r *http.Request) {
 
 func (a *Module) DeleteShare(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
-	_, _ = a.DB.Exec("DELETE FROM shares WHERE id=? AND user_id=?", chi.URLParam(r, "id"), u.ID)
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		core.Bad(w, "invalid share", 400)
+		return
+	}
+	tx, err := a.DB.Begin()
+	if err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
+	defer tx.Rollback()
+	var owned int
+	err = tx.QueryRow("SELECT 1 FROM shares WHERE id=? AND user_id=?", id, u.ID).Scan(&owned)
+	if err == sql.ErrNoRows {
+		core.Bad(w, "share not found", 404)
+		return
+	}
+	if err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
+	for _, table := range []string{"share_sessions", "share_passwords", "share_stats", "share_items", "share_storage"} {
+		if _, err = tx.Exec("DELETE FROM "+table+" WHERE share_id=?", id); err != nil {
+			core.Bad(w, "could not revoke share", 500)
+			return
+		}
+	}
+	if _, err = tx.Exec("DELETE FROM shares WHERE id=? AND user_id=?", id, u.ID); err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		core.Bad(w, "could not revoke share", 500)
+		return
+	}
 	core.JSON(w, map[string]bool{"ok": true})
 }
 
@@ -235,6 +284,9 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 		if passwordHash != "" && !a.AuthorizeShare(w, r, shareID, tok, passwordHash) {
 			return
 		}
+		tracked, record := a.trackShare(w, r, shareID)
+		w = tracked
+		defer record()
 		if r.URL.Query().Get("qr") == "1" {
 			ServeQR(w, r, tok)
 			return
@@ -272,6 +324,9 @@ func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
 	if passwordHash != "" && !a.AuthorizeShare(w, r, shareID, tok, passwordHash) {
 		return
 	}
+	tracked, record := a.trackShare(w, r, shareID)
+	w = tracked
+	defer record()
 	if r.URL.Query().Get("qr") == "1" {
 		ServeQR(w, r, tok)
 		return

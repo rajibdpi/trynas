@@ -103,11 +103,18 @@ func (a *Module) SearchFiles(w http.ResponseWriter, r *http.Request) {
 
 func (a *Module) Mkdir(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
-	var x struct{ Path string }
+	var x struct {
+		Path    string
+		ExistOK bool `json:"existOk"`
+	}
 	_ = json.NewDecoder(r.Body).Decode(&x)
 	f, e := core.Safe(a.Root, x.Path)
 	if e != nil {
 		core.Bad(w, "invalid path", 400)
+		return
+	}
+	if st, err := os.Stat(f); err == nil && x.ExistOK && st.IsDir() {
+		core.JSON(w, map[string]bool{"ok": true})
 		return
 	}
 	if e = os.MkdirAll(f, 0755); e != nil {
@@ -141,7 +148,13 @@ func (a *Module) Preview(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "not previewable", 400)
 		return
 	}
-	ct := mime.TypeByExtension(strings.ToLower(filepath.Ext(f)))
+	ct := core.ImageContentType(filepath.Ext(f))
+	if ct == "" {
+		ct = mime.TypeByExtension(strings.ToLower(filepath.Ext(f)))
+	}
+	if strings.EqualFold(filepath.Ext(f), ".svgz") {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
 	if ct == "" {
 		ct = "application/octet-stream"
 	}

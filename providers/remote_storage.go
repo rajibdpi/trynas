@@ -171,7 +171,15 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 			}
 			defer reader.Close()
 			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(p)}))
-			w.Header().Set("Content-Type", "application/octet-stream")
+			contentType := core.ImageContentType(path.Ext(p))
+			if contentType == "" {
+				contentType = "application/octet-stream"
+			}
+			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Content-Security-Policy", "sandbox")
+			if strings.EqualFold(path.Ext(p), ".svgz") {
+				w.Header().Set("Content-Encoding", "gzip")
+			}
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			if obj.Size() >= 0 {
 				w.Header().Set("Content-Length", strconv.FormatInt(obj.Size(), 10))
@@ -270,6 +278,7 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Dir     bool   `json:"dir"`
 		Confirm bool   `json:"confirm"`
+		ExistOK bool   `json:"existOk"`
 	}
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&input) != nil {
 		core.Bad(w, "invalid request", 400)
@@ -282,7 +291,14 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 			core.Bad(w, "invalid folder name", 400)
 			return
 		}
-		err = f.Mkdir(ctx, core.RelJoin(p, name))
+		target := core.RelJoin(p, name)
+		if input.ExistOK {
+			if _, err := f.List(ctx, target); err == nil {
+				core.JSON(w, map[string]bool{"ok": true})
+				return
+			}
+		}
+		err = f.Mkdir(ctx, target)
 	case "delete":
 		if p == "" || !input.Confirm {
 			core.Bad(w, "confirm deletion of a non-root item", 400)

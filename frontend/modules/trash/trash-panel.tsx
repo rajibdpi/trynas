@@ -1,5 +1,7 @@
 "use client";
 
+import { ViewSwitcher, useCollectionView, collectionLayout, collectionItem } from "@/modules/files/view-switcher";
+
 import { useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { api } from "@/modules/shared/api";
@@ -17,6 +19,7 @@ export function TrashPanel({ ask, notify, onChanged }: {
   notify: (s: string) => void;
   onChanged: () => void;
 }) {
+  const [view, changeView] = useCollectionView("trynas-trash-view");
   const trash = useResource<TrashItem[]>("/api/trash");
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
@@ -65,7 +68,7 @@ export function TrashPanel({ ask, notify, onChanged }: {
 
   return <Card>
     <CardHeader>
-      <CardTitle>Trash</CardTitle>
+      <div className="flex flex-wrap items-center justify-between gap-3"><CardTitle>Trash</CardTitle><ViewSwitcher label="Trash view" value={view} onChange={changeView} /></div>
       <p className="text-sm text-muted-foreground">Trash counts toward quota. Restore requires write access to the original folder.</p>
     </CardHeader>
     <CardContent>
@@ -83,7 +86,8 @@ export function TrashPanel({ ask, notify, onChanged }: {
         <Button variant="destructive" size="sm" disabled={busy || !chosen.length} onClick={() => confirmDelete(chosen)}>Delete forever</Button>
         {busy && <span className="text-sm text-muted-foreground" role="status">Processing items…</span>}
       </div>}
-      {items.map(item => <div key={item.id} className="flex flex-wrap items-center gap-3 border-b py-4">
+      <div className={collectionLayout(view)}>
+        {items.map(item => <div key={item.id} className={collectionItem(view)}>
         <input type="checkbox" aria-label={`Select ${item.path}`} disabled={busy} checked={selected.includes(item.id)}
           onChange={event => setSelected(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} />
         <Trash2 className="size-4 text-muted-foreground" />
@@ -91,6 +95,7 @@ export function TrashPanel({ ask, notify, onChanged }: {
         <Button variant="outline" size="sm" disabled={busy} onClick={() => void processItems([item], "restore")}>Restore</Button>
         <Button variant="ghost" size="sm" disabled={busy} onClick={() => confirmDelete([item])}>Delete forever</Button>
       </div>)}
+        </div>
       {trash.data?.length === 0 && <Empty text="Trash is empty." />}
     </CardContent>
   </Card>;
