@@ -230,5 +230,10 @@ func (a *Module) Profile(u core.User) map[string]any {
 	}
 	var displayName, email string
 	_ = a.DB.QueryRow("SELECT display_name,email FROM user_profiles WHERE user_id=?", u.ID).Scan(&displayName, &email)
-	return map[string]any{"id": u.ID, "username": u.Username, "displayName": displayName, "email": email, "role": u.Role, "home": home, "rootAccessible": a.Can(u, "", false)}
+	var avatarVersion, avatarURL string
+	_ = a.DB.QueryRow("SELECT version FROM user_avatars WHERE user_id=?", u.ID).Scan(&avatarVersion)
+	if avatarVersion != "" {
+		avatarURL = "/api/profile/avatar?v=" + avatarVersion
+	}
+	return map[string]any{"avatarUrl": avatarURL, "id": u.ID, "username": u.Username, "displayName": displayName, "email": email, "role": u.Role, "home": home, "rootAccessible": a.Can(u, "", false)}
 }

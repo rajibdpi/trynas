@@ -1,6 +1,7 @@
 import type { Eye } from "lucide-react";
 
 export type User = {
+  avatarUrl?: string;
   displayName?: string;
   email?: string;
  home?: string;

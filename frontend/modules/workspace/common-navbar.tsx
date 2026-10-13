@@ -1,12 +1,13 @@
 "use client";
 
+import { UserAvatar } from "@/modules/profile/user-avatar";
 import { API } from "@/modules/shared/api";
 import { cn } from "@/modules/shared/utils";
 import { ChevronDown, HardDrive, LogOut, PanelLeft, PanelRight, Moon, Sun, UserRound, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-type NavbarUser = { username: string; role: string; home?: string };
+type NavbarUser = { username: string; displayName?: string; avatarUrl?: string; role: string; home?: string };
 
 export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingOut, sidebarCollapsed, mobileOpen, searchQuery, onSearchQueryChange, onSearch, onToggleSidebar, onToggleTheme, onOpenNavigation, onHome, onLogout, onProfile, onSettings }: {
   appName?: string;
@@ -52,10 +53,13 @@ export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingO
           </Button>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-1 px-2 sm:gap-2 sm:px-4" aria-label={`Account menu for ${user.username}`} disabled={signingOut}>
-                <span className="user-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
-                <span className="hidden max-w-40 truncate sm:inline">{user.username}</span>
-                <ChevronDown className="size-4" />
+              <Button variant="ghost" className="size-10 p-0 sm:w-auto sm:gap-2 sm:px-4" aria-label={`Account menu for ${user.username}`} disabled={signingOut}>
+                <UserAvatar avatarUrl={user.avatarUrl} />
+                <span className="hidden min-w-0 max-w-40 text-left sm:block">
+                  <span className="block truncate text-sm font-medium leading-tight">{user.displayName || user.username}</span>
+                  <span className="block truncate text-xs font-normal capitalize leading-tight text-muted-foreground">{user.role}</span>
+                </span>
+                <ChevronDown className="hidden size-4 sm:block" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -65,7 +69,7 @@ export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingO
               className="w-64 min-w-0 max-w-[min(calc(100vw-1.5rem),var(--radix-dropdown-menu-content-available-width))] max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto rounded-xl p-2 sm:w-56"
             >
               <div className="border-b px-3 py-2">
-                <p className="wrap-break-word text-sm font-semibold">{user.username}</p>
+                <p className="wrap-break-word text-sm font-semibold">{user.displayName || user.username}</p>
                 <p className="wrap-break-word text-xs capitalize text-muted-foreground">{user.role}</p>
               </div>
               <DropdownMenuItem className="min-h-11 sm:min-h-9" onSelect={onProfile}><UserRound className="size-4 shrink-0" />Profile</DropdownMenuItem>
