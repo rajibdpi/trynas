@@ -40,6 +40,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const fileLocation = useFileLocation();
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
+  const [storageControlsTarget, setStorageControlsTarget] = useState<HTMLDivElement | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
   const [me, setMe] = useState<User | null>(null),
     [checking, setChecking] = useState(true),
@@ -344,7 +345,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       );
       break;
     case "files":
-      content = <AttachedStorageBrowser onChanged={fileProps.onChanged} ask={ask} defaultShareExpiry={appSettings.shareExpiry} defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
+      content = <AttachedStorageBrowser storageControlsTarget={storageControlsTarget} onChanged={fileProps.onChanged} ask={ask} defaultShareExpiry={appSettings.shareExpiry} defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
       break;
     case "system":
       content = <SystemPanel sys={sys.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} />;
@@ -518,7 +519,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         )}
       </aside>
       <main className={cn("workspace flex min-h-[calc(100dvh-4.5rem)] min-w-0 flex-col p-4 md:px-9 md:py-7 xl:px-12", sidebarCollapsed && "md:max-w-none!")}>
-        <header className="mb-6 flex items-center gap-3">
+        <header className="mb-6 flex flex-wrap items-center gap-3">
           <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
             <ol className="flex flex-wrap items-center gap-2 text-sm font-medium">
               <li><Link href={me.role === "admin" ? "/dashboard" : fileLocationURL(me.home || "")} onClick={event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); selectTab(me.role === "admin" ? "dashboard" : "files", true); }} className="text-muted-foreground hover:text-foreground">Workspace</Link></li>
@@ -532,6 +533,9 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
               })}
             </ol>
           </nav>
+          {activeTab === "files" && me.role === "admin" && (
+            <div ref={setStorageControlsTarget} className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:max-w-full" />
+          )}
           <div className="server-status ml-auto hidden sm:flex">
             <span
               className={cn("status-dot", me.role === "admin" && sys.error && "bg-destructive!")}

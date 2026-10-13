@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+
 import { Select } from "@/components/ui/select";
 import { readFileLocation, useFileLocation, writeFileLocation } from "@/modules/files/file-location";
 
@@ -25,7 +27,7 @@ type Item = { name: string; path: string; dir: boolean; size: number; modified: 
 
 import { isHiddenFile } from "@/modules/shared/file-visibility";
 
-export function AttachedStorageBrowser({ onChanged, ask, defaultShareExpiry, defaultView, showHiddenFiles, admin, children, query, setQuery }: { onChanged: () => void; ask: (command: Command) => void; defaultShareExpiry: string; defaultView: "list" | "grid" | "large"; showHiddenFiles: boolean; admin: boolean; children: ReactNode; query: string; setQuery: (q: string) => void }) {
+export function AttachedStorageBrowser({ onChanged, ask, defaultShareExpiry, defaultView, showHiddenFiles, admin, children, query, setQuery, storageControlsTarget }: { onChanged: () => void; ask: (command: Command) => void; defaultShareExpiry: string; defaultView: "list" | "grid" | "large"; showHiddenFiles: boolean; admin: boolean; storageControlsTarget: HTMLDivElement | null; children: ReactNode; query: string; setQuery: (q: string) => void }) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const location = useFileLocation();
   const [storage, setStorage] = useState("");
@@ -38,7 +40,37 @@ export function AttachedStorageBrowser({ onChanged, ask, defaultShareExpiry, def
     return () => controller.abort();
   }, [admin]);
   if (!admin) return children;
-  return <div className="space-y-4"><div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4"><HardDrive className="h-5 w-5" /><label htmlFor="file-storage" className="text-sm font-medium">Storage</label><Select id="file-storage" className="w-auto! max-w-full min-w-40" value={storage} onValueChange={value => { setStorage(value); setQuery(""); writeFileLocation("", undefined, value || undefined); }}><option value="">Local storage</option>{connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.provider})</option>)}</Select><a href="/settings" className="ml-auto text-sm text-primary underline">Manage storage</a>{error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}</div>{storage && connections.some(c => c.id === storage) ? <RemoteFiles onChanged={onChanged} ask={ask} connections={connections} defaultShareExpiry={defaultShareExpiry} defaultView={defaultView} showHiddenFiles={showHiddenFiles} key={storage} connection={connections.find(c => c.id === storage)!} query={query} setQuery={setQuery} /> : children}</div>;
+  return (
+    <div className="space-y-4">
+      {storageControlsTarget && createPortal(
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex min-w-0 max-w-full items-center gap-2 rounded-full border border-border bg-card pl-3 text-muted-foreground transition-colors hover:border-primary/45 focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/20">
+            <HardDrive className="size-3.5 shrink-0" aria-hidden="true" />
+            <label htmlFor="file-storage" className="sr-only">Storage</label>
+            <Select
+              id="file-storage"
+              className="min-h-8 w-auto! max-w-56 gap-2 rounded-full border-0 bg-transparent py-1.5 pl-0 pr-3 text-xs font-medium shadow-none focus-visible:ring-0 data-[state=open]:ring-0"
+              value={storage}
+              onValueChange={value => {
+                setStorage(value);
+                setQuery("");
+                writeFileLocation("", undefined, value || undefined);
+              }}
+            >
+              <option value="">Local storage</option>
+              {connections.map(c => <option key={c.id} value={c.id}>{c.name} ({c.provider})</option>)}
+            </Select>
+          </div>
+          <a href="/settings" className="shrink-0 rounded-sm text-xs font-medium text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/20">
+            Manage storage
+          </a>
+          {error && <p role="alert" className="w-full text-xs text-destructive">{error}</p>}
+        </div>,
+        storageControlsTarget,
+      )}
+      {storage && connections.some(c => c.id === storage) ? <RemoteFiles onChanged={onChanged} ask={ask} connections={connections} defaultShareExpiry={defaultShareExpiry} defaultView={defaultView} showHiddenFiles={showHiddenFiles} key={storage} connection={connections.find(c => c.id === storage)!} query={query} setQuery={setQuery} /> : children}
+    </div>
+  );
 }
 function RemoteFiles({ onChanged, ask, connections, defaultShareExpiry, defaultView, showHiddenFiles, connection, query, setQuery }: { onChanged: () => void; ask: (command: Command) => void; connections: Connection[]; defaultShareExpiry: string; defaultView: "list" | "grid" | "large"; showHiddenFiles: boolean; connection: Connection; query: string; setQuery: (q: string) => void }) {
   const notify = useNotification();
