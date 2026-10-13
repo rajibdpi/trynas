@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { useEffect, useRef, useState } from "react";
 import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload, Info } from "lucide-react";
 import { API, api, uploadFiles, shareURL } from "@/modules/shared/api";
@@ -102,6 +104,7 @@ export function FileBrowser({
       stage: string;
     } | null>(null),
     [uploadError, setUploadError] = useState("");
+  useErrorNotification(uploadError);
   useEffect(() => {
     try {
       const saved = localStorage.getItem("trynas-file-view");

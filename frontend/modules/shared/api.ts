@@ -1,3 +1,5 @@
+import { reportError } from "./error-notifications";
+
 // Development requests use the Next.js proxy so LAN clients never call their own localhost.
 export const API = process.env.NEXT_PUBLIC_EMBEDDED === "true" || process.env.NODE_ENV === "development" ? "" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080");
 export function shareURL(token: string) { return `${API || (typeof window !== "undefined" ? window.location.origin : "")}/s/${token}`; }
@@ -10,27 +12,30 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
-export async function api(path: string, opts: RequestInit = {}) {
-  const r = await fetch(API + path, {
-    ...opts,
-    credentials: "include",
-    headers: {
-      ...(opts.body instanceof FormData
-        ? {}
-        : { "Content-Type": "application/json" }),
-      ...(opts.headers || {}),
-    },
-  });
-  if (!r.ok) {
-    if (
-      r.status === 401 &&
-      typeof window !== "undefined" &&
-      path !== "/api/auth/login"
-    )
-      window.dispatchEvent(new Event("trynas:unauthorized"));
-    throw new ApiError(r.status, await r.text());
+export async function api(path: string, opts: RequestInit & { quietUnauthorized?: boolean } = {}) {
+  const { quietUnauthorized = false, ...request } = opts;
+  try {
+    const r = await fetch(API + path, {
+      ...request,
+      credentials: "include",
+      headers: {
+        ...(request.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(request.headers || {}),
+      },
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      const expired = r.status === 401 && path !== "/api/auth/login";
+      if (expired && !quietUnauthorized && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("trynas:unauthorized"));
+      }
+      throw new ApiError(r.status, expired && !quietUnauthorized ? "Your session expired. Please sign in again." : text);
+    }
+    return await r.json();
+  } catch (error) {
+    if (!(quietUnauthorized && error instanceof ApiError && error.status === 401)) reportError(error);
+    throw error;
   }
-  return r.json();
 }
 
 export function uploadFiles(
@@ -38,7 +43,7 @@ export function uploadFiles(
   onProgress: (loaded: number, total: number) => void,
   signal?: AbortSignal,
 ): Promise<{ bytes: number; files: number }> {
-  return new Promise((resolve, reject) => {
+  return new Promise<{ bytes: number; files: number }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", API + "/api/files/upload");
     xhr.withCredentials = true;
@@ -75,5 +80,12 @@ export function uploadFiles(
       return;
     }
     xhr.send(data);
+  }).catch(error => {
+    if (error instanceof ApiError && error.status === 401) {
+      error.message = "Your session expired. Please sign in again.";
+      window.dispatchEvent(new Event("trynas:unauthorized"));
+    }
+    reportError(error);
+    throw error;
   });
 }

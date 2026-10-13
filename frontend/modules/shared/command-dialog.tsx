@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { Select } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ export function CommandDialog({
     setError("");
     setDestinationValid(false);
   }, [command]);
+  useErrorNotification(error);
   return (
     <Dialog
       open={!!command}
