@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { useEffect, useState } from "react";
 import { api } from "@/modules/shared/api";
 import { fmt } from "@/modules/shared/format";
@@ -14,6 +16,7 @@ const timestamp = (value?: string) => value && Number.isFinite(Date.parse(value)
 export function FileInfoDialog({ item, storage, close }: { item: InfoItem | null; storage?: { id: string; name: string }; close: () => void }) {
   const [metadata, setMetadata] = useState<Metadata | null>(null);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     setMetadata(null); setError(""); setLoading(false);
@@ -49,7 +52,7 @@ export function FileInfoDialog({ item, storage, close }: { item: InfoItem | null
     <DialogTitle className="flex items-center gap-3 pr-8 text-lg font-semibold">{item?.dir ? <Folder className="size-6 shrink-0 text-primary" /> : item && <FileTypeIcon name={item.name} />}<span className="break-all">{item?.dir ? "Folder info" : "File info"}</span></DialogTitle>
     <DialogDescription className="mt-2 text-sm text-muted-foreground">{storage ? "Metadata available from attached storage. Creation details depend on the provider." : "Creation details are shown when available. Creator names require a matching recorded creation event."}</DialogDescription>
     {loading && <p role="status" className="mt-4 text-sm text-muted-foreground">Loading metadata…</p>}
-    {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
+
     <dl className="mt-5 divide-y divide-border">{rows.map(([label, value]) => <div key={label} className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 py-3 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="min-w-0 break-words font-medium">{value}</dd></div>)}</dl>
   </DialogContent></Dialog>;
 }

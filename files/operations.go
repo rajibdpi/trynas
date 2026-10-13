@@ -3,6 +3,7 @@ package files
 import (
 	"archive/zip"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -193,81 +194,209 @@ func (a *Module) RenameV5(w http.ResponseWriter, r *http.Request) { a.CopyMoveV5
 
 func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
+	// Reserve bounded staging capacity without holding the application mutation lock.
+	a.Uploads.Lock()
+	if a.ActiveUploads >= 2 {
+		a.Uploads.Unlock()
+		core.Bad(w, "upload capacity busy; retry later", 429)
+		return
+	}
+	a.ActiveUploads++
+	a.Uploads.Unlock()
+	defer func() {
+		a.Uploads.Lock()
+		a.ActiveUploads--
+		a.Uploads.Unlock()
+	}()
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<30)
-	if err := r.ParseMultipartForm(16 << 20); err != nil {
-		core.Bad(w, "invalid upload or upload exceeds 10 GiB", 413)
-		return
-	}
-	defer r.MultipartForm.RemoveAll()
-	dir, err := core.CleanPath(r.FormValue("path"))
+	reader, err := r.MultipartReader()
 	if err != nil {
-		core.Bad(w, "invalid path", 400)
+		core.Bad(w, "invalid multipart upload", 400)
 		return
 	}
-	if !a.Can(u, dir, true) {
-		core.Bad(w, "folder permission denied", 403)
+	var used, quota int64
+	if err = a.DB.QueryRow(`SELECT COALESCE((SELECT SUM(bytes) FROM file_owners WHERE user_id=?),0), COALESCE((SELECT quota_bytes FROM user_limits WHERE user_id=?),0)`, u.ID, u.ID).Scan(&used, &quota); err != nil {
+		core.Bad(w, "quota unavailable", 500)
 		return
 	}
-	files := r.MultipartForm.File["files"]
-	if len(files) == 0 {
-		files = r.MultipartForm.File["file"]
+	remaining := int64(10 << 30)
+	if quota > 0 {
+		remaining = min(remaining, max(int64(0), quota-used))
 	}
-	if len(files) == 0 {
-		core.Bad(w, "no files", 400)
-		return
-	}
-	stage, err := os.MkdirTemp(a.Root, ".trynas-upload-")
-	if err != nil {
-		core.Report(w, err)
-		return
-	}
-	defer os.RemoveAll(stage)
+	policies := map[string]string{}
+	policiesSeen := false
+	credited := map[string]bool{}
+	dir := ""
+	pathSeen := false
+	stage := ""
+	defer func() {
+		if stage != "" {
+			_ = os.RemoveAll(stage)
+		}
+	}()
 	type upload struct {
 		staged, dest, rel string
+		replace           bool
 		size              int64
 	}
 	pending := []upload{}
 	names := map[string]bool{}
 	var total int64
-	for i, h := range files {
-		name := filepath.Base(h.Filename)
-		rel := core.RelJoin(dir, name)
+	for {
+		part, e := reader.NextPart()
+		if e == io.EOF {
+			break
+		}
+		if e != nil {
+			core.Bad(w, "invalid upload or upload exceeds limit", 413)
+			return
+		}
+		if part.FormName() == "conflicts" && part.FileName() == "" {
+			data, e := io.ReadAll(io.LimitReader(part, (1<<20)+1))
+			if e != nil || len(data) > 1<<20 || policiesSeen || len(pending) > 0 || json.Unmarshal(data, &policies) != nil {
+				core.Bad(w, "invalid upload conflict choices", 400)
+				return
+			}
+			for name, policy := range policies {
+				clean, e := core.CleanPath(name)
+				if e != nil || clean != name || clean == "" || path.Base(name) != name || (policy != "keep" && policy != "replace") {
+					core.Bad(w, "invalid upload conflict choices", 400)
+					return
+				}
+			}
+			policiesSeen = true
+			continue
+		}
+		if part.FormName() == "path" && part.FileName() == "" {
+			data, e := io.ReadAll(io.LimitReader(part, 4097))
+			if e != nil || len(data) > 4096 || pathSeen {
+				core.Bad(w, "invalid upload destination", 400)
+				return
+			}
+			dir, e = core.CleanPath(string(data))
+			if e != nil {
+				core.Bad(w, "invalid path", 400)
+				return
+			}
+			if !a.Can(u, dir, true) {
+				core.Bad(w, "folder permission denied", 403)
+				return
+			}
+			pathSeen = true
+			continue
+		}
+		if part.FileName() == "" || (part.FormName() != "files" && part.FormName() != "file") {
+			core.Bad(w, "unexpected upload field", 400)
+			return
+		}
+		if len(pending) >= 10000 {
+			core.Bad(w, "upload exceeds 10,000 files", 413)
+			return
+		}
+		name := filepath.Base(part.FileName())
+		rel, e := core.CleanPath(name)
+		if e != nil || rel == "" {
+			core.Bad(w, "invalid filename", 400)
+			return
+		}
 		if names[rel] {
 			core.Bad(w, "duplicate upload filename", 409)
 			return
 		}
 		names[rel] = true
-		dest, e := a.Destination(u, rel)
+		dest := ""
+		if pathSeen {
+			var info os.FileInfo
+			dest, info, e = a.uploadTarget(u, core.RelJoin(dir, rel))
+			if e != nil {
+				core.Report(w, e)
+				return
+			}
+			// Replacements may reuse the uploader's already-accounted quota.
+			if info != nil && policies[rel] == "replace" && !credited[rel] {
+				var owned int64
+				if a.DB.QueryRow("SELECT bytes FROM file_owners WHERE path=? AND user_id=?", core.RelJoin(dir, rel), u.ID).Scan(&owned) == nil {
+					remaining = min(int64(10<<30)-total, remaining+owned)
+				}
+				credited[rel] = true
+			}
+		}
+		if stage == "" {
+			stage, e = os.MkdirTemp(a.Root, ".trynas-upload-")
+			if e != nil {
+				core.Report(w, e)
+				return
+			}
+		}
+		tmp := filepath.Join(stage, fmt.Sprintf("%d", len(pending)))
+		out, e := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if e != nil {
 			core.Report(w, e)
 			return
 		}
-		f, e := h.Open()
-		if e != nil {
-			core.Report(w, e)
-			return
-		}
-		tmp := filepath.Join(stage, fmt.Sprintf("%d", i))
-		out, e := os.Create(tmp)
-		if e != nil {
-			f.Close()
-			core.Report(w, e)
-			return
-		}
-		n, e := io.Copy(out, f)
+		n, e := io.Copy(out, io.LimitReader(part, remaining+1))
 		closeErr := out.Close()
-		f.Close()
+		if n > remaining {
+			core.Bad(w, "storage quota or upload limit exceeded", 413)
+			return
+		}
 		if e == nil {
 			e = closeErr
 		}
 		if e != nil {
-			core.Report(w, e)
+			core.Bad(w, "upload interrupted or exceeds limit", 413)
 			return
 		}
+		remaining -= n
 		total += n
-		pending = append(pending, upload{tmp, dest, rel, n})
+		pending = append(pending, upload{staged: tmp, dest: dest, rel: rel, size: n})
 	}
-	if err = a.CheckQuota(u.ID, total); err != nil {
+	if len(pending) == 0 {
+		core.Bad(w, "no files", 400)
+		return
+	}
+	// Revalidate under the mutation lock: permissions, quota and destinations may
+	// have changed while bytes were streamed to private staging files.
+	a.Mutation.Lock()
+	defer a.Mutation.Unlock()
+	reserved := map[string]bool{}
+	// Reserve incoming original names, so generated copies cannot steal a later
+	// incoming file's name within the same request.
+	for _, x := range pending {
+		reserved[core.RelJoin(dir, x.rel)] = true
+	}
+	var quotaExtra int64 = total
+	for i := range pending {
+		x := &pending[i]
+		name := x.rel
+		x.rel = core.RelJoin(dir, name)
+		var info os.FileInfo
+		x.dest, info, err = a.uploadTarget(u, x.rel)
+		if err != nil {
+			core.Report(w, err)
+			return
+		}
+		if info != nil {
+			if info.Size() != x.size || policies[name] == "keep" {
+				x.rel, x.dest, err = a.numberedUploadTarget(u, x.rel, reserved)
+				if err != nil {
+					core.Report(w, err)
+					return
+				}
+				reserved[x.rel] = true
+			} else if policies[name] == "replace" {
+				x.replace = true
+				var owned int64
+				if a.DB.QueryRow("SELECT bytes FROM file_owners WHERE path=? AND user_id=?", x.rel, u.ID).Scan(&owned) == nil {
+					quotaExtra -= owned
+				}
+			} else {
+				core.Bad(w, "same-name, same-size file exists; choose keep both or replace", 409)
+				return
+			}
+		}
+	}
+	if err = a.CheckQuota(u.ID, quotaExtra); err != nil {
 		core.Bad(w, err.Error(), 413)
 		return
 	}
@@ -278,13 +407,26 @@ func (a *Module) UploadV5(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	installed := []string{}
+	backups := map[string]string{}
 	rollback := func() {
 		for _, f := range installed {
 			_ = os.Remove(f)
 		}
+		for dest, backup := range backups {
+			_ = os.Rename(backup, dest)
+		}
 	}
-	for _, x := range pending {
-		if _, err = tx.Exec("INSERT INTO file_owners(path,user_id,bytes) VALUES(?,?,?)", x.rel, u.ID, x.size); err != nil {
+	for i, x := range pending {
+		if x.replace {
+			backup := filepath.Join(stage, fmt.Sprintf("backup-%d", i))
+			if err = os.Rename(x.dest, backup); err != nil {
+				rollback()
+				core.Report(w, err)
+				return
+			}
+			backups[x.dest] = backup
+		}
+		if _, err = tx.Exec("INSERT INTO file_owners(path,user_id,bytes) VALUES(?,?,?) ON CONFLICT(path) DO UPDATE SET user_id=excluded.user_id,bytes=excluded.bytes", x.rel, u.ID, x.size); err != nil {
 			rollback()
 			core.Report(w, err)
 			return

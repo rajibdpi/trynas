@@ -84,6 +84,15 @@ func (a *Module) ApproveRegistration(w http.ResponseWriter, r *http.Request) {
 		core.Bad(w, "invalid home folder name", 400)
 		return
 	}
+	var claimed int
+	if err := tx.QueryRow("SELECT COUNT(*) FROM user_homes WHERE path=?", name).Scan(&claimed); err != nil {
+		core.Bad(w, "could not check home folder assignment", 500)
+		return
+	}
+	if claimed > 0 {
+		core.Bad(w, "this home folder is already assigned; choose another username", 409)
+		return
+	}
 	home, err := core.Safe(a.Root, name)
 	if err != nil {
 		core.Bad(w, "invalid home folder name", 400)

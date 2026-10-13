@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { ViewSwitcher, useCollectionView, collectionLayout, collectionItem } from "@/modules/files/view-switcher";
 
 import { useRef, useState } from "react";
@@ -24,6 +26,7 @@ export function TrashPanel({ ask, notify, onChanged }: {
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  useErrorNotification(actionError);
   const processing = useRef(false);
   const items = trash.data ?? [];
   const chosen = items.filter(item => selected.includes(item.id));

@@ -66,6 +66,15 @@ func jsonRequest(a *App, u core.User, method, url string, body any, h http.Handl
 
 func grant(t *testing.T, a *App, u core.User, p, access string) {
 	t.Helper()
+	if u.Role != "admin" && a.Home(u.ID) == "" {
+		home := strings.Split(p, "/")[0]
+		if home == "" {
+			home = "shared"
+		}
+		if _, err := a.DB.Exec("INSERT INTO user_homes(user_id,path) VALUES(?,?)", u.ID, home); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if _, err := a.DB.Exec("INSERT INTO permissions(user_id,path,access) VALUES(?,?,?) ON CONFLICT(user_id,path) DO UPDATE SET access=excluded.access", u.ID, p, access); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +165,7 @@ func TestQuotaAtomicUploadAndOwnership(t *testing.T) {
 		t.Fatal("failed upload changed quota")
 	}
 	expect(t, uploadRequest(a, u, map[string]string{"a.txt": "1234"}), 200)
-	expect(t, uploadRequest(a, u, map[string]string{"a.txt": "x"}), 409)
+	expect(t, uploadRequest(a, u, map[string]string{"a.txt": "xx"}), 413)
 	expect(t, jsonRequest(a, u, "POST", "/api/files/copy", map[string]any{"from": "shared/a.txt", "to": "shared/copy.txt"}, a.CopyMoveV5(false)), 413)
 	expect(t, jsonRequest(a, u, "POST", "/api/files/rename", map[string]any{"from": "shared/a.txt", "to": "shared/renamed.txt"}, a.RenameV5), 200)
 	expect(t, request(a, u, "DELETE", "/api/files?path=shared/renamed.txt", nil, a.TrashV5), 200)
@@ -182,7 +191,7 @@ func TestQuotaAtomicUploadAndOwnership(t *testing.T) {
 }
 
 func TestSafePathsSymlinksAndBulkResults(t *testing.T) {
-	a, _, u := setup(t)
+	a, u, _ := setup(t)
 	grant(t, a, u, "", "write")
 	write(t, a, "a.txt", "hello")
 	for _, p := range []string{"../secret", "/etc/passwd", ".trynas-trash/x", "x/../../secret", "x\\y"} {
@@ -316,7 +325,7 @@ func TestRootRequiresExplicitGrant(t *testing.T) {
 		t.Fatal("incorrect home")
 	}
 	grant(t, a, u, "", "read")
-	expect(t, request(a, u, "GET", "/api/files", nil, a.ListFiles), 200)
+	expect(t, request(a, u, "GET", "/api/files", nil, a.ListFiles), 403)
 	if a.Can(u, "", true) || !a.Can(u, "private-user", true) {
 		t.Fatal("root grant changed write permissions")
 	}

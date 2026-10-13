@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { useEffect, useState } from "react";
 import { ChevronRight, Folder } from "lucide-react";
 import { api } from "@/modules/shared/api";
@@ -23,6 +25,7 @@ const within = (path: string, base: string) =>
 export function FolderPicker(props: PickerProps) {
   const [initialPath] = useState(props.value);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   const [validationAttempt, setValidationAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
@@ -73,9 +76,7 @@ export function FolderPicker(props: PickerProps) {
       </p>
       {error && (
         <div>
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
+
           <button
             type="button"
             disabled={props.disabled}
@@ -104,6 +105,7 @@ function FolderBranch(
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   const [attempt, setAttempt] = useState(0);
   const blocked = props.excluded.some((p) => within(props.path, p));
   useEffect(() => {
@@ -186,9 +188,7 @@ function FolderBranch(
           )}
           {error && (
             <div className="p-2">
-              <p role="alert" className="text-xs text-destructive">
-                {error}
-              </p>
+
               <button
                 type="button"
                 disabled={props.disabled}

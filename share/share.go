@@ -18,6 +18,7 @@ import (
 
 func (a *Module) Shares(w http.ResponseWriter, r *http.Request) {
 	u := r.Context().Value(core.UserKey).(core.User)
+	home := a.Home(u.ID)
 	rows, _ := a.DB.Query("SELECT id,path,token,COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ',expires_at),''),created_at,EXISTS(SELECT 1 FROM share_passwords p WHERE p.share_id=shares.id),COALESCE((SELECT json_group_array(path) FROM share_items WHERE share_id=shares.id),'[]'), COALESCE((SELECT storage FROM share_storage WHERE share_id=shares.id),''),COALESCE((SELECT visits FROM share_stats WHERE share_id=shares.id),0),COALESCE((SELECT downloads FROM share_stats WHERE share_id=shares.id),0) FROM shares WHERE user_id=? ORDER BY id DESC", u.ID)
 	defer rows.Close()
 	out := []map[string]any{}
@@ -32,6 +33,18 @@ func (a *Module) Shares(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal([]byte(pathsJSON), &paths)
 		if len(paths) == 0 {
 			paths = []string{p}
+		}
+		if u.Role != "admin" {
+			allowed := home != "" && storage == ""
+			for _, item := range paths {
+				if !core.Under(item, home) {
+					allowed = false
+					break
+				}
+			}
+			if !allowed {
+				continue
+			}
 		}
 		out = append(out, map[string]any{"visits": visits, "downloads": downloads, "id": id, "path": p, "paths": paths, "token": tok, "expiresAt": exp, "createdAt": created, "passwordProtected": protected, "storage": storage})
 	}

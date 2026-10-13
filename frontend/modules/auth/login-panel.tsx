@@ -1,5 +1,7 @@
 "use client";
 
+import { useErrorNotification } from "@/modules/shared/notification-provider";
+
 import { useEffect, useState } from "react";
 import { api } from "@/modules/shared/api";
 import { HardDrive, Moon, Sun } from "lucide-react";
@@ -20,10 +22,12 @@ export function LoginPanel({
   toggleTheme: () => void;
   signIn: () => Promise<void>;
 }) {
+  useErrorNotification(loginError);
   const [registrationEnabled, setRegistrationEnabled] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [registrationError, setRegistrationError] = useState("");
+  useErrorNotification(registrationError);
   const [notice, setNotice] = useState("");
   useEffect(() => {
     const controller = new AbortController();
@@ -91,11 +95,7 @@ export function LoginPanel({
                   required
                 />
               </label>
-              {(registering ? registrationError : loginError || registrationError) && (
-                <p role="alert" className="text-sm text-destructive">
-                  {registering ? registrationError : loginError || registrationError}
-                </p>
-              )}
+
               <Button className="w-full" disabled={signing || requesting}>
                 {requesting ? "Requesting…" : registering ? "Request account" : signing ? "Signing in…" : "Sign in"}
               </Button>

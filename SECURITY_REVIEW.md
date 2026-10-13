@@ -1,35 +1,75 @@
-# TryNAS security review — 8 October 2026
+# TryNAS security review — 13 October 2026
 
-The eight main findings have been addressed in source and local development configuration. Remote deployment still requires HTTPS and secure cookies. Rebuild existing standalone binaries before deployment to include these fixes.
+Security fixes preserve the existing application features and accounts. Startup
+administrator password logging remains enabled by explicit request.
 
-## Resolved findings
+## Implemented fixes
 
-| Original finding | Resolution |
-| --- | --- |
-| Configuration and database readable by other local users | Configuration, database and SQLite sidecars use mode 0600; the local data directory uses 0700. New database directories use 0700. |
-| Expired sessions accepted because of string comparisons | Existing session timestamps are normalized to UTC; authentication compares actual timestamps with SQLite julianday. New sessions use UTC. |
-| Unlimited password attempts and login body | Login and share unlock bodies are limited to 4 KiB. Attempts are capped at 10 per account/share and 30 per socket IP per five minutes. Forwarded IP headers are not trusted. |
-| Cross-origin login accepted | Browser mutations validate Origin/Referer and reject cross-site requests; JSON API requests enforce application/json. |
-| Unbounded public ZIP creation and long-held mutation lock | Archives are limited to 1 GiB and 10,000 entries, with two concurrent downloads and a five-minute build context. The mutation lock is released before delivery. |
-| No HTTP server timeouts | Header reads are limited to 10 seconds, idle connections to 60 seconds, and reads/writes to 15 minutes. Headers are capped at 1 MiB. |
-| Unsafe deployment defaults and fallback credentials | Listener defaults to 127.0.0.1:8080; bootstrap requires an explicit 12–72-byte password and rejects example placeholders. Local configuration now uses loopback. |
-| Vulnerable RealIP middleware | Updated chi to 5.3.0 and x/crypto to 0.56.0; removed RealIP middleware. |
+- Release binaries no longer embed a shared administrator password, hash, or
+  recoverable password encoding. Fresh databases require a unique runtime
+  ADMIN_PASSWORD. Existing passwords and sessions are not reset by upgrades.
+- Go updated to 1.27.2 and golang.org/x/net to 0.60.0. The latest govulncheck
+  reports zero vulnerabilities involving reachable symbols. One module-only
+  advisory remains in unused deprecated code; no reachable symbols are reported.
+- Uploads stream directly into private staging files with remaining-quota limits,
+  a 10 GiB request cap, a two-upload concurrency cap and 10,000-file cap. The global
+  mutation lock covers final validation and installation, rather than network
+  reads. Permissions, destinations and quota are rechecked before committing.
+  Multipart field names and field ordering remain compatible with existing clients.
+- Unauthorized file requests are rejected before filesystem inspection, closing
+  the download file-existence oracle.
+- Direct HTTPS is supported through TLS_CERT_FILE and TLS_KEY_FILE. Trusted HTTPS
+  proxies can trigger Secure cookies, while untrusted forwarded headers cannot.
+  Secure responses include HSTS. Baseline CSP permits existing PDF blob previews;
+  individual file previews retain their stricter sandbox policy.
+- sprintf-js GHSA-hp3w-g68c-fv3c is addressed by a tracked pnpm patch that bounds
+  numeric precision before Number formatting. The security check tests malformed
+  and normal formatting before excluding this specific patched advisory. An
+  unfiltered registry audit still flags the upstream version; no upstream patched
+  release is available. No other advisories are excluded.
+- Release CI runs dependency audits and pins GitHub Actions to immutable commits.
+  The supplied systemd unit adds privilege and kernel/control-group protections.
+  The sample .env requires a unique bootstrap password rather than offering a
+  usable example credential.
+
+## Existing protections
+
+Bcrypt password hashing, session expiry and password-reset revocation; HttpOnly
+and SameSite cookies; account/IP throttling; explicit trusted proxies; CORS,
+Origin/Referer and Fetch Metadata checks; authenticated and administrator-only
+routes; folder and recursive permissions; parameterized SQL; path and symlink
+checks; ownership-scoped shares and share revocation; sandboxed previews; bounded
+archives and ZIP extraction; AES-GCM provider credentials and SFTP known_hosts;
+private configuration/database/key files; server timeouts and audit records.
+
+## Deployment and remaining limits
+
+Local HTTP development is retained. An existing .env is not rewritten: configure
+HTTPS and secure cookies before remote deployment, following installation.md.
+Certificate provisioning, firewalls, host security, mount ACLs and backups require
+verification on the deployment host. Rotate previously exposed shared credentials
+and redeploy new binaries; source changes cannot revoke passwords on other hosts.
+
+Startup logs still contain the bootstrap password. Restrict journal access. No
+MFA or idle-session timeout is added; those would introduce new product behavior.
+Sessions remain bearer tokens in the permission-protected database. Rate limits
+are process-local. Descriptor-based protection from external filesystem races is
+not implemented; external processes must not modify storage paths adversarially.
+The baseline CSP preserves existing inline Next.js scripts and PDF previews and
+is not a full script allowlist. Storage files are not encrypted by provider-key
+AES-GCM. This is a source review with tests and scanners, not a production
+penetration test or a guarantee that all attack paths are secure.
 
 ## Verification
 
-- Backend regression and race tests passed, including expired sessions, origin/content-type rejection, throttling, timestamp migration, permissions, archive limits and releasing the mutation lock before delivery.
-- Updated govulncheck reports zero reachable vulnerable symbols. A dependency-only advisory, GO-2026-5932, remains for unused deprecated OpenPGP code; the scanner reports no fixed module version for it.
-- The preceding frontend dependency audit reported zero known vulnerabilities.
-- Local configuration, database and existing SQLite sidecars were verified as mode 0600; the data directory is 0700.
-
-## Deployment requirements and limits
-
-Use HTTPS and COOKIE_SECURE=true for remote access. Configure network exposure deliberately. Behind a proxy, rate limits use the proxy socket IP; trusted forwarded-IP support is not enabled. Limits are process-local and reset on restart.
-
-Protect backups with equivalent file permissions. Filesystem races involving external processes changing the storage tree remain outside the application's serialized mutations. This review does not establish the security of a production proxy, firewall or host and is not a full penetration test.
-
-## References
-
-- [OWASP authentication guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
-- [OWASP CSRF prevention guidance](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
-- [Go vulnerability database: GO-2026-5777](https://pkg.go.dev/vuln/GO-2026-5777)
+- Full backend regression suite and go vet passed.
+- Race tests passed for app, core and provider modules.
+- Production frontend export and TypeScript checks passed; standalone frontend
+  security-header configuration was checked separately.
+- The frontend precision-patch tests and remaining-advisory audit passed.
+- Current govulncheck reports zero reachable vulnerabilities.
+- All six local release binaries were rebuilt, their SHA256 checksums verified,
+  and build metadata checked for Go 1.27.2, x/net 0.60.0 and absence of credential
+  linker flags. No release was published and no running deployment was changed.
+- A disposable HTTPS smoke test verified certificate validation, fresh runtime
+  bootstrap, login, Secure cookies and HSTS against the rebuilt Linux binary.

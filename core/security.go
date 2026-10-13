@@ -112,7 +112,7 @@ func AllowedBrowserOrigin(r *http.Request, origin string) bool {
 	}
 	normalized := parsed.Scheme + "://" + parsed.Host
 	scheme := "http"
-	if r.TLS != nil || Env("COOKIE_SECURE", "false") == "true" {
+	if SecureCookie(r) {
 		scheme = "https"
 	}
 	if ConfiguredBrowserOrigin(normalized) || normalized == scheme+"://"+r.Host {
@@ -186,13 +186,18 @@ func (w *ArchiveWriter) Write(p []byte) (int, error) {
 // SecureCookie supports direct TLS and explicit HTTPS reverse-proxy deployments.
 // Forwarded headers are intentionally not trusted without proxy configuration.
 func SecureCookie(r *http.Request) bool {
-	return r.TLS != nil || Env("COOKIE_SECURE", "false") == "true"
+	return r.TLS != nil || Env("COOKIE_SECURE", "false") == "true" ||
+		(TrustedProxyIP(net.ParseIP(PeerIP(r))) && r.Header.Get("X-Forwarded-Proto") == "https")
 }
 
 // SecurityHeaders prevents sensitive responses from being stored by browsers
 // and intermediaries, without changing immutable frontend asset caching.
 func SecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "base-uri 'self'; object-src 'self' blob:; frame-ancestors 'self'")
+		if SecureCookie(r) {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		w.Header().Set("Referrer-Policy", "same-origin")

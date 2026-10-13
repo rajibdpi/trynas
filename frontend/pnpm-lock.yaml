@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  sprintf-js@1.0.3: c25a36d5062b51d7d878603eaefb0c00c64c22a862a13952a6fbeeb1e8a80c82
+
 importers:
 
   .:
@@ -1808,7 +1811,7 @@ snapshots:
 
   argparse@1.0.10:
     dependencies:
-      sprintf-js: 1.0.3
+      sprintf-js: 1.0.3(patch_hash=c25a36d5062b51d7d878603eaefb0c00c64c22a862a13952a6fbeeb1e8a80c82)
 
   aria-hidden@1.2.6:
     dependencies:
@@ -2080,7 +2083,7 @@ snapshots:
 
   source-map-js@1.2.2: {}
 
-  sprintf-js@1.0.3: {}
+  sprintf-js@1.0.3(patch_hash=c25a36d5062b51d7d878603eaefb0c00c64c22a862a13952a6fbeeb1e8a80c82): {}
 
   string_decoder@1.1.1:
     dependencies:

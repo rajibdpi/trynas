@@ -9,4 +9,5 @@ type SharedPageData struct {
 	Name, Size, Kind, Download string
 	Items                      []SharedPageItem
 	Truncated                  bool
+	RelockOnReturn             bool
 }

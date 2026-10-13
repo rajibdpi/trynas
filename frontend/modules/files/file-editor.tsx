@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
-import { useNotification } from "@/modules/shared/notification-provider";
+import { useNotification, useErrorNotification } from "@/modules/shared/notification-provider";
 
 export function FileEditor({ path, close }: { path: string; close: () => void }) {
   const [content, setContent] = useState("");
@@ -13,6 +13,7 @@ export function FileEditor({ path, close }: { path: string; close: () => void })
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   const notify = useNotification();
   const dirty = content !== original;
   useEffect(() => {
@@ -36,5 +37,5 @@ export function FileEditor({ path, close }: { path: string; close: () => void })
     } catch (error) { setError(error instanceof Error ? error.message : "Could not save file"); }
     finally { setSaving(false); }
   };
-  return <div className="space-y-3">{error && <p role="alert" className="text-sm text-destructive">{error}</p>}{loading ? <p>Loading editor…</p> : <><textarea aria-label="File contents" value={content} disabled={!writable || saving} onChange={event => setContent(event.target.value)} spellCheck={false} className="h-[55vh] w-full resize-y rounded border bg-background p-3 font-mono text-sm" /><div className="flex items-center gap-3"><Button disabled={!writable || !dirty || saving} onClick={() => void save()}>{saving ? "Saving…" : "Save"}</Button><Button variant="outline" disabled={saving} onClick={() => { if (!dirty || window.confirm("Discard unsaved changes?")) close(); }}>Back to preview</Button><span className="text-xs text-muted-foreground">{!writable ? "Read only" : dirty ? "Unsaved changes" : "Saved"}</span></div></>}</div>;
+  return <div className="space-y-3">{loading ? <p>Loading editor…</p> : <><textarea aria-label="File contents" value={content} disabled={!writable || saving} onChange={event => setContent(event.target.value)} spellCheck={false} className="h-[55vh] w-full resize-y rounded border bg-background p-3 font-mono text-sm" /><div className="flex items-center gap-3"><Button disabled={!writable || !dirty || saving} onClick={() => void save()}>{saving ? "Saving…" : "Save"}</Button><Button variant="outline" disabled={saving} onClick={() => { if (!dirty || window.confirm("Discard unsaved changes?")) close(); }}>Back to preview</Button><span className="text-xs text-muted-foreground">{!writable ? "Read only" : dirty ? "Unsaved changes" : "Saved"}</span></div></>}</div>;
 }

@@ -67,13 +67,13 @@ func TestProtectedFolderShare(t *testing.T) {
 	expect(t, get("GET", "?qr=1", "", nil), 401)
 	expect(t, get("POST", "", "wrong-password", nil), 401)
 	unlock := get("POST", "", "share-password", nil)
-	expect(t, unlock, 303)
+	expect(t, unlock, 200)
 	cookies := unlock.Result().Cookies()
 	if len(cookies) != 1 || !cookies[0].HttpOnly {
 		t.Fatal("missing share session")
 	}
 	cookie := cookies[0]
-	page := get("GET", "", "", cookie)
+	page := unlock
 	expect(t, page, 200)
 	if !strings.Contains(page.Body.String(), "Download folder ZIP") {
 		t.Fatal("missing folder page")
@@ -116,6 +116,13 @@ func TestProtectedFolderShare(t *testing.T) {
 		t.Fatal("missing readable file")
 	}
 	expect(t, get("GET", "?qr=1", "", cookie), 200)
+	reopened := get("GET", "", "", cookie)
+	expect(t, reopened, 200)
+	if !strings.Contains(reopened.Body.String(), "Unlock share") || strings.Contains(reopened.Body.String(), "public.txt") {
+		t.Fatal("reopened folder share bypassed password prompt")
+	}
+	expect(t, get("GET", "?download=1", "", cookie), 401)
+	expect(t, get("GET", "?qr=1", "", cookie), 401)
 	if _, err := a.DB.Exec("UPDATE shares SET expires_at='2000-01-01' WHERE token=?", share.Token); err != nil {
 		t.Fatal(err)
 	}
@@ -213,15 +220,18 @@ func TestNeverAndPresetShareExpiry(t *testing.T) {
 
 func TestMultipleItemsOneShare(t *testing.T) {
 	a, _, user := setup(t)
-	write(t, a, "one/file.txt", "one")
-	write(t, a, "two/file.txt", "two")
-	write(t, a, "folder/public.txt", "public")
-	write(t, a, "folder/private/secret.txt", "secret")
-	for _, p := range []string{"one", "two", "folder"} {
+	if _, err := a.DB.Exec("INSERT INTO user_homes(user_id,path) VALUES(?,'home')", user.ID); err != nil {
+		t.Fatal(err)
+	}
+	write(t, a, "home/one/file.txt", "home/one")
+	write(t, a, "home/two/file.txt", "home/two")
+	write(t, a, "home/folder/public.txt", "public")
+	write(t, a, "home/folder/private/secret.txt", "secret")
+	for _, p := range []string{"home/one", "home/two", "home/folder"} {
 		grant(t, a, user, p, "read")
 	}
-	grant(t, a, user, "folder/private", "none")
-	made := jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"one/file.txt", "two/file.txt", "folder", "folder/public.txt", "folder"}, "never": true}, a.CreateShare)
+	grant(t, a, user, "home/folder/private", "none")
+	made := jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"home/one/file.txt", "home/two/file.txt", "home/folder", "home/folder/public.txt", "home/folder"}, "never": true}, a.CreateShare)
 	expect(t, made, 200)
 	var share struct {
 		Token string
@@ -235,7 +245,7 @@ func TestMultipleItemsOneShare(t *testing.T) {
 	}
 	listed := request(a, user, "GET", "/api/shares", nil, a.Shares)
 	expect(t, listed, 200)
-	if !strings.Contains(listed.Body.String(), "one/file.txt") || !strings.Contains(listed.Body.String(), "two/file.txt") {
+	if !strings.Contains(listed.Body.String(), "home/one/file.txt") || !strings.Contains(listed.Body.String(), "home/two/file.txt") {
 		t.Fatal("share listing missing paths")
 	}
 	router := chi.NewRouter()
@@ -255,11 +265,11 @@ func TestMultipleItemsOneShare(t *testing.T) {
 			t.Fatal("missing shared item", name)
 		}
 	}
-	expect(t, get("?download=1&item=one%2Ffile.txt"), 200)
-	expect(t, get("?download=1&item=folder%2Fprivate%2Fsecret.txt"), 404)
+	expect(t, get("?download=1&item=home%2Fone%2Ffile.txt"), 200)
+	expect(t, get("?download=1&item=home%2Ffolder%2Fprivate%2Fsecret.txt"), 404)
 	expect(t, get("?download=1&item=..%2Fsecret"), 400)
-	write(t, a, "one/unshared.txt", "unshared")
-	expect(t, get("?download=1&item=one%2Funshared.txt"), 404)
+	write(t, a, "home/one/unshared.txt", "unshared")
+	expect(t, get("?download=1&item=home%2Fone%2Funshared.txt"), 404)
 	archive := get("?download=1")
 	expect(t, archive, 200)
 	reader, err := zip.NewReader(bytes.NewReader(archive.Body.Bytes()), int64(archive.Body.Len()))
@@ -279,11 +289,11 @@ func TestMultipleItemsOneShare(t *testing.T) {
 		f.Close()
 		contents[entry.Name] = string(b)
 	}
-	if contents["one/file.txt"] != "one" || contents["two/file.txt"] != "two" || contents["folder/public.txt"] != "public" || len(contents) != 3 {
+	if contents["home/one/file.txt"] != "home/one" || contents["home/two/file.txt"] != "home/two" || contents["home/folder/public.txt"] != "public" || len(contents) != 3 {
 		t.Fatalf("incorrect collection ZIP: %v", contents)
 	}
-	grant(t, a, user, "two", "none")
+	grant(t, a, user, "home/two", "none")
 	expect(t, get("?download=1"), 404)
-	expect(t, jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"one/file.txt", "two/file.txt"}, "days": 7}, a.CreateShare), 403)
-	expect(t, jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"one/file.txt", "../secret"}, "days": 7}, a.CreateShare), 400)
+	expect(t, jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"home/one/file.txt", "home/two/file.txt"}, "days": 7}, a.CreateShare), 403)
+	expect(t, jsonRequest(a, user, "POST", "/api/shares", map[string]any{"paths": []string{"home/one/file.txt", "../secret"}, "days": 7}, a.CreateShare), 400)
 }

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { useNotification } from "@/modules/shared/notification-provider";
+import { useNotification, useErrorNotification } from "@/modules/shared/notification-provider";
 import { Cloud } from "lucide-react";
 
 type Connection = { id: string; name: string; provider: string; root: string; attached: boolean };
@@ -25,6 +25,7 @@ export function StorageProvidersPanel() {
   const [options, setOptions] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useErrorNotification(error);
   const refresh = useCallback(async () => {
     const data = await api("/api/storage/providers");
     setConnections(data.connections);
@@ -37,7 +38,7 @@ export function StorageProvidersPanel() {
     finally { setBusy(false); }
   }
   return <Card><CardHeader><CardTitle className="flex items-center gap-2"><Cloud className="h-5 w-5" />Storage providers</CardTitle><p className="text-sm text-muted-foreground">Connect remote storage and attach it to browse and manage files.</p></CardHeader><CardContent className="space-y-6">
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
     <form className="space-y-4" onSubmit={async e => { e.preventDefault(); if (await action({ action: "save", connection: { name, provider, root, options } }, "Storage connection saved")) { setName(""); setRoot(""); setOptions({}); } }}>
       <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm font-medium">Provider<Select value={provider} onValueChange={value => { setProvider(value); setOptions({}); }}>{Object.entries(providers).map(([id, p]) => <option key={id} value={id}>{p.label}</option>)}</Select></label>

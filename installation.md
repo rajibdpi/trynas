@@ -226,9 +226,8 @@ new frontend edits. See [Build requirements](README.md#build-requirements).
 ## GitHub releases
 
 Every push to `main` builds and publishes a release with all six binaries,
-checksums, and installers. Configure the repository Actions secret `ADMIN_PASSWORD`
-before pushing. This shared password is recoverable from downloaded executables;
-set a runtime `ADMIN_PASSWORD` for a unique first-install password.
+checksums, and installers. Release builds contain no administrator credentials. Set a unique runtime
+`ADMIN_PASSWORD` before starting each fresh installation.
 Automatic releases start at `v1.0.0`, increment the highest stable tag’s patch version,
 and become the latest release. Reruns reuse an existing stable tag for the same commit.
 
@@ -370,3 +369,70 @@ Those tests cover AMD64/ARM64 selection, installation into paths with spaces,
 replacement, checksum mismatch, duplicate manifest entries, and unchanged PATH
 without `-AddToPath`. Live release downloads and actual target machines still
 need verification before publishing a release.
+
+
+## HTTPS and deployment security
+
+For direct HTTPS, set `TLS_CERT_FILE` and `TLS_KEY_FILE` to the certificate chain
+and private key paths, then start TryNAS normally. Secure cookies and HSTS are
+set automatically on direct HTTPS requests. Protect the private key and bind
+`ADDR` deliberately. Existing local HTTP development remains supported.
+
+For a reverse proxy, keep TryNAS on a loopback/private listener, terminate HTTPS
+at the proxy, set `COOKIE_SECURE=true`, and set `TRUSTED_PROXIES` to the proxy's
+exact socket IP(s) or narrowly scoped CIDRs. The proxy must replace forwarded
+headers supplied by clients. Configure only the intended HTTPS origins in
+`CORS_ORIGIN`. Restrict backend access with the host firewall; trusting a proxy
+header does not encrypt the backend connection. Do not expose development HTTP
+to untrusted networks.
+
+Fresh installations require a unique runtime `ADMIN_PASSWORD`. Release binaries
+contain no shared bootstrap password. Existing database accounts are unchanged.
+Rotate passwords on installations that used older shared build defaults: new
+binaries do not invalidate an old password automatically. Startup credential
+logging remains enabled; restrict access to the terminal and service journal.
+
+Uploads retain the `path`, `files`, and `file` multipart fields. Send `path`
+before file contents for early authorization; other field orders still work.
+Uploads stream within the user's remaining quota and the 10 GiB request limit,
+with up to two active uploads and 10,000 files per request. A busy server returns
+429 so clients can retry. Permission and quota checks run again before commit.
+Keep sufficient free space on the storage filesystem for the bounded staging
+area. Upload staging no longer consumes the OS multipart temporary directory.
+
+`pnpm security:check` verifies the local `sprintf-js` precision patch before
+excluding GHSA-hp3w-g68c-fv3c from the registry audit. The registry cannot detect
+local patches, so an unfiltered audit still lists the upstream package version.
+No other advisories are excluded. Release CI also runs `govulncheck` and pins
+GitHub Actions to immutable commits.
+
+Password-protected shares prompt on every new visit, including a browser that
+unlocked the link earlier. Reopening the page revokes that browser's download
+grant. Downloads and QR codes remain available during the current unlocked
+visit; other visitors are unaffected. Unlocked pages relock when restored from
+browser history. The share URL never contains an unlock credential.
+
+Administrators can change **Upload proxy limit (MiB)** under Settings → Server
+configuration. It saves `PROXY_UPLOAD_LIMIT_MB` to the server configuration file
+and applies when the frontend restarts. The default is 10,240 MiB and the valid
+range is 1–10,240 MiB. This limit includes multipart framing and all files in one
+request; backend quotas and the 10 GiB backend cap still apply. A separately
+started frontend reads the project-root `.env`; set `TRYNAS_CONFIG_FILE` when using
+a custom configuration file. An explicit `PROXY_UPLOAD_LIMIT_MB` environment
+variable takes precedence over the saved value.
+
+File uploads handle name conflicts as follows: matching names with different
+byte sizes receive numbered names such as `report(1).txt`, `report(2).txt`.
+Matching names and byte sizes open a dialog with Keep existing (skip), Keep both
+(numbered copy), and Replace. Equal byte sizes do not imply equal contents.
+The same rules apply to files inside a local folder upload. Destination permissions
+and quota are rechecked at commit; replacement failure restores the original.
+
+Normal users are restricted to their explicitly assigned home folder and its
+recursive contents. Root or outside-folder permission grants cannot widen that
+boundary. Administrator permissions for normal users apply only inside their
+home; administrators retain full storage access. Direct browser links outside
+the home return to the user's home, and the backend independently rejects outside
+paths. Legacy accounts without homes are provisioned with username folders when
+the app starts; files are not moved. Invalid or conflicting legacy home assignments
+remain inaccessible rather than inheriting another folder's permissions.
