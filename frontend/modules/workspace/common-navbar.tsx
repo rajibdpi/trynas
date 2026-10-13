@@ -3,7 +3,7 @@
 import { UserAvatar } from "@/modules/profile/user-avatar";
 import { API } from "@/modules/shared/api";
 import { cn } from "@/modules/shared/utils";
-import { ChevronDown, HardDrive, LogOut, PanelLeft, PanelRight, Moon, Sun, UserRound, Search, Settings } from "lucide-react";
+import { HardDrive, LogOut, PanelLeft, PanelRight, Moon, Sun, UserRound, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -53,13 +53,8 @@ export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingO
           </Button>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="size-10 p-0 sm:w-auto sm:gap-2 sm:px-4" aria-label={`Account menu for ${user.username}`} disabled={signingOut}>
+              <Button variant="ghost" size="icon" aria-label={`Account menu for ${user.username}`} disabled={signingOut}>
                 <UserAvatar avatarUrl={user.avatarUrl} />
-                <span className="hidden min-w-0 max-w-40 text-left sm:block">
-                  <span className="block truncate text-sm font-medium leading-tight">{user.displayName || user.username}</span>
-                  <span className="block truncate text-xs font-normal capitalize leading-tight text-muted-foreground">{user.role}</span>
-                </span>
-                <ChevronDown className="hidden size-4 sm:block" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
