@@ -131,7 +131,10 @@ func (a *Module) Guard(next http.Handler) http.Handler {
 				core.Bad(w, "request too large", 413)
 				return
 			}
-			var x struct{ Path string }
+			var x struct {
+				Path    string
+				ExistOK bool `json:"existOk"`
+			}
 			if json.Unmarshal(body, &x) != nil {
 				core.Bad(w, "invalid request", 400)
 				return
@@ -164,7 +167,7 @@ func (a *Module) Guard(next http.Handler) http.Handler {
 					core.Bad(w, err.Error(), 400)
 					return
 				}
-				if _, err = os.Stat(f); err == nil {
+				if st, err := os.Stat(f); err == nil && (!x.ExistOK || !st.IsDir()) {
 					core.Bad(w, "destination exists", 409)
 					return
 				}

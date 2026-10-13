@@ -12,6 +12,8 @@ import { cn } from "@/modules/shared/utils";
 import { FileInfoDialog } from "./file-info-dialog";
 import { ViewSwitcher } from "./view-switcher";
 import { useDragSelection } from "./drag-selection";
+import { NewMenu } from "./new-menu";
+import { uploadFolderFiles } from "./upload-folder";
 import { FileThumbnail } from "@/modules/files/file-thumbnail";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
 import { fmt, message, parent, join } from "@/modules/shared/format";
@@ -23,6 +25,7 @@ import { isHiddenFile } from "@/modules/shared/file-visibility";
 type SharedItem = { path: string; paths?: string[]; token: string; expiresAt: string };
 
 export function FileBrowser({
+  newMenuTarget,
   allowAttachedActions,
   defaultView,
   showHiddenFiles,
@@ -41,6 +44,7 @@ export function FileBrowser({
   notify,
   onChanged,
 }: {
+  newMenuTarget: HTMLDivElement | null;
   allowAttachedActions: boolean;
   defaultView: "list" | "grid" | "large";
   defaultShareExpiry: string;
@@ -59,6 +63,8 @@ export function FileBrowser({
   notify: (s: string) => void;
   onChanged: () => void;
 }) {
+  const folderInput = useRef<HTMLInputElement>(null);
+  const [folderUploading, setFolderUploading] = useState(false);
   const [infoItem, setInfoItem] = useState<Item | null>(null);
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
@@ -495,14 +501,7 @@ export function FileBrowser({
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-            <Button
-              variant="outline"
-              disabled={!writable || !!upload}
-              onClick={() => input.current?.click()}
-            >
-              <Upload />
-              <span>Upload</span>
-            </Button>
+
             <input
               ref={input}
               type="file"
@@ -510,40 +509,7 @@ export function FileBrowser({
               multiple
               onChange={(e) => void send(Array.from(e.target.files || []))}
             />
-            <Button
-              disabled={!writable}
-              onClick={() =>
-                ask({
-                  title: "New folder",
-                  description: "Create a folder in the current location.",
-                  fields: [
-                    {
-                      key: "name",
-                      label: "Folder name",
-                      value: "",
-                      required: true,
-                    },
-                  ],
-                  submit: "Create",
-                  run: async (v) => {
-                    if (
-                      /[\\/]/.test(v.name) ||
-                      v.name === "." ||
-                      v.name === ".."
-                    )
-                      throw new Error("Enter a single folder name");
-                    await api("/api/files/folder", {
-                      method: "POST",
-                      body: JSON.stringify({ path: join(path, v.name) }),
-                    });
-                    await reload();
-                  },
-                })
-              }
-            >
-              <Plus />
-              <span>Folder</span>
-            </Button>
+
             <Button
               variant="outline"
               size="icon"
@@ -798,6 +764,45 @@ export function FileBrowser({
             }
           />
         )}
+        <NewMenu target={newMenuTarget} disabled={!writable || !!upload || folderUploading} uploadFiles={() => input.current?.click()} uploadFolder={() => folderInput.current?.click()} newFolder={() => ask({
+                  title: "New folder",
+                  description: "Create a folder in the current location.",
+                  fields: [
+                    {
+                      key: "name",
+                      label: "Folder name",
+                      value: "",
+                      required: true,
+                    },
+                  ],
+                  submit: "Create",
+                  run: async (v) => {
+                    if (
+                      /[\\/]/.test(v.name) ||
+                      v.name === "." ||
+                      v.name === ".."
+                    )
+                      throw new Error("Enter a single folder name");
+                    await api("/api/files/folder", {
+                      method: "POST",
+                      body: JSON.stringify({ path: join(path, v.name) }),
+                    });
+                    await reload();
+                  },
+                })} />
+        <input ref={element => { folderInput.current = element; if (element) element.setAttribute("webkitdirectory", ""); }} type="file" multiple className="hidden" onChange={async event => {
+          const files = Array.from(event.target.files || []); event.target.value = "";
+          if (!files.length) return;
+          setFolderUploading(true); setUploadError("");
+          try {
+            await uploadFolderFiles(files, path, async directory => { await api("/api/files/folder", { method: "POST", body: JSON.stringify({ path: directory, existOk: true }) }); }, async (directory, files) => {
+              const body = new FormData(); body.append("path", directory); for (const file of files) body.append("files", file);
+              await uploadFiles(body, () => {}, new AbortController().signal);
+            });
+            notify("Folder uploaded");
+          } catch (error) { setUploadError(message(error)); }
+          finally { setFolderUploading(false); await reload(); }
+        }} />
         {dragSelection.overlay}
         <FileInfoDialog item={infoItem} close={() => setInfoItem(null)} />
       </CardContent>
