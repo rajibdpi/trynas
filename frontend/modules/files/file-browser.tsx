@@ -402,7 +402,7 @@ export function FileBrowser({
   };
   return (
     <Card
-      className={cn("file-browser relative", draggingFiles && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+      className={cn("file-browser relative flex min-w-0 flex-1 flex-col", draggingFiles && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
       onDragEnter={(e) => {
         if (!Array.from(e.dataTransfer.types).includes("Files")) return;
         e.preventDefault();
@@ -564,7 +564,7 @@ export function FileBrowser({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <ErrorText text={listing.error || search.error || uploadError} />
         {!writable && (
           <p className="mb-3 text-xs text-muted-foreground">
@@ -672,6 +672,12 @@ export function FileBrowser({
               <ContextMenuTrigger asChild>
                 <div
                   data-selected={selected.includes(item.path)}
+                  onMouseDownCapture={event => {
+                    if (event.button === 0 && (event.detail > 1 || event.shiftKey)) {
+                      event.preventDefault();
+                    }
+                  }}
+                  onDoubleClickCapture={() => window.getSelection()?.removeAllRanges()}
                   onClickCapture={(event) => {
                     const target = event.target as HTMLElement;
                     if (

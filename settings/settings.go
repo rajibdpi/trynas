@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -12,13 +13,15 @@ import (
 	"github.com/rajibdpi/trynas/core"
 )
 
+var themeColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
 func (a *Module) ReadSettings() (core.AppSettings, error) {
 	a.cacheMu.Lock()
 	defer a.cacheMu.Unlock()
 	if !a.cachedAt.IsZero() && time.Since(a.cachedAt) < 30*time.Second {
 		return a.cached, nil
 	}
-	settings := core.AppSettings{TrashRetentionDays: 30, AppName: "TryNAS", FileView: "grid", ShareExpiry: "never"}
+	settings := core.AppSettings{TrashRetentionDays: 30, AppName: "TryNAS", FileView: "grid", ShareExpiry: "never", ThemeMode: "system", LightPrimary: "#6254e8", DarkPrimary: "#a69cff", LightBackground: "#f4f6fa", DarkBackground: "#101522", LightCard: "#ffffff", DarkCard: "#181f2f"}
 	var data string
 	err := a.DB.QueryRow("SELECT value FROM app_settings WHERE key='basic'").Scan(&data)
 	if err != nil {
@@ -82,6 +85,16 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 		default:
 			core.Bad(w, "invalid default share expiry", 400)
 			return
+		}
+		if settings.ThemeMode != "" && settings.ThemeMode != "system" && settings.ThemeMode != "light" && settings.ThemeMode != "dark" {
+			core.Bad(w, "choose system, light, or dark theme", 400)
+			return
+		}
+		for _, color := range []string{settings.LightPrimary, settings.DarkPrimary, settings.LightBackground, settings.DarkBackground, settings.LightCard, settings.DarkCard} {
+			if color != "" && !themeColorPattern.MatchString(color) {
+				core.Bad(w, "theme colors must use #RRGGBB format", 400)
+				return
+			}
 		}
 		data, _ := json.Marshal(settings)
 		a.cacheMu.Lock()

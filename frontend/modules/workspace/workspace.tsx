@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/modules/shared/utils";
 import { useNotification } from "@/modules/shared/notification-provider";
+import { applyThemeColors, type ThemeMode } from "@/modules/settings/color-theme";
 import { AppSettingsPanel, defaultSettings, type AppSettings } from "@/modules/settings/app-settings";
 import { AttachedStorageBrowser } from "@/modules/storage/attached-storage-browser";
 import { CommonNavbar } from "@/modules/workspace/common-navbar";
@@ -40,6 +41,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const fileLocation = useFileLocation();
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
+  const [themeOverride, setThemeOverride] = useState<ThemeMode | null>(null);
+  const [storageControlsTarget, setStorageControlsTarget] = useState<HTMLDivElement | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
   const [me, setMe] = useState<User | null>(null),
     [checking, setChecking] = useState(true),
@@ -179,18 +182,33 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     return () => window.removeEventListener("trynas:unauthorized", expired);
   }, []);
   useEffect(() => {
-    const value = localStorage.getItem("trynas-theme");
-    const enabled = value
-      ? value === "dark"
-      : window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setDark(enabled);
-    document.documentElement.classList.toggle("dark", enabled);
+    try {
+      const value = localStorage.getItem("trynas-theme");
+      if (value === "light" || value === "dark") setThemeOverride(value);
+    } catch { }
   }, []);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const mode = themeOverride || appSettings.themeMode || "system";
+    const update = () => {
+      const enabled = mode === "system" ? media.matches : mode === "dark";
+      setDark(enabled);
+      document.documentElement.classList.toggle("dark", enabled);
+      applyThemeColors(appSettings, enabled);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [themeOverride, appSettings]);
   const toggleTheme = () => {
-    const enabled = !dark;
-    setDark(enabled);
-    localStorage.setItem("trynas-theme", enabled ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", enabled);
+    const mode = dark ? "light" : "dark";
+    setThemeOverride(mode);
+    try { localStorage.setItem("trynas-theme", mode); } catch { }
+  };
+  const saveAppSettings = (settings: AppSettings) => {
+    setThemeOverride(null);
+    try { localStorage.removeItem("trynas-theme"); } catch { }
+    setAppSettings(settings);
   };
   const signIn = async () => {
     setSigning(true);
@@ -333,7 +351,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   };
   switch (activeTab) {
     case "settings":
-      content = me.role === "admin" ? <AppSettingsPanel onSaved={setAppSettings} /> : <ErrorText text="Settings are available to administrators." />;
+      content = me.role === "admin" ? <AppSettingsPanel onSaved={saveAppSettings} /> : <ErrorText text="Settings are available to administrators." />;
       break;
     case "dashboard":
       content = (
@@ -344,7 +362,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
       );
       break;
     case "files":
-      content = <AttachedStorageBrowser onChanged={fileProps.onChanged} ask={ask} defaultShareExpiry={appSettings.shareExpiry} defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
+      content = <AttachedStorageBrowser storageControlsTarget={storageControlsTarget} onChanged={fileProps.onChanged} ask={ask} defaultShareExpiry={appSettings.shareExpiry} defaultView={appSettings.fileView} showHiddenFiles={appSettings.showHiddenFiles} admin={me.role === "admin"} query={fileQuery} setQuery={setFileQuery}><FileBrowser {...fileProps} /></AttachedStorageBrowser>;
       break;
     case "system":
       content = <SystemPanel sys={sys.data} network={network.data} trafficSamples={trafficSamples} networkError={network.error} />;
@@ -518,7 +536,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         )}
       </aside>
       <main className={cn("workspace flex min-h-[calc(100dvh-4.5rem)] min-w-0 flex-col p-4 md:px-9 md:py-7 xl:px-12", sidebarCollapsed && "md:max-w-none!")}>
-        <header className="mb-6 flex items-center gap-3">
+        <header className="mb-6 flex flex-wrap items-center gap-3">
           <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
             <ol className="flex flex-wrap items-center gap-2 text-sm font-medium">
               <li><Link href={me.role === "admin" ? "/dashboard" : fileLocationURL(me.home || "")} onClick={event => { if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; event.preventDefault(); selectTab(me.role === "admin" ? "dashboard" : "files", true); }} className="text-muted-foreground hover:text-foreground">Workspace</Link></li>
@@ -532,6 +550,9 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
               })}
             </ol>
           </nav>
+          {activeTab === "files" && me.role === "admin" && (
+            <div ref={setStorageControlsTarget} className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:max-w-full" />
+          )}
           <div className="server-status ml-auto hidden sm:flex">
             <span
               className={cn("status-dot", me.role === "admin" && sys.error && "bg-destructive!")}
@@ -555,7 +576,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           </Button>
         </header>
         {sys.error && <ErrorText text={sys.error} />}
-        <section key={activeTab}>{content}</section>
+        <section key={activeTab} className={activeTab === "files" ? "flex min-w-0 flex-1 flex-col" : undefined}>{content}</section>
         <div className="mt-auto pt-8"><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>
       </main>
       <CommandDialog command={command} close={() => setCommand(null)} />

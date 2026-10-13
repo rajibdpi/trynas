@@ -1,5 +1,7 @@
 "use client";
 
+import { defaultColors, colorPresets, type ThemeColors, type ThemeMode } from "./color-theme";
+
 import { Select } from "@/components/ui/select";
 import { StorageProvidersPanel } from "@/modules/storage/storage-providers";
 import { useEffect, useState } from "react";
@@ -9,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useNotification } from "@/modules/shared/notification-provider";
 
-export type AppSettings = { trashRetentionDays: number; appName: string; logoUrl: string; footerText: string; fileView: "list" | "grid" | "large"; shareExpiry: string; registrationEnabled: boolean; showHiddenFiles: boolean };
-export const defaultSettings: AppSettings = { trashRetentionDays: 30, appName: "TryNAS", logoUrl: "", footerText: "", fileView: "grid", shareExpiry: "never", registrationEnabled: false, showHiddenFiles: false };
+export type AppSettings = ThemeColors & { themeMode: ThemeMode; trashRetentionDays: number; appName: string; logoUrl: string; footerText: string; fileView: "list" | "grid" | "large"; shareExpiry: string; registrationEnabled: boolean; showHiddenFiles: boolean };
+export const defaultSettings: AppSettings = { ...defaultColors, themeMode: "system", trashRetentionDays: 30, appName: "TryNAS", logoUrl: "", footerText: "", fileView: "grid", shareExpiry: "never", registrationEnabled: false, showHiddenFiles: false };
 export const expiryOptions = [{ value: "never", label: "Never" }, { value: "1", label: "1 day" }, { value: "7", label: "7 days" }, { value: "15", label: "15 days" }, { value: "30", label: "30 days" }];
 
 export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings) => void }) {
@@ -65,6 +67,19 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
               <label className="min-w-0 space-y-2 text-sm font-medium"><span>Default share expiry</span><Select value={settings.shareExpiry} onValueChange={value => setSettings({ ...settings, shareExpiry: value })}>{expiryOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></label>
               <label className="min-w-0 space-y-2 text-sm font-medium"><span>Trash retention (days)</span><input type="number" min={0} max={3650} required value={settings.trashRetentionDays} onChange={event => setSettings({ ...settings, trashRetentionDays: Number(event.target.value) })} /><p className="text-xs text-muted-foreground">Automatically delete trash after this many days. Use 0 to disable. Cleanup runs at startup and hourly; reducing retention also applies to existing trash.</p></label>
               <label className="min-w-0 space-y-2 text-sm font-medium"><span className="flex items-center gap-2"><input type="checkbox" checked={settings.registrationEnabled ?? false} onChange={event => setSettings({ ...settings, registrationEnabled: event.target.checked })} />Allow self-registration</span><p className="text-xs text-muted-foreground">New accounts need administrator approval. Turning this off stops new requests; existing requests can still be reviewed.</p></label>
+            </fieldset>
+            <fieldset disabled={saving || !server} className="space-y-4 rounded-xl border p-4">
+              <legend className="px-2 text-sm font-semibold">Appearance and colors</legend>
+              <p className="text-xs text-muted-foreground">Shared defaults for all users. Save settings to apply. The header theme toggle overrides the mode in your browser.</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><label htmlFor="theme-mode" className="text-sm font-medium">Theme mode</label><Select id="theme-mode" value={settings.themeMode || "system"} onValueChange={value => setSettings({ ...settings, themeMode: value as ThemeMode })}><option value="system">Match device</option><option value="light">Light</option><option value="dark">Dark</option></Select></div>
+                <div className="space-y-2"><p className="text-sm font-medium">Accent presets</p><div className="flex flex-wrap gap-2">{colorPresets.map(preset => <button key={preset.name} type="button" title={preset.name} aria-label={`Use ${preset.name} accent`} aria-pressed={settings.lightPrimary === preset.lightPrimary && settings.darkPrimary === preset.darkPrimary} className="size-9 rounded-full border-2 border-border ring-offset-2 ring-offset-card transition-shadow aria-pressed:ring-2 aria-pressed:ring-primary focus-visible:outline-2 focus-visible:outline-primary" style={{ background: preset.lightPrimary }} onClick={() => setSettings({ ...settings, lightPrimary: preset.lightPrimary, darkPrimary: preset.darkPrimary })} />)}</div></div>
+                {(["light", "dark"] as const).map(mode => <div key={mode} className="space-y-3 rounded-lg border p-3"><p className="text-sm font-semibold capitalize">{mode} colors</p>{(["Primary", "Background", "Card"] as const).map(token => {
+                  const key = `${mode}${token}` as keyof ThemeColors;
+                  return <label key={key} className="flex items-center justify-between gap-3 text-sm"><span>{token === "Primary" ? "Accent" : token === "Card" ? "Card surface" : "Background"}</span><span className="flex items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{settings[key] || defaultColors[key]}</span><input type="color" aria-label={`${mode} ${token} color`} className="h-9 w-12! cursor-pointer p-1!" value={settings[key] || defaultColors[key]} onChange={event => setSettings({ ...settings, [key]: event.target.value })} /></span></label>;
+                })}</div>)}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setSettings({ ...settings, ...defaultColors, themeMode: "system" })}>Reset appearance</Button>
             </fieldset>
             <Button disabled={saving || !server} type="submit">{saving ? "Saving…" : "Save settings"}</Button>
           </form>}

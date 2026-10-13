@@ -186,9 +186,9 @@ select option {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(145deg, #8877fa, #6254e8);
-  color: #fff;
-  box-shadow: 0 5px 16px #6254e838;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 75%, white), var(--primary));
+  color: var(--primary-foreground);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 .nav-group {
   margin: 20px 12px 10px;
