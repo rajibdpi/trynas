@@ -63,8 +63,20 @@ export function SharesPanel({
       <CardContent>
         <ErrorText text={shares.error} />
         {!!shares.data?.length && <div role="toolbar" aria-label="Shared link actions" className="selection-toolbar mb-3 flex flex-wrap items-center gap-2">
-          <span className="mr-2 text-sm text-muted-foreground">{selectedLinks.length ? `${selectedLinks.length} selected` : "Select links to copy or revoke"}</span>
-          <Button variant="outline" size="sm" disabled={busy || selectedLinks.length === shares.data.length} onClick={() => setSelected(shares.data!.map(item => item.id))}>Select all</Button>
+          <input
+            type="checkbox"
+            className="!w-4 shrink-0"
+            aria-label="Select all shared links"
+            aria-checked={selectedLinks.length > 0 && selectedLinks.length < shares.data.length ? "mixed" : selectedLinks.length === shares.data.length}
+            title="Select all shared links"
+            checked={selectedLinks.length === shares.data.length}
+            ref={element => {
+              if (element) element.indeterminate = selectedLinks.length > 0 && selectedLinks.length < shares.data!.length;
+            }}
+            disabled={busy}
+            onChange={event => setSelected(event.target.checked ? shares.data!.map(item => item.id) : [])}
+          />
+          {selectedLinks.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selectedLinks.length} selected</span>}
           <Button variant="outline" size="sm" disabled={busy || !selectedLinks.length} onClick={() => void copyLinks(selectedLinks)}>Copy links</Button>
           <Button variant="destructive" size="sm" disabled={busy || !selectedLinks.length} onClick={() => revokeLinks([...selectedLinks])}>Revoke selected</Button>
           <Button variant="ghost" size="sm" disabled={busy || !selectedLinks.length} onClick={() => setSelected([])}>Clear</Button>

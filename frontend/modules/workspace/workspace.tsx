@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/modules/shared/utils";
 import { useNotification } from "@/modules/shared/notification-provider";
-import { applyThemeColors, type ThemeMode } from "@/modules/settings/color-theme";
+import { useTheme } from "@/modules/settings/theme-provider";
 import { AppSettingsPanel, defaultSettings, type AppSettings } from "@/modules/settings/app-settings";
 import { AttachedStorageBrowser } from "@/modules/storage/attached-storage-browser";
 import { CommonNavbar } from "@/modules/workspace/common-navbar";
@@ -41,7 +41,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const fileLocation = useFileLocation();
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
-  const [themeOverride, setThemeOverride] = useState<ThemeMode | null>(null);
+  const { dark, toggleTheme, updateTheme } = useTheme();
   const [storageControlsTarget, setStorageControlsTarget] = useState<HTMLDivElement | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
   const [me, setMe] = useState<User | null>(null),
@@ -58,7 +58,6 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     [forwardHistory, setForwardHistory] = useState<string[]>([]),
     [mobile, setMobile] = useState(false),
     [sidebarCollapsed, setSidebarCollapsed] = useState(false),
-    [dark, setDark] = useState(false),
     [command, setCommand] = useState<Command | null>(null),
     [preview, setPreview] = useState<Item | null>(null);
   useEffect(() => {
@@ -110,7 +109,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   useEffect(() => {
     if (!me) return;
     const controller = new AbortController();
-    void api("/api/preferences", { signal: controller.signal }).then(data => setAppSettings({ ...defaultSettings, ...data.settings })).catch(() => { });
+    void api("/api/preferences", { signal: controller.signal }).then(data => { setAppSettings({ ...defaultSettings, ...data.settings }); updateTheme(data.settings); }).catch(() => { });
     return () => controller.abort();
   }, [me?.id]);
   useEffect(() => { document.title = appSettings.appName; }, [appSettings.appName]);
@@ -181,33 +180,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     window.addEventListener("trynas:unauthorized", expired);
     return () => window.removeEventListener("trynas:unauthorized", expired);
   }, []);
-  useEffect(() => {
-    try {
-      const value = localStorage.getItem("trynas-theme");
-      if (value === "light" || value === "dark") setThemeOverride(value);
-    } catch { }
-  }, []);
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const mode = themeOverride || appSettings.themeMode || "system";
-    const update = () => {
-      const enabled = mode === "system" ? media.matches : mode === "dark";
-      setDark(enabled);
-      document.documentElement.classList.toggle("dark", enabled);
-      applyThemeColors(appSettings, enabled);
-    };
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [themeOverride, appSettings]);
-  const toggleTheme = () => {
-    const mode = dark ? "light" : "dark";
-    setThemeOverride(mode);
-    try { localStorage.setItem("trynas-theme", mode); } catch { }
-  };
   const saveAppSettings = (settings: AppSettings) => {
-    setThemeOverride(null);
-    try { localStorage.removeItem("trynas-theme"); } catch { }
+    updateTheme(settings, true);
     setAppSettings(settings);
   };
   const signIn = async () => {

@@ -18,6 +18,8 @@ func (a *App) Router() http.Handler {
 		core.JSON(w, map[string]any{"ok": true, "name": "TryNAS", "version": core.Version})
 	})
 	r.Get("/api/branding/logo", a.Logo)
+	r.Get("/api/branding/theme", a.Theme)
+	r.Get("/api/branding/theme.js", a.ThemeScript)
 	r.Get("/api/auth/registration", a.RegistrationOptions)
 	r.Post("/api/auth/register", a.Register)
 	r.Post("/api/auth/login", a.Login)

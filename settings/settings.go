@@ -120,3 +120,19 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 	}
 	core.JSON(w, result)
 }
+
+// Theme exposes only appearance values so signed-out pages can use saved colors.
+func (a *Module) Theme(w http.ResponseWriter, r *http.Request) {
+	settings, err := a.ReadSettings()
+	if err != nil {
+		core.Bad(w, "could not load theme", 500)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	core.JSON(w, map[string]string{
+		"themeMode":    settings.ThemeMode,
+		"lightPrimary": settings.LightPrimary, "darkPrimary": settings.DarkPrimary,
+		"lightBackground": settings.LightBackground, "darkBackground": settings.DarkBackground,
+		"lightCard": settings.LightCard, "darkCard": settings.DarkCard,
+	})
+}
