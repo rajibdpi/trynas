@@ -1,16 +1,14 @@
 "use client";
 
 import { API } from "@/modules/shared/api";
-import { useState } from "react";
 import { cn } from "@/modules/shared/utils";
-import { ChevronDown, HardDrive, LogOut, PanelLeft, PanelRight, Moon, Sun, UserRound, Search } from "lucide-react";
+import { ChevronDown, HardDrive, LogOut, PanelLeft, PanelRight, Moon, Sun, UserRound, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 type NavbarUser = { username: string; role: string; home?: string };
 
-export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingOut, sidebarCollapsed, mobileOpen, searchQuery, onSearchQueryChange, onSearch, onToggleSidebar, onToggleTheme, onOpenNavigation, onHome, onLogout }: {
+export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingOut, sidebarCollapsed, mobileOpen, searchQuery, onSearchQueryChange, onSearch, onToggleSidebar, onToggleTheme, onOpenNavigation, onHome, onLogout, onProfile, onSettings }: {
   appName?: string;
   logoUrl?: string;
   user: NavbarUser;
@@ -26,8 +24,9 @@ export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingO
   onOpenNavigation: () => void;
   onHome: () => void;
   onLogout: () => void;
+  onProfile: () => void;
+  onSettings: () => void;
 }) {
-  const [profileOpen, setProfileOpen] = useState(false);
   return (
     <>
       <header className="common-navbar fixed inset-x-0 top-0 z-40 flex h-18 items-center gap-3 border-b px-4 md:pl-0 md:pr-8">
@@ -69,23 +68,14 @@ export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingO
                 <p className="wrap-break-word text-sm font-semibold">{user.username}</p>
                 <p className="wrap-break-word text-xs capitalize text-muted-foreground">{user.role}</p>
               </div>
-              <DropdownMenuItem className="min-h-11 sm:min-h-9" onSelect={() => setProfileOpen(true)}><UserRound className="size-4 shrink-0" />Profile</DropdownMenuItem>
+              <DropdownMenuItem className="min-h-11 sm:min-h-9" onSelect={onProfile}><UserRound className="size-4 shrink-0" />Profile</DropdownMenuItem>
+              {user.role === "admin" && <DropdownMenuItem className="min-h-11 sm:min-h-9" onSelect={onSettings}><Settings className="size-4 shrink-0" />Settings</DropdownMenuItem>}
               <DropdownMenuItem className="min-h-11 text-destructive focus:text-destructive sm:min-h-9" onSelect={onLogout} disabled={signingOut}><LogOut className="size-4 shrink-0" />Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
       </header>
-      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
-        <DialogContent>
-          <DialogTitle className="text-xl font-semibold">Your profile</DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-muted-foreground">Your signed-in TryNAS account.</DialogDescription>
-          <dl className="mt-6 space-y-4 text-sm">
-            <div><dt className="text-muted-foreground">Username</dt><dd className="wrap-break-word font-medium">{user.username}</dd></div>
-            <div><dt className="text-muted-foreground">Role</dt><dd className="capitalize">{user.role}</dd></div>
-            <div><dt className="text-muted-foreground">Home folder</dt><dd className="wrap-break-word">{user.home || "Storage root"}</dd></div>
-          </dl>
-        </DialogContent>
-      </Dialog>
+
     </>
   );
 }

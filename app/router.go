@@ -51,6 +51,7 @@ func (a *App) Router() http.Handler {
 		r.Get("/api/network", a.Network)
 		r.Post("/api/files/bulk", a.Bulk)
 		r.Get("/api/me", a.Me)
+		r.Post("/api/profile", a.UpdateProfile)
 		r.Get("/api/system", a.System)
 		r.Get("/api/activity", a.Activity)
 		r.Get("/api/files", a.ListFiles)

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/modules/shared/utils";
 import { useNotification } from "@/modules/shared/notification-provider";
+import { ProfilePanel } from "@/modules/profile/profile-panel";
 import { useTheme } from "@/modules/settings/theme-provider";
 import { AppSettingsPanel, defaultSettings, type AppSettings } from "@/modules/settings/app-settings";
 import { AttachedStorageBrowser } from "@/modules/storage/attached-storage-browser";
@@ -324,6 +325,9 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     onChanged: () => void quota.reload(),
   };
   switch (activeTab) {
+    case "profile":
+      content = <ProfilePanel user={me} onSaved={setMe} />;
+      break;
     case "settings":
       content = me.role === "admin" ? <AppSettingsPanel onSaved={saveAppSettings} /> : <ErrorText text="Settings are available to administrators." />;
       break;
@@ -406,6 +410,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         onToggleTheme={toggleTheme}
         onOpenNavigation={() => setMobile(value => !value)}
         onHome={() => selectTab("dashboard")}
+        onProfile={() => selectTab("profile")}
+        onSettings={() => selectTab("settings")}
         onLogout={() => {
           setSigningOut(true);
           void api("/api/auth/logout", { method: "POST" })

@@ -228,5 +228,7 @@ func (a *Module) Profile(u core.User) map[string]any {
 			_ = a.DB.QueryRow("SELECT path FROM permissions WHERE user_id=? AND access IN ('read','write') AND path<>'' ORDER BY CASE WHEN path=? THEN 0 ELSE 1 END,length(path),path LIMIT 1", u.ID, u.Username).Scan(&home)
 		}
 	}
-	return map[string]any{"id": u.ID, "username": u.Username, "role": u.Role, "home": home, "rootAccessible": a.Can(u, "", false)}
+	var displayName, email string
+	_ = a.DB.QueryRow("SELECT display_name,email FROM user_profiles WHERE user_id=?", u.ID).Scan(&displayName, &email)
+	return map[string]any{"id": u.ID, "username": u.Username, "displayName": displayName, "email": email, "role": u.Role, "home": home, "rootAccessible": a.Can(u, "", false)}
 }
