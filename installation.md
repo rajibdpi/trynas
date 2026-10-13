@@ -411,3 +411,12 @@ unlocked the link earlier. Reopening the page revokes that browser's download
 grant. Downloads and QR codes remain available during the current unlocked
 visit; other visitors are unaffected. Unlocked pages relock when restored from
 browser history. The share URL never contains an unlock credential.
+
+Administrators can change **Upload proxy limit (MiB)** under Settings → Server
+configuration. It saves `PROXY_UPLOAD_LIMIT_MB` to the server configuration file
+and applies when the frontend restarts. The default is 10,240 MiB and the valid
+range is 1–10,240 MiB. This limit includes multipart framing and all files in one
+request; backend quotas and the 10 GiB backend cap still apply. A separately
+started frontend reads the project-root `.env`; set `TRYNAS_CONFIG_FILE` when using
+a custom configuration file. An explicit `PROXY_UPLOAD_LIMIT_MB` environment
+variable takes precedence over the saved value.

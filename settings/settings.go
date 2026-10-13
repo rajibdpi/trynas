@@ -116,7 +116,7 @@ func (a *Module) Settings(w http.ResponseWriter, r *http.Request) {
 	}
 	result := map[string]any{"settings": settings}
 	if user.Role == "admin" && r.URL.Path != "/api/preferences" {
-		result["server"] = map[string]any{"storageRoot": a.Root, "address": core.Env("ADDR", "127.0.0.1:8080"), "cookieSecure": core.Env("COOKIE_SECURE", "false") == "true", "corsOrigin": core.Env("CORS_ORIGIN", "http://localhost:3000")}
+		result["server"] = map[string]any{"proxyUploadLimitMB": proxyUploadLimitMB(), "storageRoot": a.Root, "address": core.Env("ADDR", "127.0.0.1:8080"), "cookieSecure": core.Env("COOKIE_SECURE", "false") == "true", "corsOrigin": core.Env("CORS_ORIGIN", "http://localhost:3000")}
 	}
 	core.JSON(w, result)
 }

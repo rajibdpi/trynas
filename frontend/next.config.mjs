@@ -1,4 +1,6 @@
 import { networkInterfaces } from "node:os";
+import { fileURLToPath } from "node:url";
+import { proxyUploadLimitBytes } from "./upload-limit.mjs";
 
 const embedded = process.env.TRYNAS_EMBEDDED_BUILD === "true";
 /** @type {import('next').NextConfig} */
@@ -7,6 +9,8 @@ const config = {
   allowedDevOrigins: [...new Set(Object.values(networkInterfaces()).flat().filter(address => address && !address.internal).map(address => address.address))],
   distDir: embedded ? "dist" : process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   ...(!embedded ? {
+    // Settings saves this limit in the shared server configuration file.
+    experimental: { proxyClientMaxBodySize: proxyUploadLimitBytes(fileURLToPath(new URL("../", import.meta.url))) },
     async headers() {
       return [{ source: "/:path*", headers: [
         { key: "X-Content-Type-Options", value: "nosniff" },
