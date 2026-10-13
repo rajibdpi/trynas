@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { cn } from "@/modules/shared/utils";
 import { FileInfoDialog } from "./file-info-dialog";
 import { ViewSwitcher } from "./view-switcher";
+import { useDragSelection } from "./drag-selection";
 import { FileThumbnail } from "@/modules/files/file-thumbnail";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
 import { fmt, message, parent, join } from "@/modules/shared/format";
@@ -112,6 +113,7 @@ export function FileBrowser({
     selectionAnchor = useRef<string | null>(null),
     controller = useRef<AbortController | null>(null),
     dragDepth = useRef(0);
+  const dragSelection = useDragSelection({ selected, onSelect: setSelected, scope: path });
   const [draggingFiles, setDraggingFiles] = useState(false);
   const resetDrag = () => { dragDepth.current = 0; setDraggingFiles(false); };
   useEffect(() => {
@@ -562,7 +564,7 @@ export function FileBrowser({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className="flex flex-1 flex-col">
         <ErrorText text={listing.error || search.error || uploadError} />
         {!writable && (
           <p className="mb-3 text-xs text-muted-foreground">
@@ -657,16 +659,20 @@ export function FileBrowser({
           </div>
         )}
         <div
+          ref={dragSelection.ref}
+          onPointerDownCapture={dragSelection.onPointerDownCapture}
+          onClickCapture={dragSelection.onClickCapture}
           className={
             view !== "list"
-              ? view === "large" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
-              : "space-y-1"
+              ? view === "large" ? "grid min-h-40 flex-1 content-start grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" : "grid min-h-40 flex-1 content-start grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+              : "min-h-40 flex-1 space-y-1"
           }
         >
           {items.map((item) => (
             <ContextMenu key={item.path}>
               <ContextMenuTrigger asChild>
                 <div
+                  data-selection-id={item.path}
                   data-selected={selected.includes(item.path)}
                   onMouseDownCapture={event => {
                     if (event.button === 0 && (event.detail > 1 || event.shiftKey)) {
@@ -792,6 +798,7 @@ export function FileBrowser({
             }
           />
         )}
+        {dragSelection.overlay}
         <FileInfoDialog item={infoItem} close={() => setInfoItem(null)} />
       </CardContent>
     </Card>
