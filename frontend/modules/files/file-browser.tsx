@@ -604,9 +604,7 @@ export function FileBrowser({
             selected.length > 0 && "has-selection",
           )}
         >
-          <span className="mr-2 text-sm text-muted-foreground">
-            {selected.length ? `${selected.length} selected` : "Click to select a file or folder. Ctrl-click to select multiple."}
-          </span>
+          {selected.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selected.length} selected</span>}
           {selected.length > 0 && (
             <>
               <Button

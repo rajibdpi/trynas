@@ -63,9 +63,12 @@ export function CommonNavbar({ appName = "TryNAS", logoUrl, user, dark, signingO
               collisionPadding={12}
               className="w-64 min-w-0 max-w-[min(calc(100vw-1.5rem),var(--radix-dropdown-menu-content-available-width))] max-h-(--radix-dropdown-menu-content-available-height) overflow-y-auto rounded-xl p-2 sm:w-56"
             >
-              <div className="border-b px-3 py-2">
-                <p className="wrap-break-word text-sm font-semibold">{user.displayName || user.username}</p>
-                <p className="wrap-break-word text-xs capitalize text-muted-foreground">{user.role}</p>
+              <div className="flex items-center gap-3 border-b px-3 py-2">
+                <UserAvatar avatarUrl={user.avatarUrl} />
+                <div className="min-w-0 flex-1">
+                  <p className="wrap-break-word text-sm font-semibold">{user.displayName || user.username}</p>
+                  <p className="wrap-break-word text-xs capitalize text-muted-foreground">{user.role}</p>
+                </div>
               </div>
               <DropdownMenuItem className="min-h-11 sm:min-h-9" onSelect={onProfile}><UserRound className="size-4 shrink-0" />Profile</DropdownMenuItem>
               {user.role === "admin" && <DropdownMenuItem className="min-h-11 sm:min-h-9" onSelect={onSettings}><Settings className="size-4 shrink-0" />Settings</DropdownMenuItem>}
