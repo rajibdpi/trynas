@@ -11,9 +11,11 @@ container on port 8080. Node.js is only needed during the image build.
 2. Select **Dockerfile** as the build pack, set the base directory to `/`, and
    the Dockerfile location to `/Dockerfile`. Set **Ports Exposes** to `8080`.
    No custom build or start command is needed.
+   For an existing application, change **Build strategy** under
+   **General > Build pipeline** from Railpack to Dockerfile, then save.
 3. Set your domain to `https://nas.tryplusit.com`, and point its DNS to
    the Coolify server. Coolify terminates HTTPS and forwards traffic to port 8080.
-4. Add the following **runtime** environment variables. Replace both placeholders:
+4. Add the following **runtime** environment variables. Replace the password placeholder:
 
    ```dotenv
    ADMIN_USER=admin
@@ -53,6 +55,20 @@ If you need forwarded client IPs, set `TRUSTED_PROXIES` to the actual proxy
 socket IPs only; it can be left unset for same-origin HTTPS access.
 The upload setting defaults to 10240 MiB. Configure any upstream proxy's
 request-size limit and timeout to accommodate your intended upload sizes.
+
+## Troubleshoot missing embedded frontend
+
+If deployment fails with `frontend/frontend.go:11:12: pattern all:dist: no matching files found`,
+check the build log. A log that loads `railpack-plan.json` and runs
+`go build -ldflags=-w -s -o out` is using Railpack's Go build without generating
+the frontend export.
+
+Change the application's build strategy to **Dockerfile**, use base directory
+`/` and Dockerfile location `/Dockerfile`, clear custom build/start commands,
+save, and redeploy. Ensure the selected Git commit contains the root Dockerfile
+and `.dockerignore`; older release tags may not include them. The Dockerfile
+runs `pnpm build` before copying `frontend/dist` into the Go build stage.
+The new log should show the Dockerfile's frontend and backend stages.
 
 ## Local container check
 
