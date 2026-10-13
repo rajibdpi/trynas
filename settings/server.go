@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -20,13 +21,18 @@ func (a *Module) SaveServerConfiguration(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var input struct {
-		StorageRoot  string `json:"storageRoot"`
-		Address      string `json:"address"`
-		CorsOrigin   string `json:"corsOrigin"`
-		CookieSecure bool   `json:"cookieSecure"`
+		StorageRoot        string `json:"storageRoot"`
+		Address            string `json:"address"`
+		CorsOrigin         string `json:"corsOrigin"`
+		CookieSecure       bool   `json:"cookieSecure"`
+		ProxyUploadLimitMB *int   `json:"proxyUploadLimitMB"`
 	}
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&input) != nil {
 		core.Bad(w, "invalid server configuration", 400)
+		return
+	}
+	if input.ProxyUploadLimitMB != nil && (*input.ProxyUploadLimitMB < 1 || *input.ProxyUploadLimitMB > 10240) {
+		core.Bad(w, "upload proxy limit must be 1–10,240 MiB", 400)
 		return
 	}
 	input.StorageRoot = strings.TrimSpace(input.StorageRoot)
@@ -72,6 +78,9 @@ func (a *Module) SaveServerConfiguration(w http.ResponseWriter, r *http.Request)
 		core.Bad(w, "could not read configuration file", 500)
 		return
 	}
+	if input.ProxyUploadLimitMB != nil {
+		values["PROXY_UPLOAD_LIMIT_MB"] = strconv.Itoa(*input.ProxyUploadLimitMB)
+	}
 	values["STORAGE_ROOT"] = input.StorageRoot
 	values["ADDR"] = input.Address
 	values["CORS_ORIGIN"] = input.CorsOrigin
@@ -107,4 +116,20 @@ func (a *Module) SaveServerConfiguration(w http.ResponseWriter, r *http.Request)
 	}
 	a.Log(user.ID, "settings", "server", user.IP)
 	core.JSON(w, map[string]bool{"restartRequired": true})
+}
+
+// Read the saved limit as well as explicit environment overrides so reopening
+// Settings shows the pending frontend setting before the frontend is restarted.
+func proxyUploadLimitMB() int {
+	value := os.Getenv("PROXY_UPLOAD_LIMIT_MB")
+	if value == "" {
+		if values, err := godotenv.Read(core.Env("TRYNAS_CONFIG_FILE", ".env")); err == nil {
+			value = values["PROXY_UPLOAD_LIMIT_MB"]
+		}
+	}
+	limit, err := strconv.Atoi(value)
+	if err != nil || limit < 1 || limit > 10240 {
+		return 10240
+	}
+	return limit
 }
