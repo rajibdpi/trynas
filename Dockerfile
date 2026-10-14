@@ -18,14 +18,20 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates curl tzdata \
     && addgroup -g 10001 trynas \
     && adduser -D -u 10001 -G trynas trynas \
-    && mkdir -p /srv/trynas/data /srv/trynas/storage \
-    && chown -R 10001:10001 /srv/trynas
+    && mkdir -p /srv/trynas /data /storage \
+    && chown -R 10001:10001 /srv/trynas /data /storage
 
 COPY --from=installer /opt/trynas/trynas /usr/local/bin/trynas
 COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 USER 10001:10001
 WORKDIR /srv/trynas
+
+ENV DB_PATH=/data/trynas.db \
+    STORAGE_ROOT=/storage
+
+# Persist the database, encryption key, and uploaded files outside the container.
+VOLUME ["/data", "/storage"]
 
 EXPOSE 8080
 

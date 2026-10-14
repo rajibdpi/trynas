@@ -105,6 +105,11 @@ STORAGE_ROOT=/storage
 
 Mount persistent storage at `/data` and `/storage` and keep both across
 redeploys. `/data` includes SQLite and the remote-storage encryption key.
+The Dockerfile declares both directories as volumes and sets `DB_PATH` and
+`STORAGE_ROOT` to use them by default. Use named volumes to reuse the same
+storage when replacing a container, for example
+`--mount source=trynas-data,target=/data --mount source=trynas-storage,target=/storage`
+with `docker run`.
 The container runs as UID/GID `10001:10001`; existing mounts must be writable
 by that user. Use one instance and disable overlapping deployments using
 consistent container naming. The image includes a health check at `/api/health`.
