@@ -94,6 +94,7 @@ Configure these runtime variables in Coolify:
 
 ```dotenv
 ADMIN_USER=admin
+PUBLIC_URL=https://nas.tryplusit.com
 ADMIN_PASSWORD=<unique-random-password-of-8-to-72-bytes>
 ADDR=0.0.0.0:8080
 COOKIE_SECURE=true
@@ -107,6 +108,10 @@ redeploys. `/data` includes SQLite and the remote-storage encryption key.
 The container runs as UID/GID `10001:10001`; existing mounts must be writable
 by that user. Use one instance and disable overlapping deployments using
 consistent container naming. The image includes a health check at `/api/health`.
+After the health endpoint responds successfully, Docker logs print
+`TryNAS is ready. Open: https://nas.tryplusit.com` using `PUBLIC_URL`.
+This setting only controls the printed address; configure the domain in Coolify
+as described above. Without `PUBLIC_URL`, the printed address is `http://localhost:8080`.
 The initial admin password belongs
 in Coolify's runtime settings, never in Git or build variables.
 
