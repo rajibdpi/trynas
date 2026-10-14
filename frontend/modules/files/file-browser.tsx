@@ -3,7 +3,7 @@
 import { useErrorNotification } from "@/modules/shared/notification-provider";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, SquareCheck, SquareMinus, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Star, Trash2, Upload, Info } from "lucide-react";
+import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, X, SquareCheck, SquareMinus, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Star, Trash2, Upload, Info } from "lucide-react";
 import { API, api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -466,15 +466,17 @@ export function FileBrowser({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle>
-                {path ? path.split("/").pop() : "All files"}
+                {path ? path.split("/").pop() : <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "All Files"}</button>
+                }
               </CardTitle>
               <span className="file-count">{items.length} items</span>
               <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                 <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
                 <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
                 <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
-                <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button>
-                {path
+                {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button> */}
+                {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : <HomeIcon />}</button> */}
+                {/* {path
                   .split("/")
                   .filter(Boolean)
                   .map((part, i) => (
@@ -494,23 +496,23 @@ export function FileBrowser({
                         {part}
                       </button>
                     </span>
-                  ))}
+                  ))} */}
               </div>
             </div>
           </div>
           {selected.length > 0 && (
             <div
               className={cn(
-                "selection-toolbar flex min-w-0 flex-1 flex-wrap items-center gap-2",
+                "selection-toolbar flex min-h-10 min-w-0 flex-1 items-center gap-1 overflow-x-auto !p-1 sm:gap-2 [&_button]:shrink-0",
                 selected.length > 0 && "has-selection",
               )}
             >
-              {selected.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selected.length} selected</span>}
+              {selected.length > 0 && <span className="mr-2 hidden whitespace-nowrap text-sm text-muted-foreground sm:inline">{selected.length} selected</span>}
               {selected.length > 0 && (
                 <>
                   <Button
                     variant="outline"
-                    size="icon"
+                    size="icon-sm"
                     role="checkbox"
                     aria-checked={allSelected ? true : "mixed"}
                     aria-label={allSelected ? "Clear selection" : "Select all files and folders"}
@@ -522,41 +524,28 @@ export function FileBrowser({
                   >
                     {allSelected ? <SquareCheck aria-hidden="true" /> : <SquareMinus aria-hidden="true" />}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])}>
-                    <Link2 />
-                    Share
+                  <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])} aria-label="Share" title="Share" className="w-8 px-0 sm:w-auto sm:px-3"><Link2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Share</span>
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => bulk("copy")}>
-                    <Copy />
-                    Copy
+                  <Button variant="outline" size="sm" onClick={() => bulk("copy")} aria-label="Copy" title="Copy" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy</span>
                   </Button>
-                  {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])}><Move />Move to storage</Button></>}
-                  <Button variant="outline" size="sm" onClick={() => bulk("move")}>
-                    <Move />
-                    Move
+                  {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])} aria-label="Copy to storage" title="Copy to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy to storage</span></Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])} aria-label="Move to storage" title="Move to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move to storage</span></Button></>}
+                  <Button variant="outline" size="sm" onClick={() => bulk("move")} aria-label="Move" title="Move" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move</span>
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => bulk("zip")}>
-                    <Archive />
-                    ZIP
+                  <Button variant="outline" size="sm" onClick={() => bulk("zip")} aria-label="ZIP" title="ZIP" className="w-8 px-0 sm:w-auto sm:px-3"><Archive aria-hidden="true" /><span className="sr-only sm:not-sr-only">ZIP</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => bulk("favorite")}
-                  >
-                    <Star />
-                    Favorite
+                   aria-label="Favorite" title="Favorite" className="w-8 px-0 sm:w-auto sm:px-3"><Star aria-hidden="true" /><span className="sr-only sm:not-sr-only">Favorite</span>
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => bulk("trash")}
-                  >
-                    <Trash2 />
-                    Trash
+                   aria-label="Trash" title="Trash" className="w-8 px-0 sm:w-auto sm:px-3"><Trash2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Trash</span>
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }}>
-                    Clear
+                  <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }} aria-label="Clear" title="Clear" className="w-8 px-0 sm:w-auto sm:px-3"><X aria-hidden="true" /><span className="sr-only sm:not-sr-only">Clear</span>
                   </Button>
                 </>
               )}
