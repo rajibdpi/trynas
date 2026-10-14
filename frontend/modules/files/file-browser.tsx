@@ -71,7 +71,7 @@ export function FileBrowser({
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
   );
-  const attached = useResource<{connections:{id:string;name:string;attached:boolean}[]}>(allowAttachedActions ? "/api/storage/providers" : null);
+  const attached = useResource<{ connections: { id: string; name: string; attached: boolean }[] }>(allowAttachedActions ? "/api/storage/providers" : null);
   const shares = useResource<SharedItem[]>("/api/shares", 30000);
   const sharedLinks = new Map<string, string>();
   for (const share of shares.data || []) {
@@ -275,12 +275,12 @@ export function FileBrowser({
       },
     });
   };
-  const transferToStorage=(move:boolean,paths:string[])=>ask({title:move ? "Move to attached storage" : "Copy to attached storage",description:"Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.",fields:[{key:"destinationStorage",label:"Destination storage",value:attached.data?.connections.find(c=>c.attached)?.id || "",options:attached.data?.connections.filter(c=>c.attached).map(c=>({value:c.id,label:c.name})) || []},{key:"destination",label:"Destination folder",value:"",required:false}],submit:move ? "Move" : "Copy",run:async values=>{try {await api("/api/storage/actions",{method:"POST",body:JSON.stringify({action:move ? "move" : "copy",storage:"",paths,...values})});notify("File operation completed");}finally {await reload();}}});
+  const transferToStorage = (move: boolean, paths: string[]) => ask({ title: move ? "Move to attached storage" : "Copy to attached storage", description: "Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.", fields: [{ key: "destinationStorage", label: "Destination storage", value: attached.data?.connections.find(c => c.attached)?.id || "", options: attached.data?.connections.filter(c => c.attached).map(c => ({ value: c.id, label: c.name })) || [] }, { key: "destination", label: "Destination folder", value: "", required: false }], submit: move ? "Move" : "Copy", run: async values => { try { await api("/api/storage/actions", { method: "POST", body: JSON.stringify({ action: move ? "move" : "copy", storage: "", paths, ...values }) }); notify("File operation completed"); } finally { await reload(); } } });
   const fileActions = (item: Item): Action[] => [
     { label: "Info", icon: Info, run: () => setInfoItem(item) },
-    ...(attached.data?.connections.some(c=>c.attached) ? [
-      {label:"Copy to attached storage",icon:Copy,run:()=>transferToStorage(false,selected.includes(item.path) ? [...selected] : [item.path])},
-      {label:"Move to attached storage",icon:Move,disabled:!writable,run:()=>transferToStorage(true,selected.includes(item.path) ? [...selected] : [item.path])},
+    ...(attached.data?.connections.some(c => c.attached) ? [
+      { label: "Copy to attached storage", icon: Copy, run: () => transferToStorage(false, selected.includes(item.path) ? [...selected] : [item.path]) },
+      { label: "Move to attached storage", icon: Move, disabled: !writable, run: () => transferToStorage(true, selected.includes(item.path) ? [...selected] : [item.path]) },
     ] : []),
     {
       label: item.dir ? "Open folder" : "Preview",
@@ -468,33 +468,33 @@ export function FileBrowser({
                 {path ? path.split("/").pop() : "All files"}
               </CardTitle>
               <span className="file-count">{items.length} items</span>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
-              <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button>
-              {path
-                .split("/")
-                .filter(Boolean)
-                .map((part, i) => (
-                  path.split("/").slice(0, i + 1).join("/").length <= basePath.length ? null : <span key={i}>
-                    {" "}
-                    /{" "}
-                    <button
-                      onClick={() =>
-                        setPath(
-                          path
-                            .split("/")
-                            .slice(0, i + 1)
-                            .join("/"),
-                        )
-                      }
-                    >
-                      {part}
-                    </button>
-                  </span>
-                ))}
+              <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
+                <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button>
+                {path
+                  .split("/")
+                  .filter(Boolean)
+                  .map((part, i) => (
+                    path.split("/").slice(0, i + 1).join("/").length <= basePath.length ? null : <span key={i}>
+                      {" "}
+                      /{" "}
+                      <button
+                        onClick={() =>
+                          setPath(
+                            path
+                              .split("/")
+                              .slice(0, i + 1)
+                              .join("/"),
+                          )
+                        }
+                      >
+                        {part}
+                      </button>
+                    </span>
+                  ))}
+              </div>
             </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -582,7 +582,7 @@ export function FileBrowser({
                 <Copy />
                 Copy
               </Button>
-              {attached.data?.connections.some(c=>c.attached) && <><Button variant="outline" size="sm" onClick={()=>transferToStorage(false,[...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={()=>transferToStorage(true,[...selected])}><Move />Move to storage</Button></>}
+              {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])}><Move />Move to storage</Button></>}
               <Button variant="outline" size="sm" onClick={() => bulk("move")}>
                 <Move />
                 Move
@@ -761,38 +761,38 @@ export function FileBrowser({
           />
         )}
         <NewMenu target={newMenuTarget} disabled={!writable || !!upload || folderUploading} uploadFiles={() => input.current?.click()} uploadFolder={() => folderInput.current?.click()} newFolder={() => ask({
-                  title: "New folder",
-                  description: "Create a folder in the current location.",
-                  fields: [
-                    {
-                      key: "name",
-                      label: "Folder name",
-                      value: "",
-                      required: true,
-                    },
-                  ],
-                  submit: "Create",
-                  run: async (v) => {
-                    if (
-                      /[\\/]/.test(v.name) ||
-                      v.name === "." ||
-                      v.name === ".."
-                    )
-                      throw new Error("Enter a single folder name");
-                    await api("/api/files/folder", {
-                      method: "POST",
-                      body: JSON.stringify({ path: join(path, v.name) }),
-                    });
-                    await reload();
-                  },
-                })} />
+          title: "New folder",
+          description: "Create a folder in the current location.",
+          fields: [
+            {
+              key: "name",
+              label: "Folder name",
+              value: "",
+              required: true,
+            },
+          ],
+          submit: "Create",
+          run: async (v) => {
+            if (
+              /[\\/]/.test(v.name) ||
+              v.name === "." ||
+              v.name === ".."
+            )
+              throw new Error("Enter a single folder name");
+            await api("/api/files/folder", {
+              method: "POST",
+              body: JSON.stringify({ path: join(path, v.name) }),
+            });
+            await reload();
+          },
+        })} />
         <input ref={element => { folderInput.current = element; if (element) element.setAttribute("webkitdirectory", ""); }} type="file" multiple className="hidden" onChange={async event => {
           const files = Array.from(event.target.files || []); event.target.value = "";
           if (!files.length) return;
           setFolderUploading(true); setUploadError("");
           try {
             await uploadFolderFiles(files, path, async directory => { await api("/api/files/folder", { method: "POST", body: JSON.stringify({ path: directory, existOk: true }) }); }, async (directory, files) => {
-              await uploadWithConflicts(directory, files, () => {});
+              await uploadWithConflicts(directory, files, () => { });
             });
             notify("Folder uploaded");
           } catch (error) { if (!(error instanceof Error && error.name === "AbortError")) setUploadError(message(error)); }
