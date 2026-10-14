@@ -79,6 +79,69 @@ The service account needs read access to `.env` and write access to the database
 and storage directories. Stop any manually running instance first. View logs
 with `sudo journalctl -u trynas.service -f`.
 
+## Deploy with Coolify Dockerfile
+
+The root `Dockerfile` downloads a checksum-verified GitHub release and
+runs a single production container. `.dockerignore` excludes local secrets,
+data, and generated files from the build.
+
+Push both files and select **Dockerfile** as the build pack in Coolify
+(**General > Build pipeline > Build strategy** for an existing application).
+Set base directory `/` and Dockerfile location `/Dockerfile`, then save.
+Clear custom build/start commands.
+Expose port `8080` and set the domain to `https://nas.tryplusit.com`.
+Configure these runtime variables in Coolify:
+
+```dotenv
+ADMIN_USER=admin
+PUBLIC_URL=https://nas.tryplusit.com
+ADMIN_PASSWORD=<unique-random-password-of-8-to-72-bytes>
+ADDR=0.0.0.0:8080
+COOKIE_SECURE=true
+CORS_ORIGIN=https://nas.tryplusit.com
+DB_PATH=/data/trynas.db
+STORAGE_ROOT=/storage
+```
+
+Mount persistent storage at `/data` and `/storage` and keep both across
+redeploys. `/data` includes SQLite and the remote-storage encryption key.
+The Dockerfile declares both directories as volumes and sets `DB_PATH` and
+`STORAGE_ROOT` to use them by default. Use named volumes to reuse the same
+storage when replacing a container, for example
+`--mount source=trynas-data,target=/data --mount source=trynas-storage,target=/storage`
+with `docker run`.
+The container runs as UID/GID `10001:10001`; existing mounts must be writable
+by that user. Use one instance and disable overlapping deployments using
+consistent container naming. The image includes a health check at `/api/health`.
+After the health endpoint responds successfully, Docker logs print
+`TryNAS is ready. Open: https://nas.tryplusit.com` using `PUBLIC_URL`.
+This setting only controls the printed address; configure the domain in Coolify
+as described above. Without `PUBLIC_URL`, the printed address is `http://localhost:8080`.
+The initial admin password belongs
+in Coolify's runtime settings, never in Git or build variables.
+
+The build argument `TRYNAS_VERSION` defaults to `latest`, which downloads the
+latest published GitHub release. The release workflow publishes a new release
+after successful builds and validation on `main`. Rebuild after publication
+with Docker caching disabled to fetch the updated binary:
+
+```sh
+docker build --no-cache -t trynas:latest .
+```
+
+In Coolify, disable build caching when redeploying to refresh `latest`.
+To install a specific release instead, set `TRYNAS_VERSION` to its tag:
+
+```sh
+docker build --build-arg TRYNAS_VERSION=v1.0.15 -t trynas:v1.0.15 .
+```
+
+An existing running container keeps its installed version until you rebuild
+and redeploy it. Deploy the commit containing the Dockerfile and verify
+`https://nas.tryplusit.com/api/health`.
+
+See the [Coolify Dockerfile guide](https://coolify.io/docs/applications/builds/dockerfile).
+
 ## Documentation
 
 - [Installation and upgrades](installation.md)
