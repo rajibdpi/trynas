@@ -65,6 +65,7 @@ export function FileBrowser({
   notify: (s: string) => void;
   onChanged: () => void;
 }) {
+  const [showSelectionChecks, setShowSelectionChecks] = useState(false);
   const folderInput = useRef<HTMLInputElement>(null);
   const [folderUploading, setFolderUploading] = useState(false);
   const [infoItem, setInfoItem] = useState<Item | null>(null);
@@ -405,6 +406,7 @@ export function FileBrowser({
     }
   };
   const selectItem = (p: string, event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
+    setShowSelectionChecks(event.ctrlKey || event.metaKey);
     const start = items.findIndex(item => item.path === selectionAnchor.current);
     const end = items.findIndex(item => item.path === p);
     if (event.shiftKey && start >= 0 && end >= 0) {
@@ -503,7 +505,7 @@ export function FileBrowser({
           {selected.length > 0 && (
             <div
               className={cn(
-                "selection-toolbar flex min-h-10 min-w-0 flex-1 items-center gap-1 overflow-x-auto !p-1 sm:gap-2 [&_button]:shrink-0",
+                "selection-toolbar flex min-h-10 w-full min-w-0 max-w-full flex-initial items-center gap-1 overflow-x-auto !p-1 sm:w-auto sm:gap-2 [&_button]:shrink-0",
                 selected.length > 0 && "has-selection",
               )}
             >
@@ -680,7 +682,7 @@ export function FileBrowser({
                       ) : (
                         <FileThumbnail item={item} large={view === "large"} />
                       )}
-                      {selected.includes(item.path) && (
+                      {showSelectionChecks && selected.includes(item.path) && (
                         <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
                           <Check className="size-3" strokeWidth={3} aria-hidden="true" />
                           <span className="sr-only">Selected</span>
