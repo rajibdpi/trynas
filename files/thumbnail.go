@@ -142,6 +142,11 @@ func (a *Module) Thumbnail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Let the web client use its file-type icon when no real preview exists.
+	if r.URL.Query().Get("fallback") == "icon" && strings.TrimSpace(text) == "" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	label := strings.ToUpper(strings.TrimPrefix(ext, "."))
 	if label == "" {
 		label = "FILE"
