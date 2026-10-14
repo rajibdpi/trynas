@@ -3,7 +3,7 @@
 import { useErrorNotification } from "@/modules/shared/notification-provider";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload, Info } from "lucide-react";
+import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Star, Trash2, Upload, Info } from "lucide-react";
 import { API, api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -35,7 +35,6 @@ export function FileBrowser({
   showHiddenFiles,
   defaultShareExpiry,
   query,
-  setQuery,
   path,
   basePath,
   setPath,
@@ -54,7 +53,6 @@ export function FileBrowser({
   defaultShareExpiry: string;
   showHiddenFiles: boolean;
   query: string;
-  setQuery: (value: string) => void;
   path: string;
   basePath: string;
   setPath: (p: string) => void;
@@ -500,17 +498,6 @@ export function FileBrowser({
             </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
-              <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-              <input
-                className="pl-9!"
-                placeholder="Search files and folders…"
-                aria-label="Search files"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-
             <input
               ref={input}
               type="file"

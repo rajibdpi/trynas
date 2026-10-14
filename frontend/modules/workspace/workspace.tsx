@@ -325,7 +325,6 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     showHiddenFiles: appSettings.showHiddenFiles,
     defaultShareExpiry: appSettings.shareExpiry,
     query: fileQuery,
-    setQuery: setFileQuery,
     path,
     basePath: me.rootAccessible ? "" : (me.home || ""),
     setPath: navigateFolder,
