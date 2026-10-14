@@ -81,7 +81,7 @@ with `sudo journalctl -u trynas.service -f`.
 
 ## Deploy with Coolify Dockerfile
 
-The root `Dockerfile` builds the frontend, embeds it in the Go server, and
+The root `Dockerfile` downloads a checksum-verified GitHub release and
 runs a single production container. `.dockerignore` excludes local secrets,
 data, and generated files from the build.
 
@@ -110,8 +110,24 @@ consistent container naming. The image includes a health check at `/api/health`.
 The initial admin password belongs
 in Coolify's runtime settings, never in Git or build variables.
 
-Optionally set build argument `TRYNAS_VERSION` to your release tag; it defaults
-to `dev`. Deploy the commit containing the Dockerfile and verify
+The build argument `TRYNAS_VERSION` defaults to `latest`, which downloads the
+latest published GitHub release. The release workflow publishes a new release
+after successful builds and validation on `main`. Rebuild after publication
+with Docker caching disabled to fetch the updated binary:
+
+```sh
+docker build --no-cache -t trynas:latest .
+```
+
+In Coolify, disable build caching when redeploying to refresh `latest`.
+To install a specific release instead, set `TRYNAS_VERSION` to its tag:
+
+```sh
+docker build --build-arg TRYNAS_VERSION=v1.0.15 -t trynas:v1.0.15 .
+```
+
+An existing running container keeps its installed version until you rebuild
+and redeploy it. Deploy the commit containing the Dockerfile and verify
 `https://nas.tryplusit.com/api/health`.
 
 See the [Coolify Dockerfile guide](https://coolify.io/docs/applications/builds/dockerfile).

@@ -2,7 +2,9 @@ FROM alpine:3.22 AS installer
 
 RUN apk add --no-cache bash curl coreutils
 
-ARG TRYNAS_VERSION=v1.0.15
+# Use the latest published release unless a specific tag is supplied.
+# Build with --no-cache to refresh the download when using latest.
+ARG TRYNAS_VERSION=latest
 
 RUN curl -fsSL \
     https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh \
