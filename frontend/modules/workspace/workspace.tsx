@@ -116,7 +116,12 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     void api("/api/preferences", { signal: controller.signal }).then(data => { setAppSettings({ ...defaultSettings, ...data.settings }); updateTheme(data.settings); }).catch(() => { });
     return () => controller.abort();
   }, [me?.id]);
-  useEffect(() => { document.title = appSettings.appName; }, [appSettings.appName]);
+  useEffect(() => {
+    const pageTitle = !checking && !me
+      ? "Sign in"
+      : nav.find(item => item.id === activeTab)?.label || "Dashboard";
+    document.title = `${pageTitle} | ${appSettings.appName}`;
+  }, [activeTab, appSettings.appName, checking, me]);
   const sys = useResource<any>(me?.role === "admin" ? "/api/system" : null, 5000),
     network = useResource<any>(me?.role === "admin" ? "/api/network" : null, 3000),
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
