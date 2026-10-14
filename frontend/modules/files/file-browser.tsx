@@ -3,7 +3,7 @@
 import { useErrorNotification } from "@/modules/shared/notification-provider";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Star, Trash2, Upload, Info } from "lucide-react";
+import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, SquareCheck, SquareMinus, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Star, Trash2, Upload, Info } from "lucide-react";
 import { API, api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -161,6 +161,7 @@ export function FileBrowser({
     setSelected((old) => old.filter((p) => visible.has(p)));
     if (selectionAnchor.current && !visible.has(selectionAnchor.current)) selectionAnchor.current = null;
   }, [listing.data, search.data, debounced, showHiddenFiles]);
+  const allSelected = items.length > 0 && items.every(item => selected.includes(item.path));
   const writable = listing.data?.writable || false;
   const reload = async () => {
     await listing.reload();
@@ -509,11 +510,17 @@ export function FileBrowser({
                 <>
                   <Button
                     variant="outline"
-                    size="sm"
-                    disabled={items.every(item => selected.includes(item.path))}
-                    onClick={() => setSelected(items.map(item => item.path))}
+                    size="icon"
+                    role="checkbox"
+                    aria-checked={allSelected ? true : "mixed"}
+                    aria-label={allSelected ? "Clear selection" : "Select all files and folders"}
+                    title={allSelected ? "Clear selection" : "Select all files and folders"}
+                    onClick={() => {
+                      setSelected(allSelected ? [] : items.map(item => item.path));
+                      selectionAnchor.current = null;
+                    }}
                   >
-                    Select all
+                    {allSelected ? <SquareCheck aria-hidden="true" /> : <SquareMinus aria-hidden="true" />}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])}>
                     <Link2 />
