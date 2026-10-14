@@ -469,7 +469,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           aria-label="Main navigation"
         >
           {nav
-            .filter((x) => !x.admin || me.role === "admin")
+            .filter((x) => x.id !== "profile" && (!x.admin || me.role === "admin"))
             .map((x) => (
               <div key={x.id}>
                 {["dashboard", "system", "users"].includes(x.id) && (
