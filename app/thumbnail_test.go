@@ -41,4 +41,11 @@ func TestFileThumbnails(t *testing.T) {
 	if !strings.Contains(response.Body.String(), "BIN") {
 		t.Fatal("missing generic file thumbnail")
 	}
+	response = request(a, admin, "GET", "/api/files/thumbnail?path=unknown.bin&fallback=icon", nil, a.Thumbnail)
+	expect(t, response, 204)
+	if response.Body.Len() != 0 {
+		t.Fatal("icon fallback must not return a generic thumbnail")
+	}
+	expect(t, request(a, admin, "GET", "/api/files/thumbnail?path=notes.txt&fallback=icon", nil, a.Thumbnail), 200)
+	expect(t, request(a, admin, "GET", "/api/files/thumbnail?path=photo.png&fallback=icon", nil, a.Thumbnail), 200)
 }

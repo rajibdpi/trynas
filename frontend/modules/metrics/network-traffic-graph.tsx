@@ -39,7 +39,7 @@ export function NetworkTrafficGraph({ samples, unavailable = false }: {
           <circle cx={x(sample.at)} cy={y(sample.tx)} r="2" fill="#10b981" />
         </g>)}
       </svg>
-      <div className="flex justify-between text-[10px] text-muted-foreground"><span>60s ago</span><span>{unavailable ? "Traffic unavailable" : !latest ? "Waiting for samples…" : `Peak scale ${rate(peak)}`}</span><span>Now</span></div>
+      {/* <div className="flex justify-between text-[10px] text-muted-foreground"><span>60s ago</span><span>{unavailable ? "Traffic unavailable" : !latest ? "Waiting for samples…" : `Peak scale ${rate(peak)}`}</span><span>Now</span></div> */}
     </div>
   );
 }

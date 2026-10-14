@@ -3,7 +3,7 @@
 import { useErrorNotification } from "@/modules/shared/notification-provider";
 
 import { useEffect, useRef, useState } from "react";
-import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Search, Star, Trash2, Upload, Info } from "lucide-react";
+import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, X, SquareCheck, SquareMinus, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Star, Trash2, Upload, Info } from "lucide-react";
 import { API, api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -35,7 +35,6 @@ export function FileBrowser({
   showHiddenFiles,
   defaultShareExpiry,
   query,
-  setQuery,
   path,
   basePath,
   setPath,
@@ -54,7 +53,6 @@ export function FileBrowser({
   defaultShareExpiry: string;
   showHiddenFiles: boolean;
   query: string;
-  setQuery: (value: string) => void;
   path: string;
   basePath: string;
   setPath: (p: string) => void;
@@ -67,13 +65,14 @@ export function FileBrowser({
   notify: (s: string) => void;
   onChanged: () => void;
 }) {
+  const [showSelectionChecks, setShowSelectionChecks] = useState(false);
   const folderInput = useRef<HTMLInputElement>(null);
   const [folderUploading, setFolderUploading] = useState(false);
   const [infoItem, setInfoItem] = useState<Item | null>(null);
   const listing = useResource<{ items: Item[]; writable: boolean }>(
     "/api/files?path=" + encodeURIComponent(path),
   );
-  const attached = useResource<{connections:{id:string;name:string;attached:boolean}[]}>(allowAttachedActions ? "/api/storage/providers" : null);
+  const attached = useResource<{ connections: { id: string; name: string; attached: boolean }[] }>(allowAttachedActions ? "/api/storage/providers" : null);
   const shares = useResource<SharedItem[]>("/api/shares", 30000);
   const sharedLinks = new Map<string, string>();
   for (const share of shares.data || []) {
@@ -163,6 +162,7 @@ export function FileBrowser({
     setSelected((old) => old.filter((p) => visible.has(p)));
     if (selectionAnchor.current && !visible.has(selectionAnchor.current)) selectionAnchor.current = null;
   }, [listing.data, search.data, debounced, showHiddenFiles]);
+  const allSelected = items.length > 0 && items.every(item => selected.includes(item.path));
   const writable = listing.data?.writable || false;
   const reload = async () => {
     await listing.reload();
@@ -277,12 +277,12 @@ export function FileBrowser({
       },
     });
   };
-  const transferToStorage=(move:boolean,paths:string[])=>ask({title:move ? "Move to attached storage" : "Copy to attached storage",description:"Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.",fields:[{key:"destinationStorage",label:"Destination storage",value:attached.data?.connections.find(c=>c.attached)?.id || "",options:attached.data?.connections.filter(c=>c.attached).map(c=>({value:c.id,label:c.name})) || []},{key:"destination",label:"Destination folder",value:"",required:false}],submit:move ? "Move" : "Copy",run:async values=>{try {await api("/api/storage/actions",{method:"POST",body:JSON.stringify({action:move ? "move" : "copy",storage:"",paths,...values})});notify("File operation completed");}finally {await reload();}}});
+  const transferToStorage = (move: boolean, paths: string[]) => ask({ title: move ? "Move to attached storage" : "Copy to attached storage", description: "Choose an attached provider and a folder relative to its root. Existing items are never overwritten. Moves verify copied content before removing the source.", fields: [{ key: "destinationStorage", label: "Destination storage", value: attached.data?.connections.find(c => c.attached)?.id || "", options: attached.data?.connections.filter(c => c.attached).map(c => ({ value: c.id, label: c.name })) || [] }, { key: "destination", label: "Destination folder", value: "", required: false }], submit: move ? "Move" : "Copy", run: async values => { try { await api("/api/storage/actions", { method: "POST", body: JSON.stringify({ action: move ? "move" : "copy", storage: "", paths, ...values }) }); notify("File operation completed"); } finally { await reload(); } } });
   const fileActions = (item: Item): Action[] => [
     { label: "Info", icon: Info, run: () => setInfoItem(item) },
-    ...(attached.data?.connections.some(c=>c.attached) ? [
-      {label:"Copy to attached storage",icon:Copy,run:()=>transferToStorage(false,selected.includes(item.path) ? [...selected] : [item.path])},
-      {label:"Move to attached storage",icon:Move,disabled:!writable,run:()=>transferToStorage(true,selected.includes(item.path) ? [...selected] : [item.path])},
+    ...(attached.data?.connections.some(c => c.attached) ? [
+      { label: "Copy to attached storage", icon: Copy, run: () => transferToStorage(false, selected.includes(item.path) ? [...selected] : [item.path]) },
+      { label: "Move to attached storage", icon: Move, disabled: !writable, run: () => transferToStorage(true, selected.includes(item.path) ? [...selected] : [item.path]) },
     ] : []),
     {
       label: item.dir ? "Open folder" : "Preview",
@@ -406,6 +406,7 @@ export function FileBrowser({
     }
   };
   const selectItem = (p: string, event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
+    setShowSelectionChecks(event.ctrlKey || event.metaKey);
     const start = items.findIndex(item => item.path === selectionAnchor.current);
     const end = items.findIndex(item => item.path === p);
     if (event.shiftKey && start >= 0 && end >= 0) {
@@ -465,52 +466,94 @@ export function FileBrowser({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <CardTitle>
-                {path ? path.split("/").pop() : "All files"}
+                {path ? path.split("/").pop() : <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "All Files"}</button>
+                }
               </CardTitle>
               <span className="file-count">{items.length} items</span>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
-              <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button>
-              {path
-                .split("/")
-                .filter(Boolean)
-                .map((part, i) => (
-                  path.split("/").slice(0, i + 1).join("/").length <= basePath.length ? null : <span key={i}>
-                    {" "}
-                    /{" "}
-                    <button
-                      onClick={() =>
-                        setPath(
-                          path
-                            .split("/")
-                            .slice(0, i + 1)
-                            .join("/"),
-                        )
-                      }
-                    >
-                      {part}
-                    </button>
-                  </span>
-                ))}
+              <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
+                {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button> */}
+                {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : <HomeIcon />}</button> */}
+                {/* {path
+                  .split("/")
+                  .filter(Boolean)
+                  .map((part, i) => (
+                    path.split("/").slice(0, i + 1).join("/").length <= basePath.length ? null : <span key={i}>
+                      {" "}
+                      /{" "}
+                      <button
+                        onClick={() =>
+                          setPath(
+                            path
+                              .split("/")
+                              .slice(0, i + 1)
+                              .join("/"),
+                          )
+                        }
+                      >
+                        {part}
+                      </button>
+                    </span>
+                  ))} */}
+              </div>
             </div>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
-              <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-              <input
-                className="pl-9!"
-                placeholder="Search files and folders…"
-                aria-label="Search files"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+          {selected.length > 0 && (
+            <div
+              className={cn(
+                "selection-toolbar flex min-h-10 w-full min-w-0 max-w-full flex-initial items-center gap-1 overflow-x-auto !p-1 sm:w-auto sm:gap-2 [&_button]:shrink-0",
+                selected.length > 0 && "has-selection",
+              )}
+            >
+              {selected.length > 0 && <span className="mr-2 hidden whitespace-nowrap text-sm text-muted-foreground sm:inline">{selected.length} selected</span>}
+              {selected.length > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    role="checkbox"
+                    aria-checked={allSelected ? true : "mixed"}
+                    aria-label={allSelected ? "Clear selection" : "Select all files and folders"}
+                    title={allSelected ? "Clear selection" : "Select all files and folders"}
+                    onClick={() => {
+                      setSelected(allSelected ? [] : items.map(item => item.path));
+                      selectionAnchor.current = null;
+                    }}
+                  >
+                    {allSelected ? <SquareCheck aria-hidden="true" /> : <SquareMinus aria-hidden="true" />}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])} aria-label="Share" title="Share" className="w-8 px-0 sm:w-auto sm:px-3"><Link2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Share</span>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => bulk("copy")} aria-label="Copy" title="Copy" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy</span>
+                  </Button>
+                  {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])} aria-label="Copy to storage" title="Copy to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy to storage</span></Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])} aria-label="Move to storage" title="Move to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move to storage</span></Button></>}
+                  <Button variant="outline" size="sm" onClick={() => bulk("move")} aria-label="Move" title="Move" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move</span>
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => bulk("zip")} aria-label="ZIP" title="ZIP" className="w-8 px-0 sm:w-auto sm:px-3"><Archive aria-hidden="true" /><span className="sr-only sm:not-sr-only">ZIP</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bulk("favorite")}
+                   aria-label="Favorite" title="Favorite" className="w-8 px-0 sm:w-auto sm:px-3"><Star aria-hidden="true" /><span className="sr-only sm:not-sr-only">Favorite</span>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => bulk("trash")}
+                   aria-label="Trash" title="Trash" className="w-8 px-0 sm:w-auto sm:px-3"><Trash2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Trash</span>
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }} aria-label="Clear" title="Clear" className="w-8 px-0 sm:w-auto sm:px-3"><X aria-hidden="true" /><span className="sr-only sm:not-sr-only">Clear</span>
+                  </Button>
+                </>
+              )}
             </div>
-
+          )}
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <input
               ref={input}
               type="file"
@@ -570,62 +613,6 @@ export function FileBrowser({
             </p>
           </div>
         )}
-        <div
-          className={cn(
-            "selection-toolbar mb-3 flex flex-wrap items-center gap-2",
-            selected.length > 0 && "has-selection",
-          )}
-        >
-          {selected.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selected.length} selected</span>}
-          {selected.length > 0 && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={items.every(item => selected.includes(item.path))}
-                onClick={() => setSelected(items.map(item => item.path))}
-              >
-                Select all
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])}>
-                <Link2 />
-                Share
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => bulk("copy")}>
-                <Copy />
-                Copy
-              </Button>
-              {attached.data?.connections.some(c=>c.attached) && <><Button variant="outline" size="sm" onClick={()=>transferToStorage(false,[...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={()=>transferToStorage(true,[...selected])}><Move />Move to storage</Button></>}
-              <Button variant="outline" size="sm" onClick={() => bulk("move")}>
-                <Move />
-                Move
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => bulk("zip")}>
-                <Archive />
-                ZIP
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => bulk("favorite")}
-              >
-                <Star />
-                Favorite
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => bulk("trash")}
-              >
-                <Trash2 />
-                Trash
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }}>
-                Clear
-              </Button>
-            </>
-          )}
-        </div>
         {view === "list" && items.length > 0 && (
           <div className="file-column-head">
             <span>Name</span>
@@ -695,7 +682,7 @@ export function FileBrowser({
                       ) : (
                         <FileThumbnail item={item} large={view === "large"} />
                       )}
-                      {selected.includes(item.path) && (
+                      {showSelectionChecks && selected.includes(item.path) && (
                         <span className="pointer-events-none absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
                           <Check className="size-3" strokeWidth={3} aria-hidden="true" />
                           <span className="sr-only">Selected</span>
@@ -774,38 +761,38 @@ export function FileBrowser({
           />
         )}
         <NewMenu target={newMenuTarget} disabled={!writable || !!upload || folderUploading} uploadFiles={() => input.current?.click()} uploadFolder={() => folderInput.current?.click()} newFolder={() => ask({
-                  title: "New folder",
-                  description: "Create a folder in the current location.",
-                  fields: [
-                    {
-                      key: "name",
-                      label: "Folder name",
-                      value: "",
-                      required: true,
-                    },
-                  ],
-                  submit: "Create",
-                  run: async (v) => {
-                    if (
-                      /[\\/]/.test(v.name) ||
-                      v.name === "." ||
-                      v.name === ".."
-                    )
-                      throw new Error("Enter a single folder name");
-                    await api("/api/files/folder", {
-                      method: "POST",
-                      body: JSON.stringify({ path: join(path, v.name) }),
-                    });
-                    await reload();
-                  },
-                })} />
+          title: "New folder",
+          description: "Create a folder in the current location.",
+          fields: [
+            {
+              key: "name",
+              label: "Folder name",
+              value: "",
+              required: true,
+            },
+          ],
+          submit: "Create",
+          run: async (v) => {
+            if (
+              /[\\/]/.test(v.name) ||
+              v.name === "." ||
+              v.name === ".."
+            )
+              throw new Error("Enter a single folder name");
+            await api("/api/files/folder", {
+              method: "POST",
+              body: JSON.stringify({ path: join(path, v.name) }),
+            });
+            await reload();
+          },
+        })} />
         <input ref={element => { folderInput.current = element; if (element) element.setAttribute("webkitdirectory", ""); }} type="file" multiple className="hidden" onChange={async event => {
           const files = Array.from(event.target.files || []); event.target.value = "";
           if (!files.length) return;
           setFolderUploading(true); setUploadError("");
           try {
             await uploadFolderFiles(files, path, async directory => { await api("/api/files/folder", { method: "POST", body: JSON.stringify({ path: directory, existOk: true }) }); }, async (directory, files) => {
-              await uploadWithConflicts(directory, files, () => {});
+              await uploadWithConflicts(directory, files, () => { });
             });
             notify("Folder uploaded");
           } catch (error) { if (!(error instanceof Error && error.name === "AbortError")) setUploadError(message(error)); }

@@ -116,7 +116,12 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     void api("/api/preferences", { signal: controller.signal }).then(data => { setAppSettings({ ...defaultSettings, ...data.settings }); updateTheme(data.settings); }).catch(() => { });
     return () => controller.abort();
   }, [me?.id]);
-  useEffect(() => { document.title = appSettings.appName; }, [appSettings.appName]);
+  useEffect(() => {
+    const pageTitle = !checking && !me
+      ? "Sign in"
+      : nav.find(item => item.id === activeTab)?.label || "Dashboard";
+    document.title = `${pageTitle} | ${appSettings.appName}`;
+  }, [activeTab, appSettings.appName, checking, me]);
   const sys = useResource<any>(me?.role === "admin" ? "/api/system" : null, 5000),
     network = useResource<any>(me?.role === "admin" ? "/api/network" : null, 3000),
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
@@ -325,7 +330,6 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     showHiddenFiles: appSettings.showHiddenFiles,
     defaultShareExpiry: appSettings.shareExpiry,
     query: fileQuery,
-    setQuery: setFileQuery,
     path,
     basePath: me.rootAccessible ? "" : (me.home || ""),
     setPath: navigateFolder,
@@ -465,7 +469,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
           aria-label="Main navigation"
         >
           {nav
-            .filter((x) => !x.admin || me.role === "admin")
+            .filter((x) => x.id !== "profile" && (!x.admin || me.role === "admin"))
             .map((x) => (
               <div key={x.id}>
                 {["dashboard", "system", "users"].includes(x.id) && (

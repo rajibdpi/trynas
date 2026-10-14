@@ -44,14 +44,14 @@ export function FileThumbnail({ item, large = false, storage }: { item: Thumbnai
   const [failedSource, setFailedSource] = useState("");
   const [loadedSource, setLoadedSource] = useState("");
   const [remoteSource, setRemoteSource] = useState("");
-  const extension = item.name.split(".").pop()?.toLowerCase() || "";
+  const extension = item.name.includes(".") ? item.name.split(".").pop()?.toLowerCase() || "" : "";
   const image = isImageFile(item);
   const video = !storage && ["mp4", "webm", "m4v", "mov", "ogv"].includes(extension);
   const imageWithinLimit = item.size >= 0 && item.size <= 20 * 1024 * 1024;
   const previewable = storage ? image && imageWithinLimit : !image || imageWithinLimit;
   const version = encodeURIComponent(`${item.modified}:${item.size}`);
   const endpoint = image && !["jpg", "jpeg", "png", "gif"].includes(extension) || video ? "preview" : "thumbnail";
-  const url = storage ? `${API}/api/storage/files?storage=${encodeURIComponent(storage)}&path=${encodeURIComponent(item.path)}&download=1` : `${API}/api/files/${endpoint}?path=${encodeURIComponent(item.path)}&v=${version}`;
+  const url = storage ? `${API}/api/storage/files?storage=${encodeURIComponent(storage)}&path=${encodeURIComponent(item.path)}&download=1` : `${API}/api/files/${endpoint}?path=${encodeURIComponent(item.path)}&v=${version}&fallback=icon`;
   useEffect(() => {
     const element = ref.current;
     if (!element) return;

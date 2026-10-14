@@ -38,7 +38,7 @@ export function HistoryGraph({ samples, label, unavailable, maxValue = 100, form
           <title>{new Date(sample.at).toLocaleTimeString()}: {label} {formatValue(sample.value)}</title>
         </circle>)}
       </svg>
-      <div className="flex justify-between text-[10px] text-muted-foreground"><span>60s ago</span><span>{unavailable ? "Data unavailable" : !visible.length ? "Waiting for samples…" : "Updated every 5s"}</span><span>Now</span></div>
+      {/* <div className="flex justify-between text-[10px] text-muted-foreground"><span>60s ago</span><span>{unavailable ? "Data unavailable" : !visible.length ? "Waiting for samples…" : "Updated every 5s"}</span><span>Now</span></div> */}
     </div>
   );
 }

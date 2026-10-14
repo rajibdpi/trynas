@@ -23,23 +23,25 @@ export function Metric({
   return (
     <Card className="metric-card">
       <CardHeader>
-        <div className="mb-2 flex items-center gap-3">
-          <span className="metric-icon">
-            {title === "CPU" ? (
-              <Activity />
-            ) : title === "Memory" ? (
-              <Server />
-            ) : title === "Your storage" ? (
-              <HardDrive />
-            ) : (
-              <Activity />
-            )}
-          </span>
-          <p className="text-xs font-medium text-muted-foreground">{title}</p>
+        <div className="mb-2 flex items-start gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="metric-icon">
+              {title === "CPU" ? (
+                <Activity />
+              ) : title === "Memory" ? (
+                <Server />
+              ) : title === "Your storage" ? (
+                <HardDrive />
+              ) : (
+                <Activity />
+              )}
+            </span>
+            <p className="text-xs font-medium text-muted-foreground">{title}</p>
+          </div>
+          <CardTitle className="ml-auto min-w-0 text-right text-xl font-semibold tracking-tight xl:text-2xl">
+            {value}
+          </CardTitle>
         </div>
-        <CardTitle className="mt-1 text-xl font-semibold tracking-tight xl:text-2xl">
-          {value}
-        </CardTitle>
       </CardHeader>
       <CardContent>
         {percent !== undefined && <Progress value={percent} />}
@@ -90,7 +92,7 @@ export function Overview({
         title="Your storage"
         value={
           quotaError ? "Unavailable" : quota
-            ? `${fmt(quota.used)} / ${quota.unlimited ? "Unlimited" : fmt(quota.limit)}`
+            ? `${fmt(quota.used)} / ${quota.unlimited ? "∞" : fmt(quota.limit)}`
             : "…"
         }
         percent={
