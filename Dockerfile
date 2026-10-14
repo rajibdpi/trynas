@@ -1,35 +1,32 @@
-# syntax=docker/dockerfile:1
-FROM node:24-bookworm-slim AS frontend
-WORKDIR /src/frontend
-RUN npm install --global pnpm@12.5.1
-COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
-COPY frontend/patches ./patches
-RUN pnpm install --frozen-lockfile
-COPY frontend/ ./
-ENV TRYNAS_EMBEDDED_BUILD=true NEXT_PUBLIC_EMBEDDED=true NEXT_PUBLIC_API_URL="" NEXT_TELEMETRY_DISABLED=1
-RUN pnpm build
+FROM alpine:3.22 AS installer
 
-FROM golang:1.27.2-bookworm AS backend
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-COPY --from=frontend /src/frontend/dist ./frontend/dist
-ARG TRYNAS_VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/rajibdpi/trynas/core.Version=${TRYNAS_VERSION}" -o /out/trynas .
+RUN apk add --no-cache bash curl coreutils
 
-FROM debian:bookworm-slim AS runtime
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 trynas \
-    && useradd --uid 10001 --gid trynas --no-create-home trynas \
-    && mkdir /data /storage && chown trynas:trynas /data /storage
-COPY --from=backend /out/trynas /usr/local/bin/trynas
-WORKDIR /data
-ENV ADDR=0.0.0.0:8080 DB_PATH=/data/trynas.db STORAGE_ROOT=/storage COOKIE_SECURE=true
+ARG TRYNAS_VERSION=v1.0.15
+
+RUN curl -fsSL \
+    https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh \
+    -o /tmp/get.sh \
+    && bash /tmp/get.sh \
+       --version "${TRYNAS_VERSION}" \
+       --dir /opt/trynas
+
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates curl tzdata \
+    && addgroup -g 10001 trynas \
+    && adduser -D -u 10001 -G trynas trynas \
+    && mkdir -p /srv/trynas/data /srv/trynas/storage \
+    && chown -R 10001:10001 /srv/trynas
+
+COPY --from=installer /opt/trynas/trynas /usr/local/bin/trynas
+
 USER 10001:10001
+WORKDIR /srv/trynas
+
 EXPOSE 8080
-VOLUME ["/data", "/storage"]
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl --fail --silent http://127.0.0.1:8080/api/health > /dev/null || exit 1
-ENTRYPOINT ["/usr/local/bin/trynas"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS --max-time 4 http://127.0.0.1:8080/api/health || exit 1
+
+ENTRYPOINT ["/bin/sh", "-c", "umask 077; exec /usr/local/bin/trynas"]
