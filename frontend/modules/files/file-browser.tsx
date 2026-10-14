@@ -463,7 +463,7 @@ export function FileBrowser({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <CardTitle>
                 {path ? path.split("/").pop() : "All files"}
               </CardTitle>
@@ -497,6 +497,64 @@ export function FileBrowser({
               </div>
             </div>
           </div>
+          {selected.length > 0 && (
+            <div
+              className={cn(
+                "selection-toolbar flex min-w-0 flex-1 flex-wrap items-center gap-2",
+                selected.length > 0 && "has-selection",
+              )}
+            >
+              {selected.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selected.length} selected</span>}
+              {selected.length > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={items.every(item => selected.includes(item.path))}
+                    onClick={() => setSelected(items.map(item => item.path))}
+                  >
+                    Select all
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])}>
+                    <Link2 />
+                    Share
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => bulk("copy")}>
+                    <Copy />
+                    Copy
+                  </Button>
+                  {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])}><Move />Move to storage</Button></>}
+                  <Button variant="outline" size="sm" onClick={() => bulk("move")}>
+                    <Move />
+                    Move
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => bulk("zip")}>
+                    <Archive />
+                    ZIP
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bulk("favorite")}
+                  >
+                    <Star />
+                    Favorite
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => bulk("trash")}
+                  >
+                    <Trash2 />
+                    Trash
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }}>
+                    Clear
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <input
               ref={input}
@@ -557,62 +615,6 @@ export function FileBrowser({
             </p>
           </div>
         )}
-        <div
-          className={cn(
-            "selection-toolbar mb-3 flex flex-wrap items-center gap-2",
-            selected.length > 0 && "has-selection",
-          )}
-        >
-          {selected.length > 0 && <span className="mr-2 text-sm text-muted-foreground">{selected.length} selected</span>}
-          {selected.length > 0 && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={items.every(item => selected.includes(item.path))}
-                onClick={() => setSelected(items.map(item => item.path))}
-              >
-                Select all
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])}>
-                <Link2 />
-                Share
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => bulk("copy")}>
-                <Copy />
-                Copy
-              </Button>
-              {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])}><Copy />Copy to storage</Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])}><Move />Move to storage</Button></>}
-              <Button variant="outline" size="sm" onClick={() => bulk("move")}>
-                <Move />
-                Move
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => bulk("zip")}>
-                <Archive />
-                ZIP
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => bulk("favorite")}
-              >
-                <Star />
-                Favorite
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => bulk("trash")}
-              >
-                <Trash2 />
-                Trash
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }}>
-                Clear
-              </Button>
-            </>
-          )}
-        </div>
         {view === "list" && items.length > 0 && (
           <div className="file-column-head">
             <span>Name</span>
