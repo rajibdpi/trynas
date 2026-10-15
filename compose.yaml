@@ -1,0 +1,28 @@
+services:
+  trynas:
+    build:
+      context: .
+      args:
+        TRYNAS_VERSION: ${TRYNAS_VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in your environment or .env}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      ADDR: 0.0.0.0:8080
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      DB_PATH: /data/trynas.db
+      STORAGE_ROOT: /storage
+    volumes:
+      - data:/data
+      - storage:/storage
+
+# Explicit names keep storage stable even if the Compose project name changes.
+# Use different names for independent installations on the same Docker host.
+volumes:
+  data:
+    name: ${TRYNAS_DATA_VOLUME:-trynas-data}
+  storage:
+    name: ${TRYNAS_STORAGE_VOLUME:-trynas-storage}

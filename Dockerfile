@@ -30,7 +30,9 @@ WORKDIR /srv/trynas
 ENV DB_PATH=/data/trynas.db \
     STORAGE_ROOT=/storage
 
-# Persist the database, encryption key, and uploaded files outside the container.
+# Mount the SAME named volumes or host directories here on every deployment.
+# VOLUME alone creates anonymous volumes that replacements may not reuse.
+# /data holds the database and encryption key; /storage holds uploaded files.
 VOLUME ["/data", "/storage"]
 
 EXPOSE 8080
