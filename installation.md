@@ -261,6 +261,45 @@ but the workflow refuses to overwrite a published release: create a new tag.
 Local build and installation commands do not publish releases. Tag pushes and
 explicit publishing through the workflow are the release actions.
 
+## Persistent storage with Coolify Dockerfile deployments
+
+The Dockerfile declares `VOLUME ["/data", "/storage"]`, but this declaration
+alone does not ensure that replacement containers reuse the same storage.
+Configure two mounts in your Coolify application's **Persistent Storage**:
+
+| Storage | Destination Path in container |
+| --- | --- |
+| Persistent volume for the database and encryption key | `/data` |
+| Persistent volume for uploaded files | `/storage` |
+
+Keep the same mounts across every redeploy. Set runtime `DB_PATH=/data/trynas.db`
+and `STORAGE_ROOT=/storage`. The container runs as UID/GID `10001:10001`;
+both mounted directories must be readable and writable by that account.
+See [Coolify's persistent storage guide](https://coolify.io/docs/applications/configuration/persistent-storage).
+
+If you already have data, reuse its existing volumes or bind mount its existing
+absolute server directory paths at these destinations. New empty volumes do not
+automatically recover files from older volumes. Preserve the database, encryption
+key, and uploaded files together when recovering an installation.
+
+Before changing mounts, inspect the old and current containers on the deployment
+server (replace `CONTAINER` with the actual name or ID):
+
+```sh
+docker ps -a
+docker inspect CONTAINER --format '{{json .Mounts}}'
+docker volume ls
+```
+
+Compare the mount sources for `/data` and `/storage`. If they changed, locate and
+back up the original storage before reconnecting it. Stop TryNAS before copying
+its database. Do not delete old containers or prune volumes until the existing
+data has been located and backed up. If the original storage was deleted, restore
+from a backup. A Dockerfile change cannot recover deleted storage.
+
+See [Dockerfile deployment settings](README.md#deploy-with-coolify-dockerfile)
+for the remaining runtime configuration.
+
 ## First start
 
 Create a permanent working directory for configuration and data. Always run the
