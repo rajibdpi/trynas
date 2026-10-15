@@ -22,6 +22,7 @@ export function useDragSelection({ selected, onSelect, scope, disabled = false }
     if (disabled || event.button !== 0 || event.pointerType !== "mouse" || event.detail > 1) return;
     const target = event.target as HTMLElement;
     if (target.closest("input, textarea, select, a, [contenteditable='true']") || (target.closest("button") && !target.closest("[data-file-select]"))) return;
+    if (target.closest("[draggable='true']") && !event.ctrlKey && !event.metaKey && !event.shiftKey) return;
     const container = ref.current;
     if (!container) return;
     cleanup.current?.();

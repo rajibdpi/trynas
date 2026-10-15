@@ -8,6 +8,9 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 type Conflict = { name: string; size: number };
 type Choice = "keep" | "replace" | "skip";
 
+export type UploadFileStatus = "Queued" | "Uploading" | "Processing" | "Completed" | "Skipped" | "Failed" | "Cancelled";
+export type FileProgress = (file: File, percent: number, status: UploadFileStatus) => void;
+
 export function useUploadWithConflicts() {
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
@@ -19,7 +22,7 @@ export function useUploadWithConflicts() {
     resolve?.(result);
   };
   useEffect(() => () => { pending.current?.(null); pending.current = null; }, []);
-  const upload = async (directory: string, files: File[], onProgress: (loaded: number, total: number) => void, signal?: AbortSignal) => {
+  const upload = async (directory: string, files: File[], onProgress: (loaded: number, total: number) => void, signal?: AbortSignal, onFileProgress?: FileProgress) => {
     if (signal?.aborted) throw new DOMException("Upload cancelled", "AbortError");
     const result = await api("/api/files/upload/check", {
       method: "POST", signal,
@@ -28,18 +31,51 @@ export function useUploadWithConflicts() {
     let selected: Record<string, Choice> = {};
     if (result.conflicts.length) {
       if (pending.current) throw new Error("Another upload is waiting for a conflict choice");
+      const abort = () => finish(null);
+      signal?.addEventListener("abort", abort, { once: true });
       const selection = await new Promise<Record<string, Choice> | null>(resolve => {
         pending.current = resolve;
         setChoices(Object.fromEntries(result.conflicts.map((file: Conflict) => [file.name, "skip"])));
         setConflicts(result.conflicts);
       });
+      signal?.removeEventListener("abort", abort);
       if (!selection) throw new DOMException("Upload cancelled", "AbortError");
       selected = selection;
     }
     if (signal?.aborted) throw new DOMException("Upload cancelled", "AbortError");
     const incoming = files.filter(file => selected[file.name] !== "skip");
+    files.filter(file => selected[file.name] === "skip").forEach(file => onFileProgress?.(file, 0, "Skipped"));
     if (!incoming.length) return { bytes: 0, files: 0 };
     const policies = Object.fromEntries(Object.entries(selected).filter(([, choice]) => choice !== "skip"));
+    if (onFileProgress) {
+      const total = incoming.reduce((sum, file) => sum + file.size, 0);
+      let completed = 0;
+      const result = { bytes: 0, files: 0 };
+      for (const file of incoming) {
+        try {
+          if (signal?.aborted) throw new DOMException("Upload cancelled", "AbortError");
+          onFileProgress(file, 0, "Uploading");
+          const data = new FormData();
+          data.append("path", directory);
+          data.append("conflicts", JSON.stringify(policies));
+          data.append("files", file);
+          const uploaded = await uploadFiles(data, (loaded, transferTotal) => {
+            const fraction = transferTotal ? Math.min(1, loaded / transferTotal) : 0;
+            onFileProgress(file, Math.floor(fraction * 100), fraction === 1 ? "Processing" : "Uploading");
+            onProgress(completed + fraction * file.size, total);
+          }, signal);
+          completed += file.size;
+          result.bytes += uploaded.bytes;
+          result.files += uploaded.files;
+          onFileProgress(file, 100, "Completed");
+          onProgress(completed, total);
+        } catch (error) {
+          onFileProgress(file, 0, signal?.aborted ? "Cancelled" : "Failed");
+          throw error;
+        }
+      }
+      return result;
+    }
     const data = new FormData();
     data.append("path", directory);
     data.append("conflicts", JSON.stringify(policies));
