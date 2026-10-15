@@ -18,7 +18,7 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates curl tzdata \
     && addgroup -g 10001 trynas \
     && adduser -D -u 10001 -G trynas trynas \
-    && mkdir -p /srv/trynas /data /storage \
+    && mkdir -p /srv/trynas/data /srv/trynas/storage /data /storage \
     && chown -R 10001:10001 /srv/trynas /data /storage
 
 COPY --from=installer /opt/trynas/trynas /usr/local/bin/trynas
