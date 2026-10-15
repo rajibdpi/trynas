@@ -103,13 +103,43 @@ DB_PATH=/data/trynas.db
 STORAGE_ROOT=/storage
 ```
 
-Mount persistent storage at `/data` and `/storage` and keep both across
-redeploys. `/data` includes SQLite and the remote-storage encryption key.
+In Coolify, add two persistent volume mounts to this application:
+
+| Stable volume name | Container destination |
+| --- | --- |
+| `trynas-data` | `/data` |
+| `trynas-storage` | `/storage` |
+
+Keep both mounts and their source volumes across redeploys. `/data` includes
+SQLite and the remote-storage encryption key.
 The Dockerfile declares both directories as volumes and sets `DB_PATH` and
-`STORAGE_ROOT` to use them by default. Use named volumes to reuse the same
+`STORAGE_ROOT` to use them by default. **The Dockerfile alone does not guarantee
+reuse:** without explicit mounts, replacement containers can get new, empty
+anonymous volumes. Use named volumes to reuse the same
 storage when replacing a container, for example
 `--mount source=trynas-data,target=/data --mount source=trynas-storage,target=/storage`
 with `docker run`.
+
+For Docker Compose, the included `compose.yaml` mounts stable named volumes:
+
+```sh
+export ADMIN_PASSWORD='<unique-random-password-of-8-to-72-bytes>'
+docker compose up -d --build
+```
+
+For subsequent updates, run `docker compose build --no-cache` followed by
+`docker compose up -d`. Keep the same Docker host and volume names. Set
+`PUBLIC_URL` and `COOKIE_SECURE=true` when serving through HTTPS.
+Do not use `docker compose down -v` when updating; it deletes these volumes.
+
+If files already disappeared after a deployment, inspect the previous
+container's mounts with `docker inspect <old-container> --format '{{json .Mounts}}'`.
+The files may still be in its old volume. Back up and reuse that source volume
+or migrate its contents while TryNAS is stopped, including the entire `/data`
+directory and `/storage`. Creating new named volumes does not recover old data.
+For Compose, set `TRYNAS_DATA_VOLUME` and `TRYNAS_STORAGE_VOLUME` to existing
+volume names when reusing old volumes.
+
 The container runs as UID/GID `10001:10001`; existing mounts must be writable
 by that user. Use one instance and disable overlapping deployments using
 consistent container naming. The image includes a health check at `/api/health`.
