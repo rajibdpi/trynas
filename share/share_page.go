@@ -122,7 +122,7 @@ func ServeSharePage(w http.ResponseWriter, r *http.Request, name string, size in
 	}
 }
 
-var SharePageTemplate = template.Must(template.New("share").Parse(`<!doctype html>
+var SharePageTemplate = template.Must(template.New("share").Funcs(template.FuncMap{"fileIcon": sharedItemIcon}).Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shared file · TryNAS</title>
 <style>
 :root{color-scheme:light dark;--bg:#f4f6fa;--card:#fff;--text:#192338;--muted:#758097;--border:#e5e9f1;--primary:#6254e8}
@@ -131,7 +131,7 @@ var SharePageTemplate = template.Must(template.New("share").Parse(`<!doctype htm
 main{width:100%;max-width:720px;padding:32px;border:1px solid var(--border);border-radius:24px;background:var(--card);color:var(--card-text,var(--text));box-shadow:0 18px 70px #171c3410;text-align:center}
 .brand{color:var(--primary);font-size:20px;font-weight:700}h1{font-size:24px;overflow-wrap:anywhere;margin:20px 0 8px}p{color:var(--muted)}img{display:block;width:220px;max-width:100%;height:auto;margin:24px auto;border-radius:12px;background:white}
 .actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}a{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--card-text,var(--text));font-weight:600}a.primary{background:var(--primary);color:var(--primary-foreground,white);border-color:var(--primary)}a:hover{opacity:.85}a:focus-visible{outline:3px solid var(--primary);outline-offset:3px}svg{width:18px;height:18px}
-.items{text-align:left;margin:24px 0;border:1px solid var(--border);border-radius:12px;max-height:420px;overflow:auto}.item{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border)}.item:last-child{border-bottom:0}.item-info{flex:1;min-width:0}.item-name{overflow-wrap:anywhere;font-weight:600}.item-meta{font-size:12px;color:var(--muted)}.item-icon{color:var(--primary);flex-shrink:0}.item a{padding:7px 10px;font-size:12px}
+.items{text-align:left;margin:24px 0;border:1px solid var(--border);border-radius:12px;max-height:420px;overflow:auto}.item{display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--border)}.item:last-child{border-bottom:0}.item-info{flex:1;min-width:0}.item-name{overflow-wrap:anywhere;font-weight:600}.item-meta{font-size:12px;color:var(--muted)}.item-thumbnail{display:grid;place-items:center;width:48px;height:48px;flex-shrink:0;border-radius:12px;color:var(--icon-color,var(--primary));background:color-mix(in srgb,currentColor 10%,transparent)}.item-thumbnail svg{width:28px;height:28px}.icon-teal{--icon-color:#0d9488}.icon-orange{--icon-color:#ea580c}.icon-violet{--icon-color:#7c3aed}.icon-amber{--icon-color:#d97706}.icon-cyan{--icon-color:#0e7490}.icon-slate{--icon-color:#64748b}.icon-pink{--icon-color:#db2777}.icon-purple{--icon-color:#9333ea}.icon-red{--icon-color:#dc2626}.icon-blue{--icon-color:#2563eb}.icon-emerald{--icon-color:#059669}.icon-yellow{--icon-color:#a16207}.icon-indigo{--icon-color:#4f46e5}.item a{padding:7px 10px;font-size:12px}
 </style><script src="/api/branding/theme.js" defer></script>{{if .RelockOnReturn}}<script>
 // Browser history must not restore an unlocked page or replay a password POST.
 const navigationType = performance.getEntriesByType('navigation')[0]?.type;
@@ -144,7 +144,7 @@ window.addEventListener('pageshow', event => {
 });
 </script>{{end}}</head><body><main>
 <div class="brand">TryNAS</div><h1>{{.Name}}</h1><p>{{.Kind}} · {{.Size}}</p>
-<section aria-label="Shared files and folders" class="items">{{range .Items}}<div class="item"><svg class="item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">{{if .Folder}}<path d="M3 7V4h6l2 3h10v13H3z"/>{{else}}<path d="M6 3h8l4 4v14H6zM14 3v5h4"/>{{end}}</svg><div class="item-info"><div class="item-name">{{.Name}}</div><div class="item-meta">{{.Kind}} · {{.Size}}</div></div><a href="{{.DownloadURL}}" aria-label="Download {{.Name}}">Download{{if .Folder}} ZIP{{end}}</a></div>{{end}}</section>
+<section aria-label="Shared files and folders" class="items">{{range .Items}}<div class="item">{{$icon := fileIcon .Name .Folder}}<span class="item-thumbnail icon-{{$icon.Color}}" title="{{$icon.Label}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="{{$icon.Label}}"><path d="{{$icon.Path}}"/></svg></span><div class="item-info"><div class="item-name">{{.Name}}</div><div class="item-meta">{{.Kind}} · {{.Size}}</div></div><a href="{{.DownloadURL}}" aria-label="Download {{.Name}}">Download{{if .Folder}} ZIP{{end}}</a></div>{{end}}</section>
 {{if .Truncated}}<p>Showing the first 1,000 items. The complete selection is included in the ZIP download.</p>{{end}}
 <img id="share-qr" src="?qr=1" alt="QR code for this shared file" width="512" height="512">
 <p>Scan to open this shared link.</p>

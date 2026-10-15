@@ -15,7 +15,7 @@ RUN curl -fsSL \
 
 FROM alpine:3.22
 
-RUN apk add --no-cache ca-certificates curl tzdata \
+RUN apk add --no-cache ca-certificates curl tzdata 7zip \
     && addgroup -g 10001 trynas \
     && adduser -D -u 10001 -G trynas trynas \
     && mkdir -p /srv/trynas/data /srv/trynas/storage /data /storage \

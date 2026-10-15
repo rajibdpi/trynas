@@ -1,7 +1,6 @@
 package files
 
 import (
-	"archive/zip"
 	"io"
 	"net/http"
 	"os"
@@ -37,9 +36,13 @@ func (a *Module) Unzip(w http.ResponseWriter, r *http.Request) {
 		core.Report(w, err)
 		return
 	}
-	archive, err := zip.OpenReader(source)
+	archive, err := openArchive(r.Context(), source)
 	if err != nil {
-		core.Bad(w, "invalid or unsupported ZIP", 400)
+		if _, ok := err.(core.OperationError); ok {
+			core.Report(w, err)
+		} else {
+			core.Bad(w, "invalid, encrypted, or unsupported archive", 400)
+		}
 		return
 	}
 	defer archive.Close()
@@ -51,7 +54,7 @@ func (a *Module) Unzip(w http.ResponseWriter, r *http.Request) {
 	seen := map[string]bool{}
 	for _, item := range archive.File {
 		clean, err := core.CleanPath(strings.TrimSuffix(item.Name, "/"))
-		if err != nil || clean == "" || clean != strings.TrimSuffix(item.Name, "/") || seen[clean] || item.Mode()&os.ModeSymlink != 0 || (!item.FileInfo().IsDir() && !item.Mode().IsRegular()) || item.Flags&1 != 0 {
+		if err != nil || clean == "" || clean != strings.TrimSuffix(item.Name, "/") || seen[clean] || item.Mode()&os.ModeSymlink != 0 || (!item.IsDir() && !item.Mode().IsRegular()) || item.encrypted {
 			core.Bad(w, "archive contains unsafe, duplicate, or encrypted entries", 400)
 			return
 		}
@@ -81,7 +84,7 @@ func (a *Module) Unzip(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		target := filepath.Join(stage, filepath.FromSlash(item.Name))
-		if item.FileInfo().IsDir() {
+		if item.IsDir() {
 			err = os.MkdirAll(target, 0755)
 		} else {
 			err = os.MkdirAll(filepath.Dir(target), 0755)
@@ -102,7 +105,10 @@ func (a *Module) Unzip(w http.ResponseWriter, r *http.Request) {
 							err = io.ErrUnexpectedEOF
 						}
 					}
-					in.Close()
+					closeErr := in.Close()
+					if err == nil {
+						err = closeErr
+					}
 				}
 			}
 		}

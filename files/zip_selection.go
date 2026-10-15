@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func (a *Module) ZipSelection(u core.User, paths []string, destination string) error {
@@ -15,8 +14,8 @@ func (a *Module) ZipSelection(u core.User, paths []string, destination string) e
 		return core.OperationError{Message: "select 1–100 items", Status: 400}
 	}
 	p, err := core.CleanPath(destination)
-	if err != nil || p == "" || !strings.HasSuffix(strings.ToLower(p), ".zip") {
-		return core.OperationError{Message: "choose a ZIP filename", Status: 400}
+	if err != nil || p == "" || archiveFormat(p) == "" {
+		return core.OperationError{Message: "choose a supported archive filename", Status: 400}
 	}
 	clean := []string{}
 	for _, selected := range paths {
@@ -105,6 +104,19 @@ func (a *Module) ZipSelection(u core.User, paths []string, destination string) e
 	}
 	if err != nil {
 		return err
+	}
+	if archiveFormat(p) != "zip" {
+		if err = temp.Close(); err != nil {
+			return err
+		}
+		if err = convertArchive(temp.Name(), archiveFormat(p)); err != nil {
+			return err
+		}
+		temp, err = os.Open(temp.Name())
+		if err != nil {
+			return err
+		}
+		defer temp.Close()
 	}
 	st, err := temp.Stat()
 	if err != nil {

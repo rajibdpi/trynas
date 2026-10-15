@@ -269,15 +269,15 @@ export function FileBrowser({
       });
     else if (action === "zip")
       ask({
-        title: "Create one ZIP",
-        description: `Combine ${paths.length} selected files and folders into one archive in this folder.`,
-        fields: [{ key: "name", label: "ZIP filename", value: "archive.zip", required: true }],
-        submit: "Create ZIP",
+        title: "Create archive",
+        description: `Combine ${paths.length} selected items into an archive. XZ, BZIP2 and GZIP require a single file. Other formats support folders and multiple files.`,
+        fields: [{ key: "format", label: "Archive format", value: "zip", options: ["zip", "7z", "xz", "bz2", "gz", "tar", "wim"].map(value => ({ value, label: value.toUpperCase() })) }, { key: "name", label: "Archive filename", value: paths.length === 1 ? paths[0].split("/").pop() || "archive" : "archive", required: true }],
+        submit: "Create archive",
         run: async values => {
           const name = values.name.trim();
           if (!name || /[\\/]/.test(name)) throw new Error("Enter a filename without folders");
-          await api("/api/files/zip", { method: "POST", body: JSON.stringify({ paths, destination: join(path, name.toLowerCase().endsWith(".zip") ? name : `${name}.zip`) }) });
-          setSelected([]); await listing.reload(); onChanged(); notify("ZIP created");
+          await api("/api/files/zip", { method: "POST", body: JSON.stringify({ paths, destination: join(path, name.toLowerCase().endsWith(`.${values.format}`) ? name : `${name}.${values.format}`) }) });
+          setSelected([]); await listing.reload(); onChanged(); notify("Archive created");
         },
       })
     else if (action === "trash")
@@ -408,12 +408,12 @@ export function FileBrowser({
       disabled: !item.writable,
       run: () => bulk("move", [item.path]),
     },
-    ...(item.name.toLowerCase().endsWith(".zip") && !item.dir ? [{
-      label: "Unzip", icon: Archive,
+    ...(/\.(zip|7z|xz|bz2|bzip2|gz|gzip|tar|wim)$/i.test(item.name) && !item.dir ? [{
+      label: "Extract archive", icon: Archive,
       run: () => ask({
-        title: "Unzip archive",
+        title: "Extract archive",
         description: "Extract into a new folder beside this archive. Existing folders will not be overwritten.",
-        fields: [{ key: "name", label: "New folder name", value: item.name.slice(0, -4) || "extracted", required: true }],
+        fields: [{ key: "name", label: "New folder name", value: item.name.replace(/\.(zip|7z|xz|bz2|bzip2|gz|gzip|tar|wim)$/i, "") || "extracted", required: true }],
         submit: "Extract",
         run: async values => {
           const name = values.name.trim();
@@ -423,7 +423,7 @@ export function FileBrowser({
         },
       }),
     }] : []),
-    { label: "Create ZIP", icon: Archive, run: () => bulk("zip", [item.path]) },
+    { label: "Create archive", icon: Archive, run: () => bulk("zip", [item.path]) },
     {
       label: "Share link",
       icon: Link2,
@@ -605,7 +605,7 @@ export function FileBrowser({
                   {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])} aria-label="Copy to storage" title="Copy to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy to storage</span></Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])} aria-label="Move to storage" title="Move to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move to storage</span></Button></>}
                   <Button variant="outline" size="sm" onClick={() => bulk("move")} aria-label="Move" title="Move" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move</span>
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => bulk("zip")} aria-label="ZIP" title="ZIP" className="w-8 px-0 sm:w-auto sm:px-3"><Archive aria-hidden="true" /><span className="sr-only sm:not-sr-only">ZIP</span>
+                  <Button variant="outline" size="sm" onClick={() => bulk("zip")} aria-label="Create archive" title="Create archive" className="w-8 px-0 sm:w-auto sm:px-3"><Archive aria-hidden="true" /><span className="sr-only sm:not-sr-only">Archive</span>
                   </Button>
                   <Button
                     variant="outline"
