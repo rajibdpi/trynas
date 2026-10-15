@@ -2,7 +2,7 @@
 
 import { useErrorNotification } from "@/modules/shared/notification-provider";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { Archive, ArrowDownWideNarrow, ChevronDown, LayoutGrid, Grip, ArrowLeft, ArrowRight, ArrowUp, Check, X, SquareCheck, SquareMinus, Copy, Download, Eye, File, Folder, Grid2X2, Link2, List, Move, Plus, RefreshCw, Star, Trash2, Upload, Info } from "lucide-react";
 import { API, api, shareURL } from "@/modules/shared/api";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { ViewSwitcher } from "./view-switcher";
 import { useDragSelection } from "./drag-selection";
 import { findExistingShare } from "./existing-share";
 import { NewMenu } from "./new-menu";
-import { useUploadWithConflicts } from "./upload-conflict-dialog";
+import { type UploadFileStatus, useUploadWithConflicts } from "./upload-conflict-dialog";
 import { uploadFolderFiles } from "./upload-folder";
 import { FileThumbnail } from "@/modules/files/file-thumbnail";
 import { type Item, type Command, type Action } from "@/modules/shared/types";
@@ -66,6 +66,36 @@ export function FileBrowser({
   onChanged: () => void;
 }) {
   const [showSelectionChecks, setShowSelectionChecks] = useState(false);
+  const headerSlot = useRef<HTMLDivElement>(null);
+  const headerElement = useRef<HTMLDivElement>(null);
+  const [headerPosition, setHeaderPosition] = useState<{ left: number; width: number; height: number } | null>(null);
+  useEffect(() => {
+    let previousY = Math.max(0, window.scrollY);
+    let scrollingDown = false;
+    const update = () => {
+      const nextY = Math.max(0, window.scrollY);
+      if (nextY !== previousY) scrollingDown = nextY > previousY;
+      previousY = nextY;
+      const slot = headerSlot.current;
+      const header = headerElement.current;
+      if (!slot || !header) return;
+      const bounds = slot.getBoundingClientRect();
+      const cardBounds = slot.parentElement!.getBoundingClientRect();
+      const navbarBottom = document.querySelector(".common-navbar")?.getBoundingClientRect().bottom || 72;
+      const height = header.getBoundingClientRect().height;
+      setHeaderPosition(scrollingDown && bounds.top < navbarBottom && cardBounds.bottom > navbarBottom + height
+        ? { left: bounds.left, width: bounds.width, height } : null);
+    };
+    const observer = new ResizeObserver(update);
+    if (headerElement.current) observer.observe(headerElement.current);
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
   const folderInput = useRef<HTMLInputElement>(null);
   const [folderUploading, setFolderUploading] = useState(false);
   const [infoItem, setInfoItem] = useState<Item | null>(null);
@@ -104,6 +134,13 @@ export function FileBrowser({
       stage: string;
     } | null>(null),
     [uploadError, setUploadError] = useState("");
+  const [uploadEntries, setUploadEntries] = useState<{ file: File; percent: number; status: UploadFileStatus }[]>([]);
+  const beginUploads = (files: File[]) => setUploadEntries(files.map(file => ({ file, percent: 0, status: "Queued" })));
+  const fileProgress = (file: File, percent: number, status: UploadFileStatus) => {
+    setUploadEntries(entries => entries.map(entry => entry.file === file ? { ...entry, percent, status } : entry));
+  };
+  const finishUploads = (status: "Failed" | "Cancelled") => setUploadEntries(entries => entries.map(entry =>
+    ["Queued", "Uploading", "Processing"].includes(entry.status) ? { ...entry, status } : entry));
   useErrorNotification(uploadError);
   useEffect(() => {
     try {
@@ -125,6 +162,9 @@ export function FileBrowser({
     controller = useRef<AbortController | null>(null),
     dragDepth = useRef(0);
   const dragSelection = useDragSelection({ selected, onSelect: setSelected, scope: path });
+  const movingPaths = useRef<string[]>([]);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
   const [draggingFiles, setDraggingFiles] = useState(false);
   const resetDrag = () => { dragDepth.current = 0; setDraggingFiles(false); };
   useEffect(() => {
@@ -183,6 +223,33 @@ export function FileBrowser({
     setSelected(failed.map((x: any) => x.path));
     await reload();
   };
+  const canDrop = (destination: string) => movingPaths.current.length > 0 && !moving &&
+    movingPaths.current.every(source => destination !== source && !destination.startsWith(source + "/") && parent(source) !== destination);
+  const moveTarget = (destination: string, allowed: boolean) => ({
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (!movingPaths.current.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const valid = allowed && canDrop(destination);
+      event.dataTransfer.dropEffect = valid ? "move" : "none";
+      setDropTarget(valid ? destination : null);
+    },
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null);
+    },
+    onDrop: (event: DragEvent<HTMLElement>) => {
+      if (!movingPaths.current.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const paths = [...movingPaths.current];
+      const valid = allowed && canDrop(destination);
+      movingPaths.current = [];
+      setDropTarget(null);
+      if (!valid) return;
+      setMoving(true);
+      void perform("move", paths, destination).catch(error => notify(message(error))).finally(() => setMoving(false));
+    },
+  });
   const bulk = (action: string, paths = selected) => {
     if (!paths.length) return;
     if (action === "copy" || action === "move")
@@ -372,12 +439,13 @@ export function FileBrowser({
   ];
   const { upload: uploadWithConflicts, dialog: uploadConflictDialog } = useUploadWithConflicts();
   const send = async (files: File[]) => {
-    if (!files.length || upload) return;
+    if (!files.length || upload || folderUploading) return;
     if (!writable) {
       notify("This folder is read-only");
       return;
     }
     controller.current = new AbortController();
+    beginUploads(files);
     setUploadError("");
     setUpload({
       loaded: 0,
@@ -393,11 +461,12 @@ export function FileBrowser({
             total,
             stage: loaded === total ? "Processing" : "Uploading",
           }),
-        controller.current.signal,
+        controller.current.signal, fileProgress,
       );
       notify(result.files ? `Uploaded ${result.files} file(s), ${fmt(result.bytes)}` : "Kept existing files. Nothing uploaded.");
       await reload();
     } catch (e) {
+      finishUploads(e instanceof Error && e.name === "AbortError" ? "Cancelled" : "Failed");
       if (!(e instanceof Error && e.name === "AbortError")) setUploadError(message(e));
     } finally {
       setUpload(null);
@@ -406,7 +475,7 @@ export function FileBrowser({
     }
   };
   const selectItem = (p: string, event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
-    setShowSelectionChecks(event.ctrlKey || event.metaKey);
+    setShowSelectionChecks(event.ctrlKey || event.metaKey || event.shiftKey);
     const start = items.findIndex(item => item.path === selectionAnchor.current);
     const end = items.findIndex(item => item.path === p);
     if (event.shiftKey && start >= 0 && end >= 0) {
@@ -424,6 +493,7 @@ export function FileBrowser({
   };
   return (
     <Card
+      style={{ overflow: "visible" }}
       className={cn("file-browser relative flex min-w-0 flex-1 flex-col", draggingFiles && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
       onDragEnter={(e) => {
         if (!Array.from(e.dataTransfer.types).includes("Files")) return;
@@ -441,7 +511,7 @@ export function FileBrowser({
         dragDepth.current = Math.max(0, dragDepth.current - 1);
         if (!dragDepth.current) setDraggingFiles(false);
       }}
-      onDragEnd={resetDrag}
+      onDragEnd={() => { resetDrag(); movingPaths.current = []; setDropTarget(null); }}
       onDrop={(e) => {
         if (!Array.from(e.dataTransfer.types).includes("Files")) return;
         e.preventDefault();
@@ -463,7 +533,9 @@ export function FileBrowser({
           </div>
         </div>
       </div>}
-      <CardHeader>
+      <div ref={headerSlot} style={{ padding: 0, border: 0, height: headerPosition?.height }}>
+      <CardHeader ref={headerElement} className={cn("border-b rounded-t-2xl bg-card", headerPosition && "fixed top-18 z-30 shadow-md")}
+        style={headerPosition ? { left: headerPosition.left, width: headerPosition.width } : undefined}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -475,7 +547,7 @@ export function FileBrowser({
               <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                 <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
                 <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
-                <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder" disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder (drop here to move)" {...moveTarget(parent(path), writable && !!path && path !== basePath)} className={cn(dropTarget === parent(path) && "ring-2 ring-primary")} disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
                 {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button> */}
                 {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : <HomeIcon />}</button> */}
                 {/* {path
@@ -582,6 +654,7 @@ export function FileBrowser({
           </div>
         </div>
       </CardHeader>
+      </div>
       <CardContent className="flex flex-1 flex-col">
         <ErrorText text={listing.error || search.error || uploadError} />
         {!writable && (
@@ -589,29 +662,30 @@ export function FileBrowser({
             Read-only folder. An administrator can grant write access.
           </p>
         )}
-        {upload && (
-          <div className="mb-4 rounded-lg border p-3">
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span>
-                {upload.stage} · {fmt(upload.loaded)} / {fmt(upload.total)}
-              </span>
-              <Button
-                variant="ghost"
-                disabled={upload.stage === "Processing"}
-                onClick={() => controller.current?.abort()}
-              >
-                Cancel
+        {uploadEntries.length > 0 && (
+          <section aria-label="File uploads" className="fixed bottom-4 right-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-xl border bg-card p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold">{upload ? "Uploading files" : "Upload results"}</p>
+                <p className="text-xs text-muted-foreground">{uploadEntries.filter(entry => entry.status === "Completed").length} of {uploadEntries.length} uploaded</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => upload ? controller.current?.abort() : setUploadEntries([])}>
+                {upload ? "Cancel" : "Dismiss"}
               </Button>
             </div>
-            <Progress
-              value={upload.total ? (upload.loaded / upload.total) * 100 : 0}
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {upload.stage === "Processing"
-                ? "Transfer complete. The server is checking permissions, quota, and saving files."
-                : "Progress measures bytes transferred to the server."}
-            </p>
-          </div>
+            <div className="max-h-64 space-y-3 overflow-y-auto" aria-live="polite">
+              {uploadEntries.map((entry, index) => <div key={index} className="space-y-1">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="min-w-0 truncate" title={entry.file.webkitRelativePath || entry.file.name}>{entry.file.webkitRelativePath || entry.file.name}</span>
+                  <span className={cn("inline-flex shrink-0 items-center gap-1", entry.status === "Failed" && "text-destructive")}>
+                    {entry.status === "Completed" && <Check className="size-4 text-green-600 dark:text-green-400" aria-hidden="true" />}
+                    {entry.status} · {entry.percent}%
+                  </span>
+                </div>
+                <Progress value={entry.percent} />
+              </div>)}
+            </div>
+          </section>
         )}
         {view === "list" && items.length > 0 && (
           <div className="file-column-head">
@@ -634,6 +708,17 @@ export function FileBrowser({
             <ContextMenu key={item.path}>
               <ContextMenuTrigger asChild>
                 <div
+                  draggable={item.writable && !moving}
+                  onDragStart={event => {
+                    if ((event.target as HTMLElement).closest("button, input, a")) { event.preventDefault(); return; }
+                    const paths = selected.includes(item.path) ? selected : [item.path];
+                    if (paths.some(source => !items.find(entry => entry.path === source)?.writable)) { event.preventDefault(); return; }
+                    movingPaths.current = paths;
+                    setSelected(paths);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("application/x-trynas-paths", JSON.stringify(paths));
+                  }}
+                  {...moveTarget(item.path, item.dir && item.writable)}
                   data-selection-id={item.path}
                   data-selected={selected.includes(item.path)}
                   onMouseDownCapture={event => {
@@ -661,6 +746,7 @@ export function FileBrowser({
                     openItem(item);
                   }}
                   className={cn(
+                    dropTarget === item.path && "ring-2 ring-primary bg-primary/10",
                     "file-item min-w-0 cursor-pointer select-none rounded-xl p-3",
                     view !== "list" ? "file-tile border" : "file-row",
                     selected.includes(item.path) &&
@@ -789,14 +875,25 @@ export function FileBrowser({
         <input ref={element => { folderInput.current = element; if (element) element.setAttribute("webkitdirectory", ""); }} type="file" multiple className="hidden" onChange={async event => {
           const files = Array.from(event.target.files || []); event.target.value = "";
           if (!files.length) return;
+          if (upload || folderUploading || !writable) return;
           setFolderUploading(true); setUploadError("");
+          controller.current = new AbortController();
+          beginUploads(files);
+          const total = files.reduce((sum, file) => sum + file.size, 0);
+          let completed = 0;
+          setUpload({ loaded: 0, total, stage: "Preparing folders" });
           try {
-            await uploadFolderFiles(files, path, async directory => { await api("/api/files/folder", { method: "POST", body: JSON.stringify({ path: directory, existOk: true }) }); }, async (directory, files) => {
-              await uploadWithConflicts(directory, files, () => { });
+            await uploadFolderFiles(files, path, async directory => { await api("/api/files/folder", { method: "POST", signal: controller.current?.signal, body: JSON.stringify({ path: directory, existOk: true }) }); }, async (directory, files) => {
+              const groupBytes = files.reduce((sum, file) => sum + file.size, 0);
+              await uploadWithConflicts(directory, files, (loaded, transferTotal) => {
+                setUpload({ loaded: completed + (transferTotal ? loaded / transferTotal * groupBytes : 0), total, stage: "Uploading" });
+              }, controller.current?.signal, fileProgress);
+              completed += groupBytes;
+              setUpload({ loaded: completed, total, stage: completed === total ? "Processing" : "Uploading" });
             });
             notify("Folder uploaded");
-          } catch (error) { if (!(error instanceof Error && error.name === "AbortError")) setUploadError(message(error)); }
-          finally { setFolderUploading(false); await reload(); }
+          } catch (error) { finishUploads(error instanceof Error && error.name === "AbortError" ? "Cancelled" : "Failed"); if (!(error instanceof Error && error.name === "AbortError")) setUploadError(message(error)); }
+          finally { setFolderUploading(false); setUpload(null); controller.current = null; await reload(); }
         }} />
         {uploadConflictDialog}
         {dragSelection.overlay}

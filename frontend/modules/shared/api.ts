@@ -72,11 +72,11 @@ export function uploadFiles(
     };
     xhr.onabort = () => {
       cleanup();
-      reject(new Error("Upload cancelled"));
+      reject(Object.assign(new Error("Upload cancelled"), { name: "AbortError" }));
     };
     if (signal?.aborted) {
       cleanup();
-      reject(new Error("Upload cancelled"));
+      reject(Object.assign(new Error("Upload cancelled"), { name: "AbortError" }));
       return;
     }
     xhr.send(data);
