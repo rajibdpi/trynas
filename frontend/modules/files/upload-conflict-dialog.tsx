@@ -9,7 +9,7 @@ type Conflict = { name: string; size: number };
 type Choice = "keep" | "replace" | "skip";
 
 export type UploadFileStatus = "Queued" | "Uploading" | "Processing" | "Completed" | "Skipped" | "Failed" | "Cancelled";
-export type FileProgress = (file: File, percent: number, status: UploadFileStatus) => void;
+export type FileProgress = (file: File, percent: number, status: UploadFileStatus, loaded?: number) => void;
 
 export function useUploadWithConflicts() {
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
@@ -61,7 +61,7 @@ export function useUploadWithConflicts() {
           data.append("files", file);
           const uploaded = await uploadFiles(data, (loaded, transferTotal) => {
             const fraction = transferTotal ? Math.min(1, loaded / transferTotal) : 0;
-            onFileProgress(file, Math.floor(fraction * 100), fraction === 1 ? "Processing" : "Uploading");
+            onFileProgress(file, Math.floor(fraction * 100), fraction === 1 ? "Processing" : "Uploading", Math.floor(fraction * file.size));
             onProgress(completed + fraction * file.size, total);
           }, signal);
           completed += file.size;
