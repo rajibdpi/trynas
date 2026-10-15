@@ -176,3 +176,7 @@ See the [Coolify Dockerfile guide](https://coolify.io/docs/applications/builds/d
 
 - [Installation and upgrades](installation.md)
 - [Development commands and project structure](CONTRIBUTING.md)
+
+### Archive formats
+
+The file browser can create and extract ZIP, 7z, XZ, BZIP2, GZIP, TAR, and WIM archives. ZIP works out of the box. For other formats, install 7-Zip and make `7zz` or `7z` available on the server PATH; the Docker image includes it. XZ, BZIP2, and GZIP accept one file; use TAR, ZIP, 7z, or WIM for folders and multiple files. Extraction uses a new folder and is limited to 10,000 entries and 1 GiB. Encrypted archives and links are rejected.
