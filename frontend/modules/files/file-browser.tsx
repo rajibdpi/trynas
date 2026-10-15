@@ -134,10 +134,10 @@ export function FileBrowser({
       stage: string;
     } | null>(null),
     [uploadError, setUploadError] = useState("");
-  const [uploadEntries, setUploadEntries] = useState<{ file: File; percent: number; status: UploadFileStatus }[]>([]);
-  const beginUploads = (files: File[]) => setUploadEntries(files.map(file => ({ file, percent: 0, status: "Queued" })));
-  const fileProgress = (file: File, percent: number, status: UploadFileStatus) => {
-    setUploadEntries(entries => entries.map(entry => entry.file === file ? { ...entry, percent, status } : entry));
+  const [uploadEntries, setUploadEntries] = useState<{ file: File; percent: number; loaded: number; status: UploadFileStatus }[]>([]);
+  const beginUploads = (files: File[]) => setUploadEntries(files.map(file => ({ file, percent: 0, loaded: 0, status: "Queued" })));
+  const fileProgress = (file: File, percent: number, status: UploadFileStatus, loaded?: number) => {
+    setUploadEntries(entries => entries.map(entry => entry.file === file ? { ...entry, percent, loaded: loaded ?? (status === "Completed" ? file.size : entry.loaded), status } : entry));
   };
   const finishUploads = (status: "Failed" | "Cancelled") => setUploadEntries(entries => entries.map(entry =>
     ["Queued", "Uploading", "Processing"].includes(entry.status) ? { ...entry, status } : entry));
@@ -682,6 +682,7 @@ export function FileBrowser({
                     {entry.status} · {entry.percent}%
                   </span>
                 </div>
+                <p className="text-xs tabular-nums text-muted-foreground">{fmt(entry.loaded)} / {fmt(entry.file.size)}</p>
                 <Progress value={entry.percent} />
               </div>)}
             </div>
