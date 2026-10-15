@@ -7,9 +7,31 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
+// A missing or zero limit leaves creation bounded by available storage and quota.
+func archiveCreationLimit(name string) (int64, error) {
+	value := os.Getenv(name)
+	if value == "" {
+		return 0, nil
+	}
+	limit, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || limit < 0 {
+		return 0, core.OperationError{Message: name + " must be a non-negative integer", Status: 500}
+	}
+	return limit, nil
+}
+
 func (a *Module) ZipSelection(u core.User, paths []string, destination string) error {
+	maxEntries, err := archiveCreationLimit("ARCHIVE_CREATE_MAX_ENTRIES")
+	if err != nil {
+		return err
+	}
+	maxBytes, err := archiveCreationLimit("ARCHIVE_CREATE_MAX_BYTES")
+	if err != nil {
+		return err
+	}
 	if len(paths) == 0 || len(paths) > 100 {
 		return core.OperationError{Message: "select 1–100 items", Status: 400}
 	}
@@ -40,7 +62,7 @@ func (a *Module) ZipSelection(u core.User, paths []string, destination string) e
 	defer temp.Close()
 	zw := zip.NewWriter(temp)
 	written := map[string]bool{}
-	count := 0
+	var count int64
 	var total int64
 	for _, selected := range clean {
 		src, safeErr := core.Safe(a.Root, selected)
@@ -68,9 +90,16 @@ func (a *Module) ZipSelection(u core.User, paths []string, destination string) e
 			}
 			written[name] = true
 			count++
-			total += st.Size()
-			if count > 10000 || total > 1<<30 {
-				return core.OperationError{Message: "ZIP limited to 10,000 entries and 1 GiB", Status: 413}
+			if maxEntries > 0 && count > maxEntries {
+				return core.OperationError{Message: fmt.Sprintf("archive exceeds configured limit of %d entries (ARCHIVE_CREATE_MAX_ENTRIES)", maxEntries), Status: 413}
+			}
+			if !st.IsDir() {
+				if maxBytes > 0 && st.Size() > maxBytes-total {
+					return core.OperationError{Message: fmt.Sprintf("archive contents exceed configured limit of %d bytes (ARCHIVE_CREATE_MAX_BYTES)", maxBytes), Status: 413}
+				}
+				if maxBytes > 0 {
+					total += st.Size()
+				}
 			}
 			header, headerErr := zip.FileInfoHeader(st)
 			if headerErr != nil {

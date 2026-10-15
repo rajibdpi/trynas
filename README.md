@@ -180,3 +180,5 @@ See the [Coolify Dockerfile guide](https://coolify.io/docs/applications/builds/d
 ### Archive formats
 
 The file browser can create and extract ZIP, 7z, XZ, BZIP2, GZIP, TAR, and WIM archives. ZIP works out of the box. For other formats, install 7-Zip and make `7zz` or `7z` available on the server PATH; the Docker image includes it. XZ, BZIP2, and GZIP accept one file; use TAR, ZIP, 7z, or WIM for folders and multiple files. Extraction uses a new folder and is limited to 10,000 entries and 1 GiB. Encrypted archives and links are rejected.
+
+Archive creation has no default entry or source-size cap. Set `ARCHIVE_CREATE_MAX_ENTRIES` and `ARCHIVE_CREATE_MAX_BYTES` to positive integers to impose limits; unset them or use `0` for unlimited. File sizes exclude directories. Storage quotas still apply to the resulting archive. These settings affect creation only; extraction retains its separate limits.

@@ -534,23 +534,23 @@ export function FileBrowser({
         </div>
       </div>}
       <div ref={headerSlot} style={{ padding: 0, border: 0, height: headerPosition?.height }}>
-      <CardHeader ref={headerElement} className={cn("border-b rounded-t-2xl bg-card", headerPosition && "fixed top-18 z-30 shadow-md")}
-        style={headerPosition ? { left: headerPosition.left, width: headerPosition.width } : undefined}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle>
-                {path ? path.split("/").pop() : <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "All Files"}</button>
-                }
-              </CardTitle>
-              <span className="file-count">{items.length} items</span>
-              <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
-                <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
-                <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder (drop here to move)" {...moveTarget(parent(path), writable && !!path && path !== basePath)} className={cn(dropTarget === parent(path) && "ring-2 ring-primary")} disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
-                {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button> */}
-                {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : <HomeIcon />}</button> */}
-                {/* {path
+        <CardHeader ref={headerElement} className={cn("border-b rounded-t-2xl bg-card", headerPosition && "fixed top-18 z-30 shadow-md")}
+          style={headerPosition ? { left: headerPosition.left, width: headerPosition.width } : undefined}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle>
+                  {path ? path.split("/").pop() : <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "All Files"}</button>
+                  }
+                </CardTitle>
+                <span className="file-count">{items.length} items</span>
+                <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                  <Button type="button" variant="ghost" size="icon" aria-label="Back to previous folder" title="Back" disabled={!canGoBack} onClick={onBack}><ArrowLeft /></Button>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Forward to next folder" title="Forward" disabled={!canGoForward} onClick={onForward}><ArrowRight /></Button>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Up to parent folder" title="Up one folder (drop here to move)" {...moveTarget(parent(path), writable && !!path && path !== basePath)} className={cn(dropTarget === parent(path) && "ring-2 ring-primary")} disabled={!path || path === basePath} onClick={() => setPath(parent(path))}><ArrowUp /></Button>
+                  {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : "Storage"}</button> */}
+                  {/* <button onClick={() => setPath(basePath)}>{basePath ? "Home" : <HomeIcon />}</button> */}
+                  {/* {path
                   .split("/")
                   .filter(Boolean)
                   .map((part, i) => (
@@ -571,89 +571,89 @@ export function FileBrowser({
                       </button>
                     </span>
                   ))} */}
+                </div>
               </div>
             </div>
-          </div>
-          {selected.length > 0 && (
-            <div
-              className={cn(
-                "selection-toolbar flex min-h-10 w-full min-w-0 max-w-full flex-initial items-center gap-1 overflow-x-auto !p-1 sm:w-auto sm:gap-2 [&_button]:shrink-0",
-                selected.length > 0 && "has-selection",
-              )}
-            >
-              {selected.length > 0 && <span className="mr-2 hidden whitespace-nowrap text-sm text-muted-foreground sm:inline">{selected.length} selected</span>}
-              {selected.length > 0 && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    role="checkbox"
-                    aria-checked={allSelected ? true : "mixed"}
-                    aria-label={allSelected ? "Clear selection" : "Select all files and folders"}
-                    title={allSelected ? "Clear selection" : "Select all files and folders"}
-                    onClick={() => {
-                      setSelected(allSelected ? [] : items.map(item => item.path));
-                      selectionAnchor.current = null;
-                    }}
-                  >
-                    {allSelected ? <SquareCheck aria-hidden="true" /> : <SquareMinus aria-hidden="true" />}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])} aria-label="Share" title="Share" className="w-8 px-0 sm:w-auto sm:px-3"><Link2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Share</span>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => bulk("copy")} aria-label="Copy" title="Copy" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy</span>
-                  </Button>
-                  {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])} aria-label="Copy to storage" title="Copy to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy to storage</span></Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])} aria-label="Move to storage" title="Move to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move to storage</span></Button></>}
-                  <Button variant="outline" size="sm" onClick={() => bulk("move")} aria-label="Move" title="Move" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move</span>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => bulk("zip")} aria-label="Create archive" title="Create archive" className="w-8 px-0 sm:w-auto sm:px-3"><Archive aria-hidden="true" /><span className="sr-only sm:not-sr-only">Archive</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => bulk("favorite")}
-                   aria-label="Favorite" title="Favorite" className="w-8 px-0 sm:w-auto sm:px-3"><Star aria-hidden="true" /><span className="sr-only sm:not-sr-only">Favorite</span>
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => bulk("trash")}
-                   aria-label="Trash" title="Trash" className="w-8 px-0 sm:w-auto sm:px-3"><Trash2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Trash</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }} aria-label="Clear" title="Clear" className="w-8 px-0 sm:w-auto sm:px-3"><X aria-hidden="true" /><span className="sr-only sm:not-sr-only">Clear</span>
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <input
-              ref={input}
-              type="file"
-              className="hidden"
-              multiple
-              onChange={(e) => void send(Array.from(e.target.files || []))}
-            />
+            {selected.length > 0 && (
+              <div
+                className={cn(
+                  "selection-toolbar flex min-h-10 w-full min-w-0 max-w-full flex-initial items-center gap-1 overflow-x-auto p-1! sm:w-auto sm:gap-2 [&_button]:shrink-0",
+                  selected.length > 0 && "has-selection",
+                )}
+              >
+                {selected.length > 0 && <span className="mr-2 hidden whitespace-nowrap text-sm text-muted-foreground sm:inline">{selected.length} selected</span>}
+                {selected.length > 0 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      role="checkbox"
+                      aria-checked={allSelected ? true : "mixed"}
+                      aria-label={allSelected ? "Clear selection" : "Select all files and folders"}
+                      title={allSelected ? "Clear selection" : "Select all files and folders"}
+                      onClick={() => {
+                        setSelected(allSelected ? [] : items.map(item => item.path));
+                        selectionAnchor.current = null;
+                      }}
+                    >
+                      {allSelected ? <SquareCheck aria-hidden="true" /> : <SquareMinus aria-hidden="true" />}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => shareSelection([...selected])} aria-label="Share" title="Share" className="w-8 px-0 sm:w-auto sm:px-3"><Link2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Share</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => bulk("copy")} aria-label="Copy" title="Copy" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy</span>
+                    </Button>
+                    {attached.data?.connections.some(c => c.attached) && <><Button variant="outline" size="sm" onClick={() => transferToStorage(false, [...selected])} aria-label="Copy to storage" title="Copy to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Copy aria-hidden="true" /><span className="sr-only sm:not-sr-only">Copy to storage</span></Button><Button variant="outline" size="sm" disabled={!writable} onClick={() => transferToStorage(true, [...selected])} aria-label="Move to storage" title="Move to storage" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move to storage</span></Button></>}
+                    <Button variant="outline" size="sm" onClick={() => bulk("move")} aria-label="Move" title="Move" className="w-8 px-0 sm:w-auto sm:px-3"><Move aria-hidden="true" /><span className="sr-only sm:not-sr-only">Move</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => bulk("zip")} aria-label="Create archive" title="Create archive" className="w-8 px-0 sm:w-auto sm:px-3"><Archive aria-hidden="true" /><span className="sr-only sm:not-sr-only">Archive</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => bulk("favorite")}
+                      aria-label="Favorite" title="Favorite" className="w-8 px-0 sm:w-auto sm:px-3"><Star aria-hidden="true" /><span className="sr-only sm:not-sr-only">Favorite</span>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => bulk("trash")}
+                      aria-label="Trash" title="Trash" className="w-8 px-0 sm:w-auto sm:px-3"><Trash2 aria-hidden="true" /><span className="sr-only sm:not-sr-only">Trash</span>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setSelected([]); selectionAnchor.current = null; }} aria-label="Clear" title="Clear" className="w-8 px-0 sm:w-auto sm:px-3"><X aria-hidden="true" /><span className="sr-only sm:not-sr-only">Clear</span>
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+              <input
+                ref={input}
+                type="file"
+                className="hidden"
+                multiple
+                onChange={(e) => void send(Array.from(e.target.files || []))}
+              />
 
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Refresh files"
-              onClick={() => void reload()}
-            >
-              <RefreshCw />
-            </Button>
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Sort files"><ArrowDownWideNarrow /><span className="hidden sm:inline">By {sortLabels[sortBy].toLowerCase()}</span><ChevronDown className="hidden sm:block" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
-                {(["name", "size", "type", "modified"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortBy(value)} className="justify-between py-2.5"><span>{sortLabels[value]}</span>{sortBy === value && <Check className="size-4" />}</DropdownMenuItem>)}
-                <div className="my-1 border-t" role="separator" />
-                {(["asc", "desc"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortDirection(value)} className="justify-between py-2.5"><span>{value === "asc" ? "Ascending" : "Descending"}</span>{sortDirection === value && <Check className="size-4" />}</DropdownMenuItem>)}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <ViewSwitcher value={view} onChange={changeView} />
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Refresh files"
+                onClick={() => void reload()}
+              >
+                <RefreshCw />
+              </Button>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild><Button variant="outline" aria-label="Sort files"><ArrowDownWideNarrow /><span className="hidden sm:inline">By {sortLabels[sortBy].toLowerCase()}</span><ChevronDown className="hidden sm:block" /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
+                  {(["name", "size", "type", "modified"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortBy(value)} className="justify-between py-2.5"><span>{sortLabels[value]}</span>{sortBy === value && <Check className="size-4" />}</DropdownMenuItem>)}
+                  <div className="my-1 border-t" role="separator" />
+                  {(["asc", "desc"] as const).map(value => <DropdownMenuItem key={value} onSelect={() => setSortDirection(value)} className="justify-between py-2.5"><span>{value === "asc" ? "Ascending" : "Descending"}</span>{sortDirection === value && <Check className="size-4" />}</DropdownMenuItem>)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ViewSwitcher value={view} onChange={changeView} />
+            </div>
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
       </div>
       <CardContent className="flex flex-1 flex-col">
         <ErrorText text={listing.error || search.error || uploadError} />
