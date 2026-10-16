@@ -5,6 +5,7 @@ import { defaultColors, colorPresets, type ThemeColors, type ThemeMode } from ".
 import { ViewSwitcher } from "@/modules/files/view-switcher";
 import { Select } from "@/components/ui/select";
 import { StorageProvidersPanel } from "@/modules/storage/storage-providers";
+import { UpdatesPanel } from "./updates-panel";
 import { useEffect, useState } from "react";
 import { ImageIcon, X } from "lucide-react";
 import { api, API } from "@/modules/shared/api";
@@ -88,6 +89,7 @@ export function AppSettingsPanel({ onSaved }: { onSaved: (settings: AppSettings)
         </CardContent>
       </Card>
       {server && <StorageProvidersPanel />}
+      {server && <UpdatesPanel />}
       {server && <Card><CardHeader><CardTitle>Server configuration</CardTitle><p className="text-sm text-muted-foreground">Saved to the server configuration file. Restart the backend for server changes and the frontend for upload proxy limit changes. Environment variables and command-line flags take precedence. Changing storage root does not move existing files.</p></CardHeader><CardContent><form className="space-y-5" onSubmit={async event => {
         event.preventDefault(); setSaving(true); setError("");
         try { await api("/api/settings/server", { method: "POST", body: JSON.stringify(server) }); notify("Configuration saved. Restart the backend for server changes and the frontend for upload proxy limit changes."); }

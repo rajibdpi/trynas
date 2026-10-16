@@ -15,7 +15,9 @@ type Dependencies interface {
 type Module struct {
 	*core.State
 	Dependencies
-	cacheMu  sync.Mutex
-	cached   core.AppSettings
-	cachedAt time.Time
+	cacheMu    sync.Mutex
+	cached     core.AppSettings
+	cachedAt   time.Time
+	updateOnce sync.Once
+	updater    *releaseUpdater
 }
