@@ -1,30 +1,26 @@
 [Unit]
+# User unit: install into ~/.config/systemd/user/trynas.service.
+# Use systemctl --user; %h resolves to this user's actual home directory.
 Description=TryNAS web UI and API
 Wants=network-online.target
 After=network-online.target
-RequiresMountsFor=/home/rajib/trynas
+RequiresMountsFor=%h/trynas
 StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
 Type=simple
-User=rajib
-Group=rajib
-WorkingDirectory=/home/rajib/trynas
-ExecStart=/home/rajib/trynas/dist/trynas-linux-amd64 -config /home/rajib/trynas/.env
+WorkingDirectory=%h/trynas
+ExecStart="%h/.local/bin/trynas" -config "%h/trynas/.env"
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
 UMask=0077
 NoNewPrivileges=true
-PrivateTmp=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
 RestrictSUIDSGID=true
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=trynas
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
