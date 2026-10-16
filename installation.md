@@ -358,12 +358,74 @@ firewall rules deliberately. Use HTTPS through a reverse proxy for production;
 set `COOKIE_SECURE=true` and `CORS_ORIGIN` to the exact HTTPS frontend origin.
 Bind the backend to loopback when the proxy runs on the same host.
 
-For Linux systemd, follow [Install on Ubuntu with systemd](README.md#install-on-ubuntu-with-systemd).
-The supplied unit has example user and project paths: update `User`, `Group`,
-`WorkingDirectory`, `ExecStart`, and `RequiresMountsFor` for your installation.
-The service account needs read access to the executable/configuration and write
-access to the configured database and storage. The installer does not register
-systemd, launchd, or Windows services automatically.
+After installing the binary with `get.sh` and creating `~/trynas/.env`,
+run from a source checkout as the account that will run TryNAS (without sudo):
+
+```bash
+bash scripts/install-service.sh
+```
+
+This separate, opt-in helper registers the service without starting it or
+modifying your configuration. It expects `~/.local/bin/trynas` and
+`~/trynas/.env`; these paths work with custom home directories and either
+supported CPU architecture. Stop any old system service or manually running
+instance before starting the new service to avoid duplicate processes.
+
+### Linux with systemd
+
+The helper installs `trynas.service` into
+`${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user`. This is a **user unit**;
+its `%h` specifier follows the service manager's home directory. Do not install
+it as a system unit in `/etc/systemd/system`.
+
+```bash
+systemctl --user enable --now trynas.service
+systemctl --user status trynas.service
+journalctl --user -u trynas.service -f
+```
+
+To run before login and remain running after logout:
+
+```bash
+sudo loginctl enable-linger "$(id -un)"
+```
+
+An active systemd user manager is required. Linux distributions using OpenRC,
+runit, or another init system must configure that supervisor separately, using
+the following command and `~/trynas` as the working directory:
+
+```bash
+"$HOME/.local/bin/trynas" -config "$HOME/trynas/.env"
+```
+
+### macOS with launchd
+
+The helper generates `~/Library/LaunchAgents/com.trynas.agent.plist` with
+absolute paths for your account. Start it from a logged-in desktop session:
+
+```bash
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.trynas.agent.plist"
+launchctl print "gui/$(id -u)/com.trynas.agent"
+```
+
+The agent starts at login, restarts after failures, and writes logs to
+`~/Library/Logs/TryNAS/`. It runs during your login session, rather than before
+login. To restart an already loaded agent:
+
+```bash
+launchctl kickstart -k "gui/$(id -u)/com.trynas.agent"
+```
+
+After changing its plist, unload it with the following command, then bootstrap
+it again:
+
+```bash
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.trynas.agent.plist"
+```
+
+The service account needs read access to its executable and configuration, and
+write access to its database and storage. The download installers do not
+register services automatically.
 
 ## Upgrade or remove
 

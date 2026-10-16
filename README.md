@@ -62,22 +62,21 @@ The build creates a standalone executable for your machine. Open
 **http://localhost:8080**, or the address configured by `ADDR`.
 Stop development servers before using the same database.
 
-## Install on Ubuntu with systemd
+## Run as a service on Linux or macOS
 
-Build the Linux binary, then edit [scripts/trynas.service](scripts/trynas.service)
-to match your service account, project directory, storage mounts, and binary.
-The supplied unit uses `rajib`, `/home/rajib/trynas`, and Linux AMD64.
+Install with `bash get.sh`, create `~/trynas/.env` as described in
+[First start](installation.md#first-start), then run from this checkout:
 
 ```bash
-sudo install -o root -g root -m 0644 scripts/trynas.service /etc/systemd/system/trynas.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now trynas.service
-sudo systemctl status trynas.service
+bash scripts/install-service.sh
 ```
 
-The service account needs read access to `.env` and write access to the database
-and storage directories. Stop any manually running instance first. View logs
-with `sudo journalctl -u trynas.service -f`.
+Run as your normal account, without sudo. The helper installs a Linux systemd
+user unit or macOS launchd LaunchAgent using your actual home directory, then
+prints the command to start it. Stop any existing TryNAS service or manually
+running instance before starting the new one. See
+[service startup](installation.md#production-and-service-startup) for commands,
+login behavior, and Linux hosts without systemd.
 
 ## Deploy with Coolify Dockerfile
 
