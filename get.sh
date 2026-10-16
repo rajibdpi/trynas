@@ -6,16 +6,26 @@ fail() { printf 'TryNAS installer: %s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<'HELP'
 Usage: bash get.sh [--version TAG] [--dir DIRECTORY] [--source RELEASE_DIRECTORY]
+       bash get.sh --check-update [--dir DIRECTORY]
+       bash get.sh --update [--dir DIRECTORY]
 Default: latest published release, installed into ~/.local/bin.
 --source installs a local build with SHA256SUMS instead of downloading.
+--check-update compares the installed binary with the latest release; no changes.
+--update installs the latest release only when the installed binary differs.
+Update modes cannot be combined with --version TAG or --source.
 HELP
 }
 
 version=latest
 install_dir="${HOME:?HOME must be set}/.local/bin"
 source_dir=
+mode=install
 while (($#)); do
   case "$1" in
+    --check-update|--update)
+      [[ "$mode" == install ]] || fail 'choose only one update mode'
+      mode=${1#--}
+      shift ;;
     --version|--dir|--source)
       (($# >= 2)) && [[ -n "$2" ]] || fail "missing value for $1"
       case "$1" in
@@ -30,6 +40,9 @@ while (($#)); do
 done
 [[ -z "$source_dir" || "$version" == latest ]] || fail '--source and --version cannot be combined'
 [[ "$version" =~ ^[A-Za-z0-9._-]+$ ]] || fail 'invalid release tag'
+if [[ "$mode" != install ]]; then
+  [[ -z "$source_dir" && "$version" == latest ]] || fail 'update modes require the latest remote release (no --source or --version TAG)'
+fi
 
 case "$(uname -s)" in
   Linux) platform=linux ;;
@@ -71,27 +84,52 @@ fetch() {
   fi
 }
 
-printf 'Installing TryNAS for %s/%s...\n' "$platform" "$architecture"
+printf 'Checking TryNAS release for %s/%s...\n' "$platform" "$architecture"
 if [[ -n "$source_dir" ]]; then
   cp -- "$source_dir/SHA256SUMS" "$temporary/SHA256SUMS"
-  cp -- "$source_dir/$asset" "$temporary/$asset"
 else
   base=https://github.com/rajibdpi/trynas/releases
   if [[ "$version" == latest ]]; then base+=/latest/download; else base+="/download/$version"; fi
   fetch "$base/SHA256SUMS" "$temporary/SHA256SUMS"
-  fetch "$base/$asset" "$temporary/$asset"
 fi
 
 expected=$(awk -v name="$asset" 'NF == 2 && ($2 == name || $2 == "*" name) { print tolower($1) }' "$temporary/SHA256SUMS")
 [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || fail "missing, invalid, or duplicate SHA256SUMS entry for $asset"
-if command -v sha256sum >/dev/null 2>&1; then
-  actual=$(sha256sum "$temporary/$asset")
-elif command -v shasum >/dev/null 2>&1; then
-  actual=$(shasum -a 256 "$temporary/$asset")
-else
-  fail 'SHA-256 verification requires sha256sum or shasum'
+checksum() {
+  local digest
+  if command -v sha256sum >/dev/null 2>&1; then
+    digest=$(sha256sum < "$1") || return
+  elif command -v shasum >/dev/null 2>&1; then
+    digest=$(shasum -a 256 < "$1") || return
+  else
+    fail 'SHA-256 verification requires sha256sum or shasum'
+  fi
+  printf '%s\n' "${digest%% *}"
+}
+
+if [[ "$mode" != install ]]; then
+  if [[ -f "$install_dir/$executable" ]]; then
+    installed=$(checksum "$install_dir/$executable")
+    if [[ "$installed" == "$expected" ]]; then
+      printf 'TryNAS is up to date: %s/%s matches the latest release.\n' "$install_dir" "$executable"
+      exit 0
+    fi
+    printf 'Update available: %s/%s differs from the latest release.\n' "$install_dir" "$executable"
+  else
+    printf 'TryNAS is not installed at %s/%s.\n' "$install_dir" "$executable"
+  fi
+  if [[ "$mode" == check-update ]]; then
+    printf 'Run this installer with --update to install the latest release.\n'
+    exit 0
+  fi
 fi
-actual=${actual%% *}
+
+if [[ -n "$source_dir" ]]; then
+  cp -- "$source_dir/$asset" "$temporary/$asset"
+else
+  fetch "$base/$asset" "$temporary/$asset"
+fi
+actual=$(checksum "$temporary/$asset")
 [[ "$actual" == "$expected" ]] || fail 'checksum mismatch; existing installation was not replaced'
 
 mkdir -p -- "$install_dir"
@@ -104,3 +142,6 @@ mv -f -- "$staged" "$install_dir/$executable"
 staged=
 printf 'Installed %s/%s (SHA-256 verified).\n' "$install_dir" "$executable"
 printf 'Add %s to PATH. Set ADMIN_PASSWORD before the first launch.\n' "$install_dir"
+if [[ "$mode" == update ]]; then
+  printf 'Restart TryNAS if it is running to use the updated binary.\n'
+fi

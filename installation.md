@@ -429,6 +429,63 @@ register services automatically.
 
 ## Upgrade or remove
 
+### Check for an update or update now
+
+Administrators can also open **Settings → Software updates**, click **Check for
+updates**, then **Update now**. The server checks the latest stable GitHub release
+and compares its platform checksum with the installed executable. It pins the
+download to that release tag, verifies SHA-256, and replaces the executable only
+after verification. Configuration and data are preserved. As with the shell
+installer, a differing local build or prerelease is offered the latest stable
+binary rather than compared by version number.
+
+In-app installation supports standalone Linux and macOS AMD64/ARM64 binaries
+whose executable directory is writable by the service account. Development
+executables and other platforms receive installer guidance; containers must
+update their image and redeploy. Only administrators can access either update
+API. Concurrent update operations are rejected, and installations are recorded
+in the activity log. After installation, restart the service on the host to
+activate the new binary; the UI displays **Restart required** until restart.
+
+Check the installed binary against the latest published stable GitHub release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash -s -- --check-update
+```
+
+Install the latest release now:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash -s -- --update
+```
+
+These commands work after the updated `get.sh` is pushed to `main`. From your
+checkout, use `bash get.sh --check-update` or `bash get.sh --update`.
+For a custom installation directory, append `--dir /path/to/bin` to either command.
+The original command without arguments still installs the latest release.
+
+The check downloads only `SHA256SUMS` and compares the platform's release hash
+with the installed executable. It reports up to date, update available, or not
+installed without changing the installation. A successful check exits with 0
+for any of these statuses; network or validation failures exit nonzero. This
+compares binary contents, not version numbers: a locally built or prerelease
+binary that differs is offered replacement with the latest stable release.
+
+`--update` skips a matching installation, otherwise downloads and verifies the
+latest binary before replacing it. If no binary exists, it installs one. Failed
+downloads or checksum validation preserve the existing executable. Update modes
+cannot be combined with `--source` or a specific `--version TAG`.
+
+Stop TryNAS before updating, then restart it afterward; the installer does not
+restart running processes. For the supplied services, restart with:
+
+```bash
+# Linux systemd user service
+systemctl --user restart trynas.service
+# macOS LaunchAgent
+launchctl kickstart -k "gui/$(id -u)/com.trynas.agent"
+```
+
 Stop TryNAS, back up configuration and database, then rerun the installer for the
 new release or replace the binary after checksum verification. Restart using the
 same working directory and configuration. A running executable is not updated
