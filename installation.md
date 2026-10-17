@@ -579,6 +579,14 @@ started frontend reads the project-root `.env`; set `TRYNAS_CONFIG_FILE` when us
 a custom configuration file. An explicit `PROXY_UPLOAD_LIMIT_MB` environment
 variable takes precedence over the saved value.
 
+File uploads stream through the frontend without a fixed transfer or processing
+deadline. Authenticated upload handlers also clear the Go server's normal
+15-minute read/write deadlines; attached-storage uploads follow client cancellation
+instead of a fixed context timeout. Size limits, quotas, and cancellation still
+apply. Restart both servers after updating. Use `pnpm dev` or `pnpm start` for the
+frontend so uploads use the streaming proxy. If you run another reverse proxy in
+front of TryNAS, its own request size and timeout limits also apply.
+
 File uploads handle name conflicts as follows: matching names with different
 byte sizes receive numbered names such as `report(1).txt`, `report(2).txt`.
 Matching names and byte sizes open a dialog with Keep existing (skip), Keep both

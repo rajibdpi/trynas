@@ -101,7 +101,13 @@ func (a *Module) RemoteStorage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if r.Method == http.MethodPost && r.URL.Path == "/api/storage/upload" {
+		ctx, cancel = context.WithCancel(r.Context())
+	} else {
+		ctx, cancel = context.WithTimeout(r.Context(), 15*time.Minute)
+	}
 	defer cancel()
 	f, finish, status := a.OpenAttachedStorage(ctx, id)
 	if status != 200 {
