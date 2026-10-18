@@ -200,3 +200,35 @@ jobs:
             if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then flags+=(--latest); fi
             gh release edit "$RELEASE_TAG" --draft=false "${flags[@]}"
           fi
+
+  pages:
+    name: Publish project website
+    needs: [release]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: site
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload project website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy project website
+        id: deployment
+        uses: actions/deploy-pages@v4

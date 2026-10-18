@@ -106,6 +106,9 @@ The workflow is defined in [release.yml](.github/workflows/release.yml).
 
 - Pushing to `main` builds and tests TryNAS, reserves an incremental version
   tag, and publishes the release when the checks succeed.
+- After a successful `main` release, the workflow deploys the project landing
+  page to https://rajibdpi.github.io/trynas/. Enable **Settings → Pages →
+  Build and deployment → GitHub Actions** once before the first deployment.
 - Pushing a version tag such as `v1.2.3` builds a draft release.
 - The workflow can also run manually for an existing version tag, with an
   option to publish after validation.
