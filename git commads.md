@@ -18,7 +18,7 @@ git push origin main
 - `git push origin main` sends the updated main branch to GitHub. The release
   workflow runs automatically on pushes to `main`.
 
-## Check changes and history
+## Check changes and History
 
 | Task | Command |
 | --- | --- |
