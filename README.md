@@ -3,6 +3,8 @@
 A lightweight, self-hosted file browser and NAS dashboard built with Go, SQLite,
 and Next.js. Runs as a single executable on Linux, macOS, and Windows.
 
+[Project website](https://rajibdpi.github.io/trynas/) · [Latest release](https://github.com/rajibdpi/trynas/releases/latest)
+
 ## Features
 
 - Browse, search, upload, download, preview, and organize files.
@@ -181,3 +183,22 @@ See the [Coolify Dockerfile guide](https://coolify.io/docs/applications/builds/d
 The file browser can create and extract ZIP, 7z, XZ, BZIP2, GZIP, TAR, and WIM archives. ZIP works out of the box. For other formats, install 7-Zip and make `7zz` or `7z` available on the server PATH; the Docker image includes it. XZ, BZIP2, and GZIP accept one file; use TAR, ZIP, 7z, or WIM for folders and multiple files. Extraction uses a new folder and is limited to 10,000 entries and 1 GiB. Encrypted archives and links are rejected.
 
 Archive creation has no default entry or source-size cap. Set `ARCHIVE_CREATE_MAX_ENTRIES` and `ARCHIVE_CREATE_MAX_BYTES` to positive integers to impose limits; unset them or use `0` for unlimited. File sizes exclude directories. Storage quotas still apply to the resulting archive. These settings affect creation only; extraction retains its separate limits.
+
+## Project website (GitHub Pages)
+
+The static landing page lives in `site/`. After a push to `main` passes all
+release checks and publishes its GitHub release, the same workflow deploys the
+website to **https://rajibdpi.github.io/trynas/**. Draft tag releases and manual
+release runs do not deploy the website. Download buttons use GitHub's latest
+stable release links, so they continue to work across version updates.
+
+One-time repository setup: open **Settings → Pages → Build and deployment**
+and select **GitHub Actions** as the source. If the `github-pages` environment
+has branch restrictions, allow `main`. No custom domain or extra secrets are
+required. A Pages deployment failure does not unpublish a successful release;
+fix the Pages settings and re-run the failed job.
+
+Preview locally with `python3 -m http.server 8000 --directory site`, then open
+http://localhost:8000. Edit `site/index.html` for content and links and
+`site/style.css` for styling. Only `site/` is uploaded to Pages; the NAS app,
+configuration, and storage are not part of the website.
