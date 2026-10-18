@@ -69,6 +69,7 @@ export function LoginPanel({
           </CardHeader>
           <CardContent>
             <form
+              autoComplete="off"
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -78,8 +79,7 @@ export function LoginPanel({
               <label className="block text-sm">
                 Username
                 <input
-                  autoComplete="username"
-                  value={username}
+                  autoComplete="off"
                   onChange={(e) => setUsername(e.target.value)}
                   required
                 />
