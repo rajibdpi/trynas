@@ -1,7 +1,7 @@
-import { Activity, Folder, Home, Link2, Settings, Server, Shield, Star, Trash2, Users, UserRound } from "lucide-react";
+import { Activity, Folder, LayoutDashboard, Link2, Settings, Server, Shield, Star, Trash2, Users, UserRound } from "lucide-react";
 
 export const nav = [
-  { id: "dashboard", label: "Dashboard", icon: Home, admin: true },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, admin: true },
   { id: "files", label: "Files", icon: Folder },
   { id: "favorites", label: "Favorites", icon: Star },
   { id: "shared", label: "Shared links", icon: Link2 },
