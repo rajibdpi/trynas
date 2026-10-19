@@ -21,7 +21,13 @@ On Linux or macOS:
 curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash
 ```
 
-For Windows, first-start configuration, and upgrades, see the
+On Windows (PowerShell):
+
+```powershell
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri https://raw.githubusercontent.com/rajibdpi/trynas/main/get.ps1).Content)) -AddToPath
+```
+
+For first-start configuration and upgrades, see the
 [installation guide](installation.md). Release binaries include the UI and API;
 Go, Node.js, and a separate database server are not required to run them.
 
