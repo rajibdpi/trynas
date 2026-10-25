@@ -82,11 +82,12 @@ login behavior, and Linux hosts without systemd.
 
 ## Deploy with Coolify Dockerfile
 
-The root `Dockerfile` downloads a checksum-verified GitHub release and
+The root `Dockerfile` uses the checked-in `get.sh` to download a checksum-verified GitHub release and
 runs a single production container. `.dockerignore` excludes local secrets,
 data, and generated files from the build.
 
-Push both files and select **Dockerfile** as the build pack in Coolify
+Push `Dockerfile`, `.dockerignore`, `get.sh`, and `scripts/docker-entrypoint.sh`
+to the branch configured in Coolify and select **Dockerfile** as the build pack
 (**General > Build pipeline > Build strategy** for an existing application).
 Set base directory `/` and Dockerfile location `/Dockerfile`, then save.
 Clear custom build/start commands.
