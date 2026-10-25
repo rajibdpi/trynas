@@ -15,7 +15,7 @@ with TryNAS's own release assets and first-start configuration.
 | Native Windows installer | Windows PowerShell 5.1+ or PowerShell 7+ |
 | Bash download installer | Bash, curl or wget, and sha256sum or shasum |
 | Manual binary installation | A matching release binary and `SHA256SUMS` |
-| Go installer from a published release | Go 1.27.1 or compatible toolchain and a source checkout |
+| Go installer from a published release | Go 1.27.3 or compatible toolchain and a source checkout |
 | Go installer from a local build | Go and an existing release directory |
 | Build from source | Go, Node.js 24+, and pnpm 10+ |
 

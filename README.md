@@ -27,7 +27,7 @@ Go, Node.js, and a separate database server are not required to run them.
 
 ## Build requirements
 
-For development or building from source: **Go 1.27.1**, **Node.js 24+**, and
+For development or building from source: **Go 1.27.3**, **Node.js 24+**, and
 **pnpm 10+**.
 
 ## Run development servers
