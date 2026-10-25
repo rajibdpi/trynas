@@ -21,13 +21,7 @@ On Linux or macOS:
 curl -fsSL https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh | bash
 ```
 
-On Windows (PowerShell):
-
-```powershell
-& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -Uri https://raw.githubusercontent.com/rajibdpi/trynas/main/get.ps1).Content)) -AddToPath
-```
-
-For first-start configuration and upgrades, see the
+For Windows, first-start configuration, and upgrades, see the
 [installation guide](installation.md). Release binaries include the UI and API;
 Go, Node.js, and a separate database server are not required to run them.
 
@@ -88,13 +82,11 @@ login behavior, and Linux hosts without systemd.
 
 ## Deploy with Coolify Dockerfile
 
-The root `Dockerfile` uses the checked-in `get.sh` installer to download a
-checksum-verified GitHub release and
+The root `Dockerfile` downloads a checksum-verified GitHub release and
 runs a single production container. `.dockerignore` excludes local secrets,
 data, and generated files from the build.
 
-Push `Dockerfile`, `.dockerignore`, `get.sh`, and `scripts/docker-entrypoint.sh`,
-and select **Dockerfile** as the build pack in Coolify
+Push both files and select **Dockerfile** as the build pack in Coolify
 (**General > Build pipeline > Build strategy** for an existing application).
 Set base directory `/` and Dockerfile location `/Dockerfile`, then save.
 Clear custom build/start commands.
