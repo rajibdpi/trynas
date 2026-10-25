@@ -6,10 +6,9 @@ RUN apk add --no-cache bash curl coreutils
 # Build with --no-cache to refresh the download when using latest.
 ARG TRYNAS_VERSION=latest
 
-RUN curl -fsSL \
-    https://raw.githubusercontent.com/rajibdpi/trynas/main/get.sh \
-    -o /tmp/get.sh \
-    && bash /tmp/get.sh \
+COPY get.sh /tmp/get.sh
+
+RUN bash /tmp/get.sh \
        --version "${TRYNAS_VERSION}" \
        --dir /opt/trynas
 
