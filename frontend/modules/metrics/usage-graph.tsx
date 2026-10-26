@@ -30,7 +30,6 @@ export function HistoryGraph({ samples, label, unavailable, maxValue = 100, form
   }).join(" ");
   return (
     <div className="mt-3 space-y-2">
-      <div className="flex justify-between text-[10px] text-muted-foreground"><span>{label} usage</span><span>0–{formatValue(ceiling)}</span></div>
       <svg viewBox="0 0 320 84" className="h-24 w-full" role="img" aria-label={`${label} usage over the last 60 seconds, on a scale from 0 to ${formatValue(ceiling)}.`}>
         {[8, 42, 76].map(row => <line key={row} x1="4" x2="316" y1={row} y2={row} stroke="var(--border)" strokeDasharray="3 4" />)}
         <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
