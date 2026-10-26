@@ -1,6 +1,7 @@
 package share
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -265,6 +266,11 @@ func (a *Module) DeleteShare(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Module) PublicShare(w http.ResponseWriter, r *http.Request) {
+	branding, err := a.ReadSettings()
+	if err != nil || branding.AppName == "" {
+		branding.AppName = "TryNAS"
+	}
+	r = r.WithContext(context.WithValue(r.Context(), shareBrandingKey{}, branding))
 	tok := chi.URLParam(r, "token")
 	var p, passwordHash string
 	var shareID int64

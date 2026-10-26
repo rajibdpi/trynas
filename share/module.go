@@ -9,6 +9,7 @@ import (
 
 // Dependencies describes the operations this module needs from other modules.
 type Dependencies interface {
+	ReadSettings() (core.AppSettings, error)
 	ValidateRemoteShare(ctx context.Context, storage string, paths []string) error
 	ServeRemoteShare(w http.ResponseWriter, r *http.Request, storage string, paths []string)
 	AllowAttempt(w http.ResponseWriter, r *http.Request, key string) bool
