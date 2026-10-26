@@ -125,8 +125,8 @@ func ServeSharePage(w http.ResponseWriter, r *http.Request, name string, size in
 var SharePageTemplate = template.Must(template.New("share").Funcs(template.FuncMap{"fileIcon": sharedItemIcon}).Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shared file · TryNAS</title>
 <style>
-:root{color-scheme:light dark;--bg:#f4f6fa;--card:#fff;--text:#192338;--muted:#758097;--border:#e5e9f1;--primary:#6254e8}
-@media(prefers-color-scheme:dark){:root{--bg:#101522;--card:#181f2f;--text:#e8edf6;--muted:#99a5bc;--border:#2b354a;--primary:#a69cff}}
+:root{color-scheme:light dark;--bg:#f4f6fa;--card:#fff;--text:#192338;--muted:#758097;--border:#e5e9f1;--primary:#be123c}
+@media(prefers-color-scheme:dark){:root{--bg:#101522;--card:#181f2f;--text:#e8edf6;--muted:#99a5bc;--border:#2b354a;--primary:#fb7185}}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}
 main{width:100%;max-width:720px;padding:32px;border:1px solid var(--border);border-radius:24px;background:var(--card);color:var(--card-text,var(--text));box-shadow:0 18px 70px #171c3410;text-align:center}
 .brand{color:var(--primary);font-size:20px;font-weight:700}h1{font-size:24px;overflow-wrap:anywhere;margin:20px 0 8px}p{color:var(--muted)}img{display:block;width:220px;max-width:100%;height:auto;margin:24px auto;border-radius:12px;background:white}

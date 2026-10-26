@@ -1,16 +1,16 @@
 export type ThemeMode = "system" | "light" | "dark";
 export const defaultColors = {
-  lightPrimary: "#6254e8", darkPrimary: "#a69cff",
+  lightPrimary: "#be123c", darkPrimary: "#fb7185",
   lightBackground: "#f4f6fa", darkBackground: "#101522",
   lightCard: "#ffffff", darkCard: "#181f2f",
 };
 export type ThemeColors = typeof defaultColors;
 export const colorPresets = [
+  { name: "Rose", lightPrimary: "#be123c", darkPrimary: "#fb7185" },
   { name: "Blue", lightPrimary: "#1e64d6", darkPrimary: "#1e64d6" },
   { name: "Violet", lightPrimary: "#6254e8", darkPrimary: "#a69cff" },
   { name: "Ocean", lightPrimary: "#0369a1", darkPrimary: "#38bdf8" },
   { name: "Forest", lightPrimary: "#047857", darkPrimary: "#34d399" },
-  { name: "Rose", lightPrimary: "#be123c", darkPrimary: "#fb7185" },
   { name: "Amber", lightPrimary: "#b45309", darkPrimary: "#fbbf24" },
 ];
 export function contrastColor(color: string): string {

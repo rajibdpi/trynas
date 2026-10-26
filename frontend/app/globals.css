@@ -98,7 +98,7 @@ input[type="checkbox"] {
 :root {
   --background: #f4f6fa;
   --foreground: #192338;
-  --primary: #6254e8;
+  --primary: #be123c;
   --primary-foreground: #fff;
   --secondary: #eaeef5;
   --accent: #f0f2f8;
@@ -110,8 +110,8 @@ input[type="checkbox"] {
   --foreground: #e8edf6;
   --card: #181f2f;
   --card-foreground: #e8edf6;
-  --primary: #a69cff;
-  --primary-foreground: #1b1442;
+  --primary: #fb7185;
+  --primary-foreground: #000000;
   --secondary: #273149;
   --accent: #222b40;
   --border: #2b354a;

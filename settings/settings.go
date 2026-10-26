@@ -21,7 +21,7 @@ func (a *Module) ReadSettings() (core.AppSettings, error) {
 	if !a.cachedAt.IsZero() && time.Since(a.cachedAt) < 30*time.Second {
 		return a.cached, nil
 	}
-	settings := core.AppSettings{TrashRetentionDays: 30, AppName: "TryNAS", FileView: "grid", ShareExpiry: "never", ThemeMode: "system", LightPrimary: "#6254e8", DarkPrimary: "#a69cff", LightBackground: "#f4f6fa", DarkBackground: "#101522", LightCard: "#ffffff", DarkCard: "#181f2f"}
+	settings := core.AppSettings{TrashRetentionDays: 30, AppName: "TryNAS", FileView: "grid", ShareExpiry: "never", ThemeMode: "system", LightPrimary: "#be123c", DarkPrimary: "#fb7185", LightBackground: "#f4f6fa", DarkBackground: "#101522", LightCard: "#ffffff", DarkCard: "#181f2f"}
 	var data string
 	err := a.DB.QueryRow("SELECT value FROM app_settings WHERE key='basic'").Scan(&data)
 	if err != nil {
