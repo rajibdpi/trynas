@@ -130,6 +130,7 @@ func (a *Module) Theme(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	core.JSON(w, map[string]string{
+		"appName": settings.AppName, "logoUrl": settings.LogoURL,
 		"themeMode":    settings.ThemeMode,
 		"lightPrimary": settings.LightPrimary, "darkPrimary": settings.DarkPrimary,
 		"lightBackground": settings.LightBackground, "darkBackground": settings.DarkBackground,
