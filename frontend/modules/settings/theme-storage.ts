@@ -1,12 +1,14 @@
 import { defaultColors, type ThemeColors, type ThemeMode } from "./color-theme";
 
-export type ThemeSettings = ThemeColors & { themeMode: ThemeMode };
+export type ThemeSettings = ThemeColors & { themeMode: ThemeMode; appName?: string; logoUrl?: string };
 export const defaultTheme: ThemeSettings = { ...defaultColors, themeMode: "system" };
 export const themeStorageKey = "trynas-appearance";
 
 export function normalizeTheme(value: unknown): ThemeSettings {
   const input = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const theme = { ...defaultTheme };
+  if (typeof input.appName === "string" && input.appName.trim()) theme.appName = input.appName.trim();
+  if (typeof input.logoUrl === "string") theme.logoUrl = input.logoUrl;
   if (input.themeMode === "light" || input.themeMode === "dark" || input.themeMode === "system") theme.themeMode = input.themeMode;
   for (const key of Object.keys(defaultColors) as (keyof ThemeColors)[]) {
     const color = input[key];

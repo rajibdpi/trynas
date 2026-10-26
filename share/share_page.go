@@ -12,6 +12,20 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
+type shareBrandingKey struct{}
+
+func shareBranding(r *http.Request) core.AppSettings {
+	settings, ok := r.Context().Value(shareBrandingKey{}).(core.AppSettings)
+	if !ok {
+		settings.AppName = "TryNAS"
+	}
+	return settings
+}
+
+const shareBrandTemplate = `{{define "brand"}}<div class="brand"><span class="brand-mark">{{if .LogoURL}}<img src="{{.LogoURL}}" alt="" referrerpolicy="no-referrer">{{else}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 18h.01M10 18h.01M2 16l3.45-9.88A2 2 0 0 1 7.34 5h9.32a2 2 0 0 1 1.89 1.12L22 16"/></svg>{{end}}</span><span>{{.AppName}}</span></div>{{end}}`
+
+const shareBrandStyle = `.brand{display:flex;align-items:center;justify-content:center;gap:8px;color:var(--primary);font-size:20px;font-weight:700}.brand-mark{display:grid;place-items:center;flex-shrink:0;width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,color-mix(in srgb,var(--primary) 75%,white),var(--primary));color:var(--primary-foreground,white);box-shadow:0 5px 16px color-mix(in srgb,var(--primary) 22%,transparent)}.brand-mark img{display:block;width:32px;height:32px;object-fit:contain;margin:0;border-radius:0;background:transparent}.brand-mark svg{width:20px;height:20px}`
+
 func ServeQR(w http.ResponseWriter, r *http.Request, token string) {
 	scheme := "http"
 	if r.TLS != nil {
@@ -117,14 +131,14 @@ func ServeSharePage(w http.ResponseWriter, r *http.Request, name string, size in
 	if len(collection) > 0 && collection[0] {
 		kind, detail, download = "Shared collection", "Selected files and folders", "Download all (ZIP)"
 	}
-	if err := SharePageTemplate.Execute(w, core.SharedPageData{Name: name, Size: detail, Kind: kind, Download: download, Items: items, Truncated: truncated, RelockOnReturn: r.Method == http.MethodPost}); err != nil {
+	if err := SharePageTemplate.Execute(w, core.SharedPageData{Branding: shareBranding(r), Name: name, Size: detail, Kind: kind, Download: download, Items: items, Truncated: truncated, RelockOnReturn: r.Method == http.MethodPost}); err != nil {
 		return
 	}
 }
 
-var SharePageTemplate = template.Must(template.New("share").Funcs(template.FuncMap{"fileIcon": sharedItemIcon}).Parse(`<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shared file · TryNAS</title>
-<style>
+var SharePageTemplate = template.Must(template.New("share").Funcs(template.FuncMap{"fileIcon": sharedItemIcon}).Parse(shareBrandTemplate + `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{.Kind}} · {{.Branding.AppName}}</title>
+<style>` + shareBrandStyle + `
 :root{color-scheme:light dark;--bg:#f4f6fa;--card:#fff;--text:#192338;--muted:#758097;--border:#e5e9f1;--primary:#be123c}
 @media(prefers-color-scheme:dark){:root{--bg:#101522;--card:#181f2f;--text:#e8edf6;--muted:#99a5bc;--border:#2b354a;--primary:#fb7185}}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}
@@ -143,7 +157,7 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) window.location.replace(window.location.pathname);
 });
 </script>{{end}}</head><body><main>
-<div class="brand">TryNAS</div><h1>{{.Name}}</h1><p>{{.Kind}} · {{.Size}}</p>
+{{template "brand" .Branding}}<h1>{{.Name}}</h1><p>{{.Kind}} · {{.Size}}</p>
 <section aria-label="Shared files and folders" class="items">{{range .Items}}<div class="item">{{$icon := fileIcon .Name .Folder}}<span class="item-thumbnail icon-{{$icon.Color}}" title="{{$icon.Label}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="{{$icon.Label}}"><path d="{{$icon.Path}}"/></svg></span><div class="item-info"><div class="item-name">{{.Name}}</div><div class="item-meta">{{.Kind}} · {{.Size}}</div></div><a href="{{.DownloadURL}}" aria-label="Download {{.Name}}">Download{{if .Folder}} ZIP{{end}}</a></div>{{end}}</section>
 {{if .Truncated}}<p>Showing the first 1,000 items. The complete selection is included in the ZIP download.</p>{{end}}
 <img id="share-qr" src="?qr=1" alt="QR code for this shared file" width="512" height="512">

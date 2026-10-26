@@ -42,7 +42,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
   const fileLocation = useFileLocation();
   const showNotification = useNotification();
   const notificationVersion = useRef(0);
-  const { dark, toggleTheme, updateTheme } = useTheme();
+  const { appName: publicAppName, logoUrl: publicLogoUrl, dark, toggleTheme, updateTheme } = useTheme();
   const [newMenuTarget, setNewMenuTarget] = useState<HTMLDivElement | null>(null);
   const [storageControlsTarget, setStorageControlsTarget] = useState<HTMLDivElement | null>(null);
   const [appSettings, setAppSettings] = useState<AppSettings>(defaultSettings);
@@ -120,8 +120,8 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
     const pageTitle = !checking && !me
       ? "Sign in"
       : nav.find(item => item.id === activeTab)?.label || "Dashboard";
-    document.title = `${pageTitle} | ${appSettings.appName}`;
-  }, [activeTab, appSettings.appName, checking, me]);
+    document.title = `${pageTitle} | ${me ? appSettings.appName : publicAppName}`;
+  }, [activeTab, appSettings.appName, publicAppName, checking, me]);
   const sys = useResource<any>(me?.role === "admin" ? "/api/system" : null, 5000),
     network = useResource<any>(me?.role === "admin" ? "/api/network" : null, 3000),
     quota = useResource<Quota>(me ? "/api/quota" : null, 5000);
@@ -321,7 +321,7 @@ export default function Workspace({ initialTab = "dashboard" }: { initialTab?: s
         </div>
       </main>
     );
-  if (!me) return <div className="flex h-dvh flex-col overflow-hidden"><LoginPanel username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={appSettings.appName} footerText={appSettings.footerText} /></div>;
+  if (!me) return <div className="flex h-dvh flex-col overflow-hidden"><LoginPanel appName={publicAppName} logoUrl={publicLogoUrl} username={username} password={password} setUsername={setUsername} setPassword={setPassword} loginError={loginError} signing={signing} dark={dark} toggleTheme={toggleTheme} signIn={signIn} /><AppFooter appName={publicAppName} footerText={appSettings.footerText} /></div>;
   let content: ReactNode = null;
   const fileProps = {
     newMenuTarget,

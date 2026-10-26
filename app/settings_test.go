@@ -60,7 +60,7 @@ func TestBasicAppSettings(t *testing.T) {
 
 func TestPublicTheme(t *testing.T) {
 	a, admin, _ := setup(t)
-	configured := core.AppSettings{AppName: "Private NAS", FileView: "grid", ShareExpiry: "never", ThemeMode: "dark", LightPrimary: "#1e64d6", DarkPrimary: "#38bdf8", LightBackground: "#f4f6fa", DarkBackground: "#101522", LightCard: "#ffffff", DarkCard: "#181f2f"}
+	configured := core.AppSettings{AppName: "Private NAS", LogoURL: "https://example.com/logo.png", FileView: "grid", ShareExpiry: "never", ThemeMode: "dark", LightPrimary: "#1e64d6", DarkPrimary: "#38bdf8", LightBackground: "#f4f6fa", DarkBackground: "#101522", LightCard: "#ffffff", DarkCard: "#181f2f"}
 	expect(t, jsonRequest(a, admin, "POST", "/api/settings", configured, a.Settings), 200)
 	w := httptest.NewRecorder()
 	a.Router().ServeHTTP(w, httptest.NewRequest("GET", "/api/branding/theme", nil))
@@ -69,10 +69,10 @@ func TestPublicTheme(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &theme); err != nil {
 		t.Fatal(err)
 	}
-	if len(theme) != 7 || theme["themeMode"] != "dark" || theme["lightPrimary"] != "#1e64d6" || theme["darkCard"] != "#181f2f" {
+	if len(theme) != 9 || theme["appName"] != "Private NAS" || theme["logoUrl"] != configured.LogoURL || theme["themeMode"] != "dark" || theme["lightPrimary"] != "#1e64d6" || theme["darkCard"] != "#181f2f" {
 		t.Fatalf("unexpected public theme: %v", theme)
 	}
-	if strings.Contains(w.Body.String(), "Private NAS") || strings.Contains(w.Body.String(), "storageRoot") || strings.Contains(w.Body.String(), "registrationEnabled") {
+	if strings.Contains(w.Body.String(), "storageRoot") || strings.Contains(w.Body.String(), "registrationEnabled") {
 		t.Fatal("public theme exposed unrelated settings")
 	}
 	if w.Header().Get("Cache-Control") != "no-store" {

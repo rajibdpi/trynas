@@ -6,6 +6,7 @@ type SharedPageItem struct {
 }
 
 type SharedPageData struct {
+	Branding                   AppSettings
 	Name, Size, Kind, Download string
 	Items                      []SharedPageItem
 	Truncated                  bool
