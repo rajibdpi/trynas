@@ -29,10 +29,16 @@ func TestSharePageAndQRDownloads(t *testing.T) {
 		router.ServeHTTP(w, httptest.NewRequest("GET", "http://example.com/s/"+share.Token+query, nil))
 		return w
 	}
+	if _, err := a.DB.Exec(`INSERT OR REPLACE INTO app_settings(key,value) VALUES('basic',?)`, `{"appName":"Home & NAS","logoUrl":"/api/branding/logo?v=custom"}`); err != nil {
+		t.Fatal(err)
+	}
 	page := get("")
 	expect(t, page, 200)
 	if !strings.Contains(page.Body.String(), "Download QR code") || !strings.Contains(page.Body.String(), "file.txt") || !strings.Contains(page.Header().Get("Content-Type"), "text/html") {
 		t.Fatal("missing share page")
+	}
+	if !strings.Contains(page.Body.String(), "Shared file · Home &amp; NAS") || !strings.Contains(page.Body.String(), `/api/branding/logo?v=custom`) {
+		t.Fatal("share page did not use saved branding")
 	}
 	file := get("?download=1")
 	expect(t, file, 200)
@@ -78,10 +84,16 @@ func TestPasswordShareUnlockThroughTrustedProxy(t *testing.T) {
 	if err := json.Unmarshal(made.Body.Bytes(), &share); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := a.DB.Exec(`INSERT OR REPLACE INTO app_settings(key,value) VALUES('basic',?)`, `{"appName":"Private NAS","logoUrl":"https://example.com/logo.png"}`); err != nil {
+		t.Fatal(err)
+	}
 	router := a.Router()
 	page := httptest.NewRecorder()
 	router.ServeHTTP(page, httptest.NewRequest("GET", "http://127.0.0.1:8080/s/"+share.Token, nil))
 	expect(t, page, 200)
+	if !strings.Contains(page.Body.String(), "Protected share · Private NAS") || !strings.Contains(page.Body.String(), `src="https://example.com/logo.png"`) {
+		t.Fatal("password prompt did not use saved branding")
+	}
 	if page.Header().Get("Referrer-Policy") != "same-origin" {
 		t.Fatal("password form must preserve its same-origin POST Origin header")
 	}

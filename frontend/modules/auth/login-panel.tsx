@@ -3,15 +3,17 @@
 import { useErrorNotification } from "@/modules/shared/notification-provider";
 
 import { useEffect, useState } from "react";
-import { api } from "@/modules/shared/api";
+import { API, api } from "@/modules/shared/api";
 import { HardDrive, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export function LoginPanel({
-  username, password, setUsername, setPassword, loginError,
+  appName = "TryNAS", logoUrl, username, password, setUsername, setPassword, loginError,
   signing, dark, toggleTheme, signIn,
 }: {
+  appName?: string;
+  logoUrl?: string;
   username: string;
   password: string;
   setUsername: (value: string) => void;
@@ -23,6 +25,7 @@ export function LoginPanel({
   signIn: () => Promise<void>;
 }) {
   useErrorNotification(loginError);
+  const [failedLogo, setFailedLogo] = useState<string | null>(null);
   const [registrationEnabled, setRegistrationEnabled] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -59,8 +62,8 @@ export function LoginPanel({
           </Button>
           <CardHeader>
             <div className="flex items-center gap-2 pr-10 text-xl font-bold text-primary">
-              <HardDrive />
-              TryNAS <span className="text-xs">V5</span>
+              <span className="brand-mark">{logoUrl && failedLogo !== logoUrl ? <img src={logoUrl.startsWith("/api/branding/logo") ? API + logoUrl : logoUrl} alt="" className="size-8 object-contain" referrerPolicy="no-referrer" onError={() => setFailedLogo(logoUrl)} /> : <HardDrive className="size-5" />}</span>
+              <span className="min-w-0 break-words">{appName.trim() || "TryNAS"}</span>
             </div>
             <CardTitle className="mt-4 text-2xl">{registering ? "Request an account" : "Welcome back"}</CardTitle>
             <p className="text-sm text-muted-foreground">

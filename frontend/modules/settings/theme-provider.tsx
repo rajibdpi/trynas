@@ -5,7 +5,7 @@ import { api } from "@/modules/shared/api";
 import { applyThemeColors } from "./color-theme";
 import { cacheTheme, defaultTheme, normalizeTheme, readCachedTheme, type ThemeSettings } from "./theme-storage";
 
-const ThemeContext = createContext<{ dark: boolean; toggleTheme: () => void; updateTheme: (settings: ThemeSettings, resetOverride?: boolean) => void } | null>(null);
+const ThemeContext = createContext<{ appName: string; logoUrl: string; dark: boolean; toggleTheme: () => void; updateTheme: (settings: ThemeSettings, resetOverride?: boolean) => void } | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState(defaultTheme);
@@ -54,6 +54,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => media.removeEventListener("change", update);
   }, [settings, override, ready]);
   return <ThemeContext.Provider value={{
+    appName: settings.appName || "TryNAS",
+    logoUrl: settings.logoUrl || "",
     dark,
     toggleTheme: () => {
       const next = dark ? "light" : "dark";
