@@ -24,7 +24,7 @@ func (a *Module) ThemeScript(w http.ResponseWriter, r *http.Request) {
  const update = () => {
  const mode = override === 'light' || override === 'dark' ? override : settings.themeMode || 'system';
  const dark = mode === 'system' ? media.matches : mode === 'dark';
- const primary = (dark ? settings.darkPrimary : settings.lightPrimary) || (dark ? '#a69cff' : '#6254e8');
+ const primary = (dark ? settings.darkPrimary : settings.lightPrimary) || (dark ? '#fb7185' : '#be123c');
  const bg = (dark ? settings.darkBackground : settings.lightBackground) || (dark ? '#101522' : '#f4f6fa');
  const card = (dark ? settings.darkCard : settings.lightCard) || (dark ? '#181f2f' : '#ffffff');
  const values = {primary, bg, card, text: contrast(bg), 'card-text': contrast(card), 'primary-foreground': contrast(primary), muted: 'color-mix(in srgb, ' + contrast(bg) + ' 65%, ' + bg + ')', border: 'color-mix(in srgb, ' + contrast(card) + ' 15%, ' + card + ')'};
