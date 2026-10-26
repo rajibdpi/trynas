@@ -12,6 +12,12 @@ git merge --no-ff embeded -m "$(git log -1 --format=%B embeded)"
 git push origin main
 ```
 
+```sh
+git switch coolify
+git merge --no-ff main -m "$(git log -1 --format=%B main)"
+git push origin coolify
+```
+
 - `git switch main` switches to the main branch.
 - `git merge --no-ff embeded` merges `embeded` with a merge commit. The `-m`
   argument uses the latest commit message from `embeded` as the merge message.
